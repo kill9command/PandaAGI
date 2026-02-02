@@ -16,7 +16,7 @@ def test_simple_file():
     payload = {
         "model": "qwen3-coder",
         "mode": "continue",
-        "repo": "/home/henry/pythonprojects/pandaai",
+        "repo": ".",
         "messages": [
             {
                 "role": "user",

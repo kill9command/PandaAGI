@@ -465,7 +465,7 @@ const savedMode = LS.get('pandora.mode', 'chat');
 // Update context status bar with current repo, mode, and working directory
 function updateContextStatus() {
   // Update repo path
-  const repoPath = LS.get('pandora.repoRoot', '') || '/home/henry/pythonprojects/pandaai';
+  const repoPath = LS.get('pandora.repoRoot', '');
   if (activeRepoPath) {
     activeRepoPath.textContent = repoPath || '<not set>';
     activeRepoPath.title = repoPath;
@@ -804,7 +804,7 @@ function syncPolicyUI() {
     let val = list.join('\n');
     if (!val.trim()) {
       // Default suggestion when empty
-      val = '/home/henry/pythonprojects/pandaai/panda_system_docs\n/home/henry/pythonprojects/stockanalysis';
+      val = './panda_system_docs';
     }
     polAllowedPaths.value = val;
   }

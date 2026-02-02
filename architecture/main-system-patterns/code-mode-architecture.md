@@ -691,7 +691,7 @@ memory/
 The **saved repository** is configured via environment variable:
 
 ```bash
-SAVED_REPO=/home/henry/pythonprojects/stockanalysis
+SAVED_REPO=/path/to/your/project
 ```
 
 Operations within this directory are automatically allowed in code mode.
@@ -734,7 +734,7 @@ Tool Request (file.write, git.commit, bash.execute, etc.)
 
 ```bash
 # Primary repository - operations here auto-allowed in code mode
-SAVED_REPO=/home/henry/pythonprojects/stockanalysis
+SAVED_REPO=/path/to/your/project
 
 # Enable mode enforcement (default: 1)
 ENFORCE_MODE_GATES=1
@@ -832,7 +832,7 @@ When an operation requires approval, the API returns HTTP 202:
   "details": {
     "tool": "file.write",
     "target_path": "/other/repo/file.txt",
-    "saved_repo": "/home/henry/pythonprojects/stockanalysis"
+    "saved_repo": "/path/to/your/project"
   }
 }
 ```
