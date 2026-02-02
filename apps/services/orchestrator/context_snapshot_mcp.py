@@ -10,6 +10,8 @@ from typing import Dict, Any, List, Optional
 from pathlib import Path
 from datetime import datetime, timezone
 
+from libs.core.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -274,7 +276,8 @@ async def context_recall_turn(
 
     try:
         # Find the turns directory
-        turns_dir = Path("/home/henry/pythonprojects/pandaai/panda_system_docs/turns")
+        settings = get_settings()
+        turns_dir = settings.panda_system_docs / "users" / "default" / "turns"
 
         if not turns_dir.exists():
             return {

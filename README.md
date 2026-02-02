@@ -139,4 +139,4 @@ This is an experimental research project exploring agentic AI architectures. It'
 
 ## License
 
-[License to be determined]
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
