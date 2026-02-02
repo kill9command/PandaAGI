@@ -1,0 +1,309 @@
+"""
+Document schemas for the 2-Phase Context Gatherer.
+
+Consolidates 4 phases (SCAN, READ, EXTRACT, COMPILE) into 2 phases:
+- RETRIEVAL: Identifies relevant turns AND evaluates their contexts
+- SYNTHESIS: Extracts from links (if any) AND compiles final context
+
+Token budget: ~10,500 tokens (27% reduction from 14,500)
+"""
+
+from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Any
+from datetime import datetime
+
+
+@dataclass
+class RetrievalTurn:
+    """A turn identified and evaluated in the RETRIEVAL phase."""
+    turn_number: int
+    relevance: str  # critical, high, medium, low
+    reason: str
+    usable_info: str  # What can be used directly (was in READ)
+    expected_info: str
+    load_priority: int
+
+
+@dataclass
+class LinkToFollow:
+    """A link that needs to be followed for more detail."""
+    turn_number: int
+    path: str
+    reason: str
+    sections_to_extract: List[str]
+
+
+@dataclass
+class RetrievalResultDoc:
+    """
+    Retrieval Result Document - Output of Phase 1 (RETRIEVAL).
+
+    Merges SCAN + READ into single output:
+    - Identifies relevant turns (was SCAN)
+    - Provides direct info from those turns (was READ)
+    - Lists links to follow for more detail (was READ)
+    """
+    query: str
+    timestamp: str
+    relevant_turns: List[RetrievalTurn]
+    direct_info: Dict[str, str]  # turn_number -> usable info
+    links_to_follow: List[LinkToFollow]
+    sufficient: bool
+    missing_info: str
+    reasoning: str
+
+    # Followup detection metadata
+    is_followup: bool = False
+    inherited_topic: Optional[str] = None
+
+    def to_markdown(self) -> str:
+        lines = [
+            "# Retrieval Result",
+            f"**Query:** {self.query}",
+            "**Phase:** RETRIEVAL (merged SCAN+READ)",
+            f"**Timestamp:** {self.timestamp}",
+        ]
+
+        if self.is_followup:
+            lines.append(f"**Follow-up Detected:** Yes (topic: {self.inherited_topic})")
+
+        lines.extend([
+            "",
+            "---",
+            "",
+            "## Relevant Turns Identified",
+            "",
+        ])
+
+        for turn in self.relevant_turns:
+            lines.extend([
+                f"### Turn {turn.turn_number}",
+                f"- **Relevance:** {turn.relevance}",
+                f"- **Reason:** {turn.reason}",
+                f"- **Usable Info:** {turn.usable_info[:200]}..." if len(turn.usable_info) > 200 else f"- **Usable Info:** {turn.usable_info}",
+                "",
+            ])
+
+        lines.extend([
+            "---",
+            "",
+            "## Direct Information (Usable As-Is)",
+            "",
+        ])
+
+        for turn, info in self.direct_info.items():
+            lines.extend([
+                f"### From Turn {turn}",
+                info,
+                "",
+            ])
+
+        lines.extend([
+            "---",
+            "",
+            "## Links to Follow",
+            "",
+        ])
+
+        if self.links_to_follow:
+            for i, link in enumerate(self.links_to_follow, 1):
+                lines.extend([
+                    f"### Link {i}",
+                    f"- **Path:** {link.path}",
+                    f"- **Reason:** {link.reason}",
+                    f"- **Extract:** {', '.join(link.sections_to_extract)}",
+                    "",
+                ])
+        else:
+            lines.append("*No links to follow - direct info is sufficient*")
+            lines.append("")
+
+        lines.extend([
+            "---",
+            "",
+            "## Sufficiency Assessment",
+            "",
+            f"- **Current Info Sufficient:** {'Yes' if self.sufficient else 'No'}",
+            f"- **Missing:** {self.missing_info if self.missing_info else 'None'}",
+            f"- **Links Required:** {'Yes' if self.links_to_follow else 'No'} ({len(self.links_to_follow)} links)",
+            "",
+            "---",
+            "",
+            "## Reasoning",
+            "",
+            self.reasoning,
+        ])
+
+        return "\n".join(lines)
+
+    @classmethod
+    def from_llm_response(
+        cls,
+        query: str,
+        response: Dict[str, Any],
+        is_followup: bool = False,
+        inherited_topic: Optional[str] = None
+    ) -> "RetrievalResultDoc":
+        """Parse LLM JSON response into RetrievalResultDoc."""
+        relevant_turns = []
+        direct_info = {}
+
+        # Parse turns (merged SCAN + READ output)
+        for i, turn_data in enumerate(response.get("turns", [])):
+            turn_num = turn_data.get("turn", 0)
+            usable = turn_data.get("usable_info", turn_data.get("summary", ""))
+
+            relevant_turns.append(RetrievalTurn(
+                turn_number=turn_num,
+                relevance=turn_data.get("relevance", "medium"),
+                reason=turn_data.get("reason", ""),
+                usable_info=usable,
+                expected_info=turn_data.get("expected_info", ""),
+                load_priority=i + 1
+            ))
+
+            # Build direct_info dict
+            if usable:
+                direct_info[str(turn_num)] = usable
+
+        # Parse links to follow
+        links = []
+        for link_data in response.get("links_to_follow", []):
+            links.append(LinkToFollow(
+                turn_number=link_data.get("turn", 0),
+                path=link_data.get("path", link_data.get("link", "")),
+                reason=link_data.get("reason", ""),
+                sections_to_extract=link_data.get("extract", link_data.get("sections_to_extract", []))
+            ))
+
+        return cls(
+            query=query,
+            timestamp=datetime.utcnow().isoformat() + "Z",
+            relevant_turns=relevant_turns,
+            direct_info=direct_info,
+            links_to_follow=links,
+            sufficient=response.get("sufficient", True),
+            missing_info=response.get("missing_info", ""),
+            reasoning=response.get("reasoning", ""),
+            is_followup=is_followup,
+            inherited_topic=inherited_topic
+        )
+
+    def has_links_to_follow(self) -> bool:
+        return len(self.links_to_follow) > 0
+
+    def get_turn_numbers(self) -> List[int]:
+        """Get list of turn numbers identified as relevant."""
+        return [t.turn_number for t in self.relevant_turns]
+
+
+@dataclass
+class SynthesisInputDoc:
+    """
+    Input document assembled for SYNTHESIS phase.
+
+    Contains:
+    - Retrieval result (direct info + links to follow)
+    - Linked document content (if links were followed)
+    - Supplementary sources (cache, research index, lessons, session memory)
+    """
+    query: str
+    retrieval_result: RetrievalResultDoc
+    linked_docs: Dict[str, str]  # path -> content
+    cached_intelligence: Optional[Dict[str, Any]]
+    intel_metadata: Optional[Dict[str, Any]]
+    research_index_results: List[Dict[str, Any]]
+    matching_lessons: List[Any]
+    session_memory: Dict[str, str]
+
+    def to_markdown(self) -> str:
+        lines = [
+            "# Synthesis Input",
+            f"**Query:** {self.query}",
+            "**Phase:** SYNTHESIS (merged EXTRACT+COMPILE)",
+            "",
+            "---",
+            "",
+        ]
+
+        # Direct info section
+        lines.extend([
+            "## Direct Information from Retrieval",
+            "",
+        ])
+        for turn, info in self.retrieval_result.direct_info.items():
+            lines.extend([
+                f"### Turn {turn}",
+                info,
+                "",
+            ])
+
+        # Linked docs section (if any)
+        if self.linked_docs:
+            lines.extend([
+                "---",
+                "",
+                "## Linked Documents to Extract From",
+                "",
+            ])
+            for path, content in self.linked_docs.items():
+                lines.extend([
+                    f"### {path}",
+                    content[:2000],
+                    "",
+                ])
+                if len(content) > 2000:
+                    lines.append("*[Content truncated...]*")
+                    lines.append("")
+
+        # Supplementary sources
+        if self.cached_intelligence:
+            age = self.intel_metadata.get("age_hours", 0) if self.intel_metadata else 0
+            lines.extend([
+                "---",
+                "",
+                "## Cached Intelligence",
+                f"*Age: {age:.1f}h*",
+                "",
+            ])
+            retailers = self.cached_intelligence.get("retailers", {})
+            if isinstance(retailers, dict):
+                lines.append(f"**Retailers:** {', '.join(list(retailers.keys())[:5])}")
+            elif isinstance(retailers, list):
+                lines.append(f"**Retailers:** {', '.join(retailers[:5])}")
+            lines.append("")
+
+        if self.research_index_results:
+            lines.extend([
+                "---",
+                "",
+                "## Research Index Matches",
+                "",
+            ])
+            for doc in self.research_index_results[:3]:
+                lines.append(f"- **{doc.get('topic', 'unknown')}** (quality={doc.get('quality_score', 0):.2f})")
+            lines.append("")
+
+        if self.matching_lessons:
+            lines.extend([
+                "---",
+                "",
+                "## Matching Strategy Lessons",
+                "",
+            ])
+            for lesson in self.matching_lessons[:2]:
+                lines.append(f"- {getattr(lesson, 'lesson_id', str(lesson))}: {getattr(lesson, 'strategy_profile', '')}")
+            lines.append("")
+
+        if any(self.session_memory.values()):
+            lines.extend([
+                "---",
+                "",
+                "## Session Memory",
+                "",
+            ])
+            if self.session_memory.get("preferences"):
+                lines.append(f"**Preferences:** {self.session_memory['preferences'][:200]}...")
+            lines.append("")
+
+        return "\n".join(lines)

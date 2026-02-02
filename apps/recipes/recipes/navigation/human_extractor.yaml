@@ -1,0 +1,55 @@
+# Human Page Extractor Recipe
+# Focused extraction from relevant page sections
+# Part of the 3-step human-like page reading process
+
+name: human_extractor
+category: navigation
+role: MIND
+temperature: 0.1
+
+prompt_fragments:
+  - "apps/prompts/navigation/human_extractor.md"
+
+input_docs:
+  - path: "page_content"
+    path_type: "inline"
+    optional: false
+    max_tokens: 7000
+    description: "Page content (chunked for reading flow)"
+  - path: "extraction_schema"
+    path_type: "inline"
+    optional: false
+    max_tokens: 500
+    description: "JSON schema describing what to extract"
+
+token_budget:
+  total: 9000
+  prompt: 400
+  input_docs: 7500
+  output: 1000
+  buffer: 100
+
+llm_params:
+  temperature: 0.1
+  max_tokens: 1000
+
+output_schema: EXTRACTION_RESULT
+
+description: |
+  Human Page Extractor - Step 2 of 3-step reading process
+
+  Like a human reading specific paragraphs that looked interesting.
+  Uses section hints from Step 1 to guide where to focus.
+
+  **Guidelines:**
+  - Return ONLY valid JSON matching the schema
+  - If information is not found, use empty values ([], {}, null)
+  - Extract only what is actually present on the page
+  - Do not hallucinate or infer information not stated
+  - Focus on relevant sections identified in scan phase
+
+  **Quality Checklist:**
+  1. All required fields are present (even if empty)
+  2. Data types match the schema
+  3. No made-up information
+  4. Information is from page content, not prior knowledge

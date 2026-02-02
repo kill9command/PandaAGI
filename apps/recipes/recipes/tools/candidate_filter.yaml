@@ -1,0 +1,138 @@
+# Candidate Filter Recipe
+# Selects best sources from search results for product research
+#
+# Used by llm_candidate_filter.py to filter vendor candidates
+# for Phase 2 product research.
+
+name: tools_candidate_filter
+category: tools
+role: candidate_filter
+model_layer: REFLEX  # Classification task uses REFLEX (temp 0.1)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/filtering/candidate_filter.md"
+
+# Input documents
+input_docs:
+  - path: "original_query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User's original request with priority signals"
+
+  - path: "search_query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 100
+    description: "Optimized search query sent to Google"
+
+  - path: "search_results"
+    path_type: "temp"
+    optional: false
+    max_tokens: 2000
+    description: "Formatted search results to filter"
+
+  - path: "intel_context"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 500
+    description: "Phase 1 intelligence context (retailers, requirements)"
+
+  - path: "max_sources"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 10
+    description: "Maximum number of sources to select"
+
+# Output document
+output_doc:
+  path: "filtered_sources.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 4500
+  prompt: 1200      # candidate_filter.md prompt
+  input_docs: 2400  # search results bulk
+  output: 800       # JSON with sources and skipped
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: intelligent_truncate
+  priority:
+    - keep: original_query
+    - keep: search_query
+    - keep: max_sources
+    - truncate: intel_context
+    - truncate: search_results
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - sources
+    - skipped
+    - summary
+  properties:
+    sources:
+      type: array
+      items:
+        type: object
+        required:
+          - index
+          - domain
+          - source_type
+          - reasoning
+        properties:
+          index:
+            type: integer
+          domain:
+            type: string
+          source_type:
+            type: string
+            enum: ["major_retailer", "specialty_retailer", "marketplace", "manufacturer", "comparison", "review", "unknown"]
+          reasoning:
+            type: string
+    skipped:
+      type: array
+      items:
+        type: object
+        properties:
+          index:
+            type: integer
+          reason:
+            type: string
+    user_intent:
+      type: string
+    summary:
+      type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 2
+
+# Description
+description: |
+  Candidate Filter selects the best sources from search results for product research.
+
+  **Selection Criteria:**
+  - Prioritize major retailers and specialty stores
+  - Skip forums, reviews, and non-transactional sites
+  - Verify domain matches expected source (catch misleading results)
+  - Ensure vendor diversity (minimum 3 unique domains)
+
+  **Context Discipline:**
+  - Reads original_query to interpret user priorities (cheapest, best, etc.)
+  - Does NOT pre-classify user intent in code
+
+  Input: original_query + search_query + search_results + intel_context
+  Output: filtered_sources.json with approved and skipped sources
+
+# Integration
+integration:
+  invoked_by:
+    - llm_candidate_filter.select_vendor_candidates
+  invocation_point: after_google_search_in_phase2

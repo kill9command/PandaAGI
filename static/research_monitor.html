@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research Monitor - Pandora</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #333;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #4a9eff;
+        }
+
+        .status {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: #2a2a2a;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        .status-dot.connected {
+            background: #4caf50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+
+        .panel {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .panel-header {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #4a9eff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-section {
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            height: 30px;
+            background: #1a1a1a;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a9eff, #2196f3);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .progress-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .stat {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            color: #999;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .screenshot-container {
+            background: #1a1a1a;
+            border-radius: 6px;
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .screenshot-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .screenshot-placeholder {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .current-candidate {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .candidate-url {
+            color: #4a9eff;
+            font-size: 13px;
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+
+        .candidate-title {
+            color: #e0e0e0;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .candidate-status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .candidate-status.checking {
+            background: #ff9800;
+            color: #000;
+        }
+
+        .candidate-status.accepted {
+            background: #4caf50;
+            color: #fff;
+        }
+
+        .candidate-status.rejected {
+            background: #f44336;
+            color: #fff;
+        }
+
+        .event-log {
+            height: 400px;
+            overflow-y: auto;
+            background: #1a1a1a;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .event {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            border-left: 3px solid #666;
+        }
+
+        .event-timestamp {
+            color: #999;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .event.search_started {
+            background: #1e3a5f;
+            border-left-color: #4a9eff;
+        }
+
+        .event.candidate_checking {
+            background: #3d2f1f;
+            border-left-color: #ff9800;
+        }
+
+        .event.candidate_accepted {
+            background: #1f3d1f;
+            border-left-color: #4caf50;
+        }
+
+        .event.candidate_rejected {
+            background: #3d1f1f;
+            border-left-color: #f44336;
+        }
+
+        .event.blocker_detected {
+            background: #4a1f3d;
+            border-left-color: #e91e63;
+        }
+
+        .event.intervention_needed {
+            background: #4a3d1f;
+            border-left-color: #ffc107;
+            animation: flash 1s infinite;
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .intervention-panel {
+            background: #4a3d1f;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .intervention-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffc107;
+            margin-bottom: 15px;
+        }
+
+        .intervention-screenshot {
+            width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            background: #1a1a1a;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .intervention-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .btn-primary {
+            background: #4caf50;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #666;
+            color: #fff;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: #fff;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .controls .btn {
+            flex: 0;
+            padding: 8px 16px;
+        }
+
+        .session-input {
+            flex: 1;
+            padding: 8px 12px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔍 Research Monitor</h1>
+            <div class="status">
+                <div class="status-indicator">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Disconnected</span>
+                </div>
+                <div class="status-indicator">
+                    <span>Session: <strong id="sessionId">-</strong></span>
+                </div>
+            </div>
+        </header>
+
+        <div class="controls">
+            <input type="text" id="sessionInput" class="session-input" placeholder="Enter session ID or leave blank for default">
+            <button class="btn btn-primary" id="connectBtn">Connect</button>
+            <button class="btn btn-secondary hidden" id="disconnectBtn">Disconnect</button>
+        </div>
+
+        <!-- Intervention Alert (hidden by default) -->
+        <div id="interventionPanel" class="intervention-panel hidden">
+            <div class="intervention-header">⚠️ CAPTCHA Detected</div>
+            <div id="interventionDetails" style="margin-bottom: 15px;"></div>
+
+            <div class="intervention-actions">
+                <button class="btn btn-success" id="openBrowserBtn" style="background: #2196f3;">🖥️ Open Server Browser</button>
+                <button class="btn btn-primary" id="solveBtn">✓ I Solved It</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Left Panel: Progress & Screenshot -->
+            <div>
+                <div class="panel">
+                    <div class="panel-header">Progress</div>
+                    <div class="progress-section">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill" style="width: 0%">0%</div>
+                        </div>
+                        <div class="progress-stats">
+                            <div class="stat">
+                                <div class="stat-value" id="statChecked">0</div>
+                                <div class="stat-label">Checked</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value" id="statTotal">0</div>
+                                <div class="stat-label">Total</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value" id="statAccepted">0</div>
+                                <div class="stat-label">Accepted</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value" id="statRejected">0</div>
+                                <div class="stat-label">Rejected</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-header">Current Screenshot</div>
+                    <div class="screenshot-container">
+                        <div class="screenshot-placeholder" id="screenshotPlaceholder">No screenshot</div>
+                        <img id="screenshot" class="hidden">
+                    </div>
+
+                    <div class="panel-header">Current Candidate</div>
+                    <div class="current-candidate">
+                        <div class="candidate-url" id="currentUrl">-</div>
+                        <div class="candidate-title" id="currentTitle">-</div>
+                        <span class="candidate-status" id="currentStatus">Idle</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Event Log -->
+            <div>
+                <div class="panel">
+                    <div class="panel-header">
+                        Event Log
+                        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px;" id="clearLogBtn">Clear</button>
+                    </div>
+                    <div class="event-log" id="eventLog">
+                        <div style="color: #666; text-align: center; padding: 40px 20px;">
+                            Waiting for events...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentSessionId = null;
+        let currentIntervention = null;
+
+        // DOM elements
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const sessionIdDisplay = document.getElementById('sessionId');
+        const sessionInput = document.getElementById('sessionInput');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const progressFill = document.getElementById('progressFill');
+        const statChecked = document.getElementById('statChecked');
+        const statTotal = document.getElementById('statTotal');
+        const statAccepted = document.getElementById('statAccepted');
+        const statRejected = document.getElementById('statRejected');
+        const screenshot = document.getElementById('screenshot');
+        const screenshotPlaceholder = document.getElementById('screenshotPlaceholder');
+        const currentUrl = document.getElementById('currentUrl');
+        const currentTitle = document.getElementById('currentTitle');
+        const currentStatus = document.getElementById('currentStatus');
+        const eventLog = document.getElementById('eventLog');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+        const interventionPanel = document.getElementById('interventionPanel');
+        const interventionDetails = document.getElementById('interventionDetails');
+        const interventionScreenshot = document.getElementById('interventionScreenshot');
+        const openBrowserBtn = document.getElementById('openBrowserBtn');
+        const solveBtn = document.getElementById('solveBtn');
+
+        let currentInterventionUrl = null;
+
+        // Connect to WebSocket
+        function connect() {
+            const sessionId = sessionInput.value.trim() || 'default';
+            currentSessionId = sessionId;
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const wsUrl = `${protocol}//${host}/ws/research/${sessionId}`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected';
+                sessionIdDisplay.textContent = sessionId;
+                connectBtn.classList.add('hidden');
+                disconnectBtn.classList.remove('hidden');
+                sessionInput.disabled = true;
+                addLogEntry('Connected to session: ' + sessionId, 'system');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleEvent(data);
+            };
+
+            ws.onclose = () => {
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Disconnected';
+                connectBtn.classList.remove('hidden');
+                disconnectBtn.classList.add('hidden');
+                sessionInput.disabled = false;
+                addLogEntry('Disconnected from session', 'system');
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addLogEntry('Connection error', 'error');
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        // Handle incoming events
+        function handleEvent(event) {
+            const { type, data, timestamp } = event;
+
+            switch (type) {
+                case 'search_started':
+                    statTotal.textContent = data.max_candidates;
+                    addLogEntry(`Search started: "${data.query}" (${data.max_candidates} candidates)`, type);
+                    break;
+
+                case 'candidate_checking':
+                    currentUrl.textContent = data.url;
+                    currentTitle.textContent = data.title;
+                    currentStatus.textContent = 'Checking';
+                    currentStatus.className = 'candidate-status checking';
+                    addLogEntry(`Checking [${data.index + 1}/${data.total}]: ${data.title}`, type);
+                    break;
+
+                case 'fetch_complete':
+                    if (data.screenshot_path) {
+                        screenshot.src = data.screenshot_path;
+                        screenshot.classList.remove('hidden');
+                        screenshotPlaceholder.classList.add('hidden');
+                    }
+                    addLogEntry(`Fetch ${data.success ? 'success' : 'failed'}: ${data.url} (status: ${data.status})`, type);
+                    break;
+
+                case 'blocker_detected':
+                    addLogEntry(`⚠️ Blocker detected: ${data.blocker_type} (${Math.round(data.confidence * 100)}%) on ${data.url}`, type);
+                    break;
+
+                case 'intervention_needed':
+                    showIntervention(data);
+                    addLogEntry(`🚨 Intervention needed: ${data.blocker_type} on ${data.url}`, type);
+                    break;
+
+                case 'intervention_resolved':
+                    hideIntervention();
+                    addLogEntry(`✓ Intervention ${data.action}: ${data.intervention_id}`, type);
+                    break;
+
+                case 'candidate_accepted':
+                    currentStatus.textContent = 'Accepted';
+                    currentStatus.className = 'candidate-status accepted';
+                    const acceptedCount = parseInt(statAccepted.textContent) + 1;
+                    statAccepted.textContent = acceptedCount;
+                    addLogEntry(`✓ Accepted: ${data.title} (quality: ${data.quality_score.toFixed(2)}, species: ${data.species_score.toFixed(2)})`, type);
+                    break;
+
+                case 'candidate_rejected':
+                    currentStatus.textContent = 'Rejected';
+                    currentStatus.className = 'candidate-status rejected';
+                    const rejectedCount = parseInt(statRejected.textContent) + 1;
+                    statRejected.textContent = rejectedCount;
+                    addLogEntry(`✗ Rejected: ${data.title} (${data.reason}: ${data.details})`, type);
+                    break;
+
+                case 'progress':
+                    statChecked.textContent = data.checked;
+                    statAccepted.textContent = data.accepted;
+                    statRejected.textContent = data.rejected;
+                    progressFill.style.width = data.progress_pct + '%';
+                    progressFill.textContent = data.progress_pct + '%';
+                    break;
+
+                case 'search_complete':
+                    addLogEntry(`Search complete: ${data.total_accepted}/${data.total_checked} accepted (avg quality: ${data.avg_quality.toFixed(2)}, ${data.duration_ms}ms)`, type);
+                    currentStatus.textContent = 'Complete';
+                    currentStatus.className = 'candidate-status accepted';
+                    break;
+            }
+        }
+
+        // Show intervention UI
+        function showIntervention(data) {
+            currentIntervention = data.intervention_id;
+            currentInterventionUrl = data.url;
+            interventionDetails.innerHTML = `
+                <div style="margin-bottom: 10px;"><strong>Type:</strong> ${data.blocker_type}</div>
+                <div style="margin-bottom: 10px;"><strong>URL:</strong> <a href="${data.url}" target="_blank">${data.url}</a></div>
+            `;
+
+            interventionPanel.classList.remove('hidden');
+        }
+
+        // Hide intervention UI
+        function hideIntervention() {
+            interventionPanel.classList.add('hidden');
+            currentIntervention = null;
+        }
+
+        // Send intervention response to backend API
+        async function resolveIntervention(action) {
+            if (!currentIntervention) {
+                console.warn('[ResearchMonitor] No intervention to resolve');
+                return;
+            }
+
+            const interventionId = currentIntervention;
+            const resolved = (action === 'solved');
+            console.log('[ResearchMonitor] Resolving intervention:', interventionId, 'action:', action);
+
+            // No manual cookie input - CDP connection will handle automatically
+            let cookies = null;
+
+            try {
+                // Call Gateway's proxy to Orchestrator (works through Cloudflare)
+                const GATEWAY_URL = window.location.origin;  // Always use Gateway URL
+                const response = await fetch(`${GATEWAY_URL}/interventions/${interventionId}/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        resolved: resolved,
+                        cookies: cookies
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('[ResearchMonitor] Intervention resolved successfully:', result);
+
+                    // Clear cookie input
+                    const cookieInput = document.getElementById('cookieInput');
+                    if (cookieInput) cookieInput.value = '';
+
+                    const cookieMsg = cookies ? ` with ${cookies.length} cookies` : '';
+                    addLogEntry(`✓ Intervention ${action}${cookieMsg}`, 'intervention_resolved');
+                    hideIntervention();
+                } else {
+                    const error = await response.text();
+                    console.error('[ResearchMonitor] Failed to resolve intervention:', error);
+                    addLogEntry(`✗ Failed to resolve: ${error}`, 'error');
+                    alert('Failed to resolve intervention. Please try again.');
+                }
+            } catch (error) {
+                console.error('[ResearchMonitor] Error resolving intervention:', error);
+                addLogEntry(`✗ Error: ${error.message}`, 'error');
+                alert('Error resolving intervention: ' + error.message);
+            }
+        }
+
+        // Copy CDP URL to clipboard
+        function copyCdpUrl() {
+            const cdpUrl = document.getElementById('cdpUrl').textContent;
+            navigator.clipboard.writeText(cdpUrl).then(() => {
+                addLogEntry(`📋 Copied CDP URL: ${cdpUrl}`, 'info');
+                alert('CDP URL copied to clipboard!');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy. Please manually copy: ' + cdpUrl);
+            });
+        }
+
+        // Add log entry
+        function addLogEntry(message, type) {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `event ${type}`;
+            entry.innerHTML = `
+                <div class="event-timestamp">${timestamp}</div>
+                <div>${message}</div>
+            `;
+            eventLog.insertBefore(entry, eventLog.firstChild);
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        clearLogBtn.addEventListener('click', () => {
+            eventLog.innerHTML = '<div style="color: #666; text-align: center; padding: 40px 20px;">Log cleared</div>';
+        });
+
+        openBrowserBtn.addEventListener('click', () => {
+            if (!currentIntervention) {
+                alert('No active intervention');
+                return;
+            }
+
+            // Open noVNC viewer in new window - works on ALL devices (phone, laptop, desktop)
+            const serverHost = window.location.hostname;
+            const serverPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+            const novncUrl = `/browser_viewer`;  // Gateway will serve noVNC viewer
+
+            addLogEntry('🖥️ Opening browser viewer...', 'info');
+
+            // Open in new window with reasonable size
+            const viewer = window.open(novncUrl, '_blank', 'width=1280,height=800,menubar=no,toolbar=no,location=no,status=no');
+
+            if (viewer) {
+                addLogEntry('✓ Browser viewer opened! Solve CAPTCHA there, then click "I Solved It".', 'success');
+            } else {
+                addLogEntry('❌ Popup blocked! Enable popups and try again.', 'error');
+                alert(`Popup blocked!\n\nPlease enable popups for this site, then try again.\n\nOr manually open: ${window.location.protocol}//${serverHost}:${serverPort}${novncUrl}`);
+            }
+        });
+
+        solveBtn.addEventListener('click', () => resolveIntervention('solved'));
+
+        // Auto-detect session ID and connect
+        function autoDetectAndConnect() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlSession = urlParams.get('session');
+
+            if (urlSession) {
+                // URL parameter takes priority
+                sessionInput.value = urlSession;
+                addLogEntry(`Auto-connecting to session from URL: ${urlSession}`, 'system');
+                connect();
+                return;
+            }
+
+            // Try to detect from localStorage (main chat UI stores active session)
+            try {
+                const storedSession = localStorage.getItem('pandora_active_session');
+                if (storedSession) {
+                    sessionInput.value = storedSession;
+                    addLogEntry(`Auto-connecting to session from chat: ${storedSession}`, 'system');
+                    connect();
+                    return;
+                }
+            } catch (e) {
+                console.warn('Could not read localStorage:', e);
+            }
+
+            // No auto-detection - use default session and auto-connect
+            sessionInput.value = 'default';
+            addLogEntry('Auto-connecting to default session (no specific session detected)', 'system');
+            connect();
+        }
+
+        // Run auto-detection on page load
+        autoDetectAndConnect();
+
+        // Also listen for storage events (when main chat UI updates session)
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'pandora_active_session' && e.newValue && !ws) {
+                sessionInput.value = e.newValue;
+                addLogEntry(`Session changed in main chat: ${e.newValue}`, 'system');
+            }
+        });
+    </script>
+</body>
+</html>

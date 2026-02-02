@@ -1,0 +1,44 @@
+# Prose Intelligence Extractor Recipe
+# Extracts structured information from prose/unstructured content
+#
+# Used by ProseExtractor for general prose extraction
+
+name: browser_prose_intel
+category: browser
+role: prose_extractor
+model_layer: MIND  # Reasoning (temp 0.3)
+
+prompt_fragments:
+  - "apps/prompts/browser/prose_intel.md"
+
+input_docs:
+  - path: "extraction_goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "url"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "content"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3000
+
+output_doc:
+  path: "prose_extraction.json"
+  path_type: "temp"
+
+token_budget:
+  total: 5000
+  prompt: 800
+  input_docs: 3400
+  output: 1200
+
+description: |
+  Extracts structured information from prose/unstructured content.
+  Used when there's no clear product grid.
+
+integration:
+  invoked_by:
+    - prose_extractor._extract_prose_intel

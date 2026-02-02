@@ -1,0 +1,86 @@
+# Research Synthesizer Recipe
+# Synthesizes findings from multiple sources into research.md summary
+# Part of the Research Loop - MIND role for synthesis
+
+name: research_synthesizer
+category: research
+role: synthesizer
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/synthesizer.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0", "3"]
+    optional: false
+    max_tokens: 500
+    path_type: "turn"
+    description: "Section 0: Original query. Section 3: Research goals"
+
+  - path: "research_state.md"
+    optional: false
+    max_tokens: 2500
+    path_type: "turn"
+    description: "All findings from visited pages"
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "summary"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 600
+  input_docs: 3400      # context.md (500) + research_state.md (2500) + sources (~400)
+  output: 1000
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 4800
+
+# Output schema
+output_schema: RESEARCH_SYNTHESIS
+
+# Description
+description: |
+  Research Synthesizer combines findings from multiple sources into a coherent summary.
+
+  **Synthesis Principles:**
+  1. Lead with the answer - don't bury it in details
+  2. Evidence-based - every claim traces to source data
+  3. Capture consensus AND dissent
+  4. Actionable output - specific names, prices, specs
+
+  **For Commerce Research:**
+  - answer: Direct answer to commerce query
+  - recommendations: [{product, price_range, why_recommended, where_to_buy, source_consensus}]
+  - price_intelligence: {budget_range, sweet_spot, avoid_below, reason}
+  - key_specs_to_seek: [{spec, why}]
+  - warnings: [{warning, reason, source}]
+  - contradictions: [{topic, resolution}]
+
+  **For Informational Research:**
+  - answer: Direct answer to informational query
+  - key_findings: [{finding, confidence, sources}]
+  - expert_recommendations: []
+  - practical_tips: []
+  - things_to_avoid: [{avoid, reason}]
+  - gaps: Information we couldn't find
+
+  **Always Include:**
+  - confidence: 0.0-1.0 overall confidence
+  - sources_used: count
+  - source_types: [forum, review, guide, ...]
+
+  **Input:**
+  - context.md Section 0, 3: Query and goals
+  - research_state.md: All findings from visited pages
+
+  **Output is written to research.md with link from context.md Section 4.**
+
+  This is a MIND role (temperature 0.5) for synthesis and reasoning.

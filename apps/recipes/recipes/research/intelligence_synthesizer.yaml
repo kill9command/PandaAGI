@@ -1,0 +1,72 @@
+# Research Intelligence Synthesizer Recipe
+# Transforms Phase 1 raw findings into actionable intelligence brief
+# Part of the Research Loop - MIND role for synthesis
+
+name: research_intelligence_synthesizer
+category: research
+role: intelligence_synthesizer
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/intelligence_synthesizer.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0", "3"]
+    optional: false
+    max_tokens: 500
+    path_type: "turn"
+    description: "Section 0: Original query. Section 3: Research goals"
+
+  - path: "research_state.md"
+    optional: false
+    max_tokens: 2500
+    path_type: "turn"
+    description: "Phase 1 raw findings from all sources"
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "intelligence"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 1000
+  input_docs: 3000      # Raw findings can be extensive
+  output: 1000
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 4800
+
+# Output schema
+output_schema: INTELLIGENCE_BRIEF
+
+# Description
+description: |
+  Intelligence Synthesizer transforms raw Phase 1 data into actionable intelligence.
+
+  **Query Type Detection:**
+  - Technical specs: Directly answer the question with specifics
+  - Shopping/commerce: Extract vendors, prices, product recommendations
+
+  **Intelligence Categories:**
+  - Vendor intelligence: Who sells this, who to avoid
+  - Price intelligence: Expected ranges, sweet spots
+  - Product intelligence: Recommended models, key features
+
+  **Critical Rules:**
+  - NEVER fabricate requirements user didn't state
+  - hard_requirements from explicit user statements only
+  - When uncertain, use nice_to_haves instead
+  - Source-based confidence scoring
+
+  **Output:**
+  JSON with query, hard_requirements, nice_to_haves, recommended_vendors,
+  price_range, recommended_products, warnings, confidence scores
+
+  This is a MIND role (temperature 0.5) for synthesis and reasoning.

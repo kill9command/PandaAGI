@@ -1,0 +1,76 @@
+# Search Result Filter Recipe
+# Filters search results to keep only items matching user's goal
+#
+# Used by product_perception pipeline to filter extracted items
+
+name: tools_search_result_filter
+category: tools
+role: search_result_filter
+model_layer: REFLEX  # Classification (temp 0.1)
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/tools/search_result_filter.md"
+
+# Input documents
+input_docs:
+  - path: "goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User's goal (what they want to buy)"
+
+  - path: "candidate_items"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 2000
+    description: "List of item titles to filter"
+
+# Output document
+output_doc:
+  path: "filter_result.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 3500
+  prompt: 1000
+  input_docs: 2200
+  output: 300
+  buffer: 0
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - keep
+    - reason
+  properties:
+    keep:
+      type: array
+      items:
+        type: integer
+    reason:
+      type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  confidence_threshold: 0.5
+  max_retries: 1
+
+description: |
+  Filters extracted items to keep only products matching user's goal.
+
+  Critical for distinguishing:
+  - Live animals vs. pet supplies
+  - Electronics vs. accessories
+  - Products vs. reviews/articles
+
+  Input: goal + candidate_items
+  Output: filter_result.json with keep indices and reason
+
+integration:
+  invoked_by:
+    - product_perception.pipeline._goal_filter_items
+  invocation_point: after_extraction_before_return

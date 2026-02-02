@@ -1,0 +1,74 @@
+# OCR Items Extractor Recipe
+# Extracts product data from grouped OCR text
+#
+# Used by VisionExtractor for screenshot-based product extraction
+
+name: browser_ocr_items
+category: browser
+role: ocr_extractor
+model_layer: REFLEX  # Extraction (temp 0.1)
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/browser/ocr_items.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User's search query"
+
+  - path: "ocr_groups"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3000
+    description: "OCR text grouped by spatial proximity"
+
+# Output document
+output_doc:
+  path: "extracted_products.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 800
+  input_docs: 3200
+  output: 2500
+  buffer: 0
+
+# Output schema
+output_schema:
+  type: array
+  items:
+    type: object
+    required:
+      - title
+      - price
+      - price_numeric
+    properties:
+      title:
+        type: string
+      price:
+        type: string
+      price_numeric:
+        type: number
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+description: |
+  Extracts structured product data from OCR text groups.
+  Each group represents a potential product card on the page.
+
+  Input: query + ocr_groups (spatially grouped OCR text)
+  Output: JSON array of products with title, price, price_numeric
+
+integration:
+  invoked_by:
+    - product_perception.vision_extractor._llm_parse_products
+  invocation_point: after_ocr_grouping

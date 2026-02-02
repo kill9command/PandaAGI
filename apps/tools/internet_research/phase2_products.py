@@ -1,0 +1,593 @@
+"""
+Phase 2: Product Finding
+
+Uses Phase 1 intelligence to find products from 3 vendors.
+
+Flow:
+1. Build vendor list from Phase 1 hints + search if needed
+2. Visit each vendor (max 3)
+3. Search for products using Phase 1 search terms
+4. Extract products and compare to Phase 1 price expectations
+5. Return products with recommendations
+"""
+
+import asyncio
+import json
+import logging
+import os
+import time
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional
+
+from .state import ResearchState
+from .browser import ResearchBrowser, get_domain
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Product:
+    """A product found during Phase 2."""
+    name: str
+    price: str
+    price_numeric: Optional[float]
+    vendor: str
+    url: str
+    in_stock: bool = True
+    specs: dict = field(default_factory=dict)
+    confidence: float = 0.8
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "price": self.price,
+            "price_numeric": self.price_numeric,
+            "vendor": self.vendor,
+            "url": self.url,
+            "in_stock": self.in_stock,
+            "specs": self.specs,
+            "confidence": self.confidence,
+        }
+
+
+@dataclass
+class Phase2Result:
+    """Output of Phase 2 product finding."""
+    success: bool
+    products: list[Product]
+
+    # Context from Phase 1
+    recommendation: str  # Which product is best and why
+    price_assessment: str  # Are prices good based on Phase 1?
+
+    # Metadata
+    vendors_visited: list[str]
+    vendors_failed: list[str]
+    elapsed_seconds: float
+
+    def to_dict(self) -> dict:
+        return {
+            "success": self.success,
+            "products": [p.to_dict() for p in self.products],
+            "recommendation": self.recommendation,
+            "price_assessment": self.price_assessment,
+            "vendors_visited": self.vendors_visited,
+            "vendors_failed": self.vendors_failed,
+            "elapsed_seconds": self.elapsed_seconds,
+        }
+
+
+# Common vendor domains for commerce searches
+KNOWN_VENDORS = [
+    "amazon.com",
+    "bestbuy.com",
+    "newegg.com",
+    "walmart.com",
+    "target.com",
+    "bhphotovideo.com",
+    "microcenter.com",
+    "costco.com",
+]
+
+
+class Phase2ProductFinder:
+    """
+    Find products from vendors using Phase 1 intelligence.
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        llm_url: Optional[str] = None,
+        llm_model: Optional[str] = None,
+        llm_api_key: Optional[str] = None,
+        target_vendors: int = 3,
+        event_emitter = None,
+        human_assist_allowed: bool = True,
+    ):
+        self.session_id = session_id
+        self.llm_url = llm_url or os.getenv("SOLVER_URL", "http://127.0.0.1:8000/v1/chat/completions")
+        self.llm_model = llm_model or os.getenv("SOLVER_MODEL_ID", "qwen3-coder")
+        self.llm_api_key = llm_api_key or os.getenv("SOLVER_API_KEY", "qwen-local")
+        self.target_vendors = target_vendors
+        self.event_emitter = event_emitter
+        self.human_assist_allowed = human_assist_allowed
+
+        self.browser = ResearchBrowser(
+            session_id=session_id,
+            human_assist_allowed=human_assist_allowed,
+        )
+
+    async def execute(
+        self,
+        goal: str,
+        phase1_intelligence: dict,
+        vendor_hints: list[str],
+        search_terms: list[str],
+        price_range: Optional[dict] = None,
+    ) -> Phase2Result:
+        """
+        Find products from vendors.
+
+        Args:
+            goal: Original user query
+            phase1_intelligence: Intelligence from Phase 1
+            vendor_hints: Vendors mentioned in Phase 1
+            search_terms: Search terms from Phase 1 (e.g., product names)
+            price_range: Expected price range from Phase 1
+
+        Returns:
+            Phase2Result with products and recommendations
+        """
+        logger.info(f"[Phase2] Starting product search for: {goal}")
+        logger.info(f"[Phase2] Vendor hints: {vendor_hints}")
+        logger.info(f"[Phase2] Search terms: {search_terms}")
+        logger.info(f"[Phase2] Price range: {price_range}")
+
+        start_time = time.time()
+        all_products: list[Product] = []
+        vendors_visited: list[str] = []
+        vendors_failed: list[str] = []
+
+        try:
+            # Step 1: Build vendor list
+            vendors = await self._build_vendor_list(goal, vendor_hints, search_terms)
+            logger.info(f"[Phase2] Will visit {len(vendors)} vendors: {vendors}")
+
+            # Step 2: Visit each vendor and extract products
+            for vendor_url in vendors[:self.target_vendors]:
+                vendor_domain = get_domain(vendor_url)
+                logger.info(f"[Phase2] Visiting vendor: {vendor_domain}")
+
+                try:
+                    products = await self._extract_from_vendor(
+                        vendor_url=vendor_url,
+                        goal=goal,
+                        search_terms=search_terms,
+                    )
+
+                    if products:
+                        all_products.extend(products)
+                        vendors_visited.append(vendor_domain)
+                        logger.info(f"[Phase2] Found {len(products)} products from {vendor_domain}")
+                    else:
+                        vendors_failed.append(vendor_domain)
+                        logger.warning(f"[Phase2] No products from {vendor_domain}")
+
+                except Exception as e:
+                    logger.error(f"[Phase2] Error with {vendor_domain}: {e}")
+                    vendors_failed.append(vendor_domain)
+
+            # Step 3: Generate recommendations based on Phase 1 intelligence
+            recommendation, price_assessment = await self._generate_recommendations(
+                products=all_products,
+                phase1_intelligence=phase1_intelligence,
+                price_range=price_range,
+                goal=goal,
+            )
+
+            elapsed = time.time() - start_time
+
+            return Phase2Result(
+                success=len(all_products) > 0,
+                products=all_products,
+                recommendation=recommendation,
+                price_assessment=price_assessment,
+                vendors_visited=vendors_visited,
+                vendors_failed=vendors_failed,
+                elapsed_seconds=elapsed,
+            )
+
+        except Exception as e:
+            logger.error(f"[Phase2] Error: {e}", exc_info=True)
+            return Phase2Result(
+                success=False,
+                products=[],
+                recommendation="",
+                price_assessment="",
+                vendors_visited=vendors_visited,
+                vendors_failed=vendors_failed,
+                elapsed_seconds=time.time() - start_time,
+            )
+
+        finally:
+            await self.browser.close()
+
+    async def _build_vendor_list(
+        self,
+        goal: str,
+        vendor_hints: list[str],
+        search_terms: list[str],
+    ) -> list[str]:
+        """
+        Build list of vendor URLs to visit.
+
+        Priority:
+        1. Vendors mentioned in Phase 1
+        2. Search for vendors if not enough
+        """
+        vendors = []
+
+        # Add vendor hints (convert to URLs if needed)
+        for hint in vendor_hints:
+            hint_lower = hint.lower()
+            # Check if it's a known vendor
+            for known in KNOWN_VENDORS:
+                if known.replace(".com", "") in hint_lower or hint_lower in known:
+                    vendors.append(f"https://www.{known}")
+                    break
+            else:
+                # Try to use it as-is if it looks like a domain
+                if "." in hint:
+                    if not hint.startswith("http"):
+                        vendors.append(f"https://www.{hint}")
+                    else:
+                        vendors.append(hint)
+
+        # If we don't have enough vendors, search for more
+        if len(vendors) < self.target_vendors:
+            search_query = f"{search_terms[0] if search_terms else goal} buy"
+            logger.info(f"[Phase2] Searching for vendors: {search_query}")
+
+            search_result = await self.browser.search(search_query)
+
+            if search_result.success:
+                for result in search_result.results:
+                    url = result.get("url", "")
+                    domain = get_domain(url)
+
+                    # Check if it's a vendor domain
+                    for known in KNOWN_VENDORS:
+                        if known in domain:
+                            vendor_url = f"https://www.{known}"
+                            if vendor_url not in vendors:
+                                vendors.append(vendor_url)
+                            break
+
+                    if len(vendors) >= self.target_vendors:
+                        break
+
+        # Dedupe and limit
+        seen = set()
+        unique_vendors = []
+        for v in vendors:
+            domain = get_domain(v)
+            if domain not in seen:
+                seen.add(domain)
+                unique_vendors.append(v)
+
+        return unique_vendors[:self.target_vendors]
+
+    async def _extract_from_vendor(
+        self,
+        vendor_url: str,
+        goal: str,
+        search_terms: list[str],
+    ) -> list[Product]:
+        """
+        Visit a vendor and extract products.
+
+        1. Navigate to vendor
+        2. Use search box to search for product
+        3. Extract products from results
+        """
+        vendor_domain = get_domain(vendor_url)
+
+        # Build search URL for the vendor
+        search_term = search_terms[0] if search_terms else goal
+        search_url = self._build_vendor_search_url(vendor_url, search_term)
+
+        logger.info(f"[Phase2] Navigating to: {search_url}")
+
+        # Visit the search results page
+        result = await self.browser.visit(search_url)
+
+        if not result.success:
+            logger.warning(f"[Phase2] Failed to visit {vendor_domain}: {result.error}")
+            return []
+
+        if result.blocked:
+            logger.warning(f"[Phase2] Blocked at {vendor_domain}: {result.blocker_type}")
+            return []
+
+        # Extract products from the page
+        products = await self._extract_products_from_page(
+            vendor_domain=vendor_domain,
+            page_url=search_url,
+            page_text=result.text,
+            goal=goal,
+        )
+
+        return products
+
+    def _build_vendor_search_url(self, vendor_url: str, search_term: str) -> str:
+        """Build a search URL for a vendor."""
+        from urllib.parse import quote_plus
+
+        domain = get_domain(vendor_url)
+        encoded = quote_plus(search_term)
+
+        # Vendor-specific search URL patterns
+        if "amazon" in domain:
+            return f"https://www.amazon.com/s?k={encoded}"
+        elif "bestbuy" in domain:
+            return f"https://www.bestbuy.com/site/searchpage.jsp?st={encoded}"
+        elif "newegg" in domain:
+            return f"https://www.newegg.com/p/pl?d={encoded}"
+        elif "walmart" in domain:
+            return f"https://www.walmart.com/search?q={encoded}"
+        elif "target" in domain:
+            return f"https://www.target.com/s?searchTerm={encoded}"
+        elif "costco" in domain:
+            return f"https://www.costco.com/CatalogSearch?keyword={encoded}"
+        elif "bhphoto" in domain:
+            return f"https://www.bhphotovideo.com/c/search?q={encoded}"
+        elif "microcenter" in domain:
+            return f"https://www.microcenter.com/search/search_results.aspx?N=&Ntt={encoded}"
+        else:
+            # Generic - try /search?q=
+            return f"{vendor_url}/search?q={encoded}"
+
+    async def _extract_products_from_page(
+        self,
+        vendor_domain: str,
+        page_url: str,
+        page_text: str,
+        goal: str,
+    ) -> list[Product]:
+        """Extract products from page text using LLM."""
+        prompt = f"""# Product Extractor
+
+Extract products from this vendor page.
+
+## Goal
+{goal}
+
+## Vendor
+{vendor_domain}
+
+## Page URL
+{page_url}
+
+## Page Content
+{page_text[:12000]}
+
+## Extract Products
+
+Find products on this page. For each product, extract:
+- name: Product name/title
+- price: Price as shown (e.g., "$799.99")
+- price_numeric: Numeric price (e.g., 799.99)
+- in_stock: true/false
+- specs: Key specifications (dict)
+
+Output as JSON array:
+[
+  {{"name": "...", "price": "$799.99", "price_numeric": 799.99, "in_stock": true, "specs": {{}}}},
+  ...
+]
+
+Only include actual products with prices. Limit to 10 products max.
+
+JSON:"""
+
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    self.llm_url,
+                    json={
+                        "model": self.llm_model,
+                        "messages": [
+                            {"role": "system", "content": "You are a product extractor. Output valid JSON array only."},
+                            {"role": "user", "content": prompt},
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 2000,
+                    },
+                    headers={"Authorization": f"Bearer {self.llm_api_key}"},
+                )
+                response.raise_for_status()
+                result = response.json()
+
+            content = result["choices"][0]["message"]["content"]
+            products_data = self._parse_json_response(content)
+
+            if not isinstance(products_data, list):
+                return []
+
+            # Convert to Product objects
+            products = []
+            for p in products_data:
+                if not p.get("name") or not p.get("price"):
+                    continue
+
+                products.append(Product(
+                    name=p.get("name", ""),
+                    price=p.get("price", ""),
+                    price_numeric=p.get("price_numeric"),
+                    vendor=vendor_domain,
+                    url=page_url,
+                    in_stock=p.get("in_stock", True),
+                    specs=p.get("specs", {}),
+                    confidence=0.8,
+                ))
+
+            return products
+
+        except Exception as e:
+            logger.warning(f"[Phase2] Product extraction failed: {e}")
+            return []
+
+    async def _generate_recommendations(
+        self,
+        products: list[Product],
+        phase1_intelligence: dict,
+        price_range: Optional[dict],
+        goal: str,
+    ) -> tuple[str, str]:
+        """Generate recommendations based on Phase 1 intelligence."""
+        if not products:
+            return ("No products found to recommend.", "Unable to assess prices.")
+
+        # Build product summary
+        product_summary = ""
+        for i, p in enumerate(products[:10], 1):
+            product_summary += f"{i}. {p.name} - {p.price} ({p.vendor})\n"
+
+        # Build Phase 1 context
+        phase1_context = ""
+        if phase1_intelligence.get("recommended_models"):
+            phase1_context += f"Recommended models from research: {phase1_intelligence['recommended_models']}\n"
+        if phase1_intelligence.get("what_to_look_for"):
+            phase1_context += f"Features to look for: {phase1_intelligence['what_to_look_for']}\n"
+        if phase1_intelligence.get("user_warnings"):
+            phase1_context += f"Things to avoid: {phase1_intelligence['user_warnings']}\n"
+
+        price_context = ""
+        if price_range:
+            price_context = f"Expected price range from research: ${price_range.get('min', '?')} - ${price_range.get('max', '?')}"
+
+        prompt = f"""# Product Recommender
+
+Based on research and found products, make a recommendation.
+
+## User Goal
+{goal}
+
+## Research Intelligence
+{phase1_context}
+{price_context}
+
+## Products Found
+{product_summary}
+
+## Generate
+
+1. **recommendation**: Which product(s) are best and why? Reference the research findings.
+2. **price_assessment**: Are these prices good based on the research? Any deals?
+
+Output as JSON:
+{{"recommendation": "...", "price_assessment": "..."}}
+
+JSON:"""
+
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    self.llm_url,
+                    json={
+                        "model": self.llm_model,
+                        "messages": [
+                            {"role": "system", "content": "You are a product recommender. Output valid JSON only."},
+                            {"role": "user", "content": prompt},
+                        ],
+                        "temperature": 0.5,
+                        "max_tokens": 500,
+                    },
+                    headers={"Authorization": f"Bearer {self.llm_api_key}"},
+                )
+                response.raise_for_status()
+                result = response.json()
+
+            content = result["choices"][0]["message"]["content"]
+            rec_data = self._parse_json_response(content)
+
+            if isinstance(rec_data, dict):
+                return (
+                    rec_data.get("recommendation", ""),
+                    rec_data.get("price_assessment", ""),
+                )
+
+        except Exception as e:
+            logger.warning(f"[Phase2] Recommendation generation failed: {e}")
+
+        return ("Unable to generate recommendation.", "Unable to assess prices.")
+
+    def _parse_json_response(self, content: str):
+        """Parse JSON from LLM response."""
+        content = content.strip()
+        if content.startswith("```"):
+            lines = content.split("\n")
+            lines = [l for l in lines if not l.startswith("```")]
+            content = "\n".join(lines)
+
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            import re
+            json_match = re.search(r'(\{.*\}|\[.*\])', content, re.DOTALL)
+            if json_match:
+                try:
+                    return json.loads(json_match.group(1))
+                except:
+                    pass
+            return None
+
+
+async def execute_phase2(
+    goal: str,
+    phase1_intelligence: dict,
+    vendor_hints: list[str],
+    search_terms: list[str],
+    price_range: Optional[dict] = None,
+    session_id: Optional[str] = None,
+    target_vendors: int = 3,
+    event_emitter = None,
+    human_assist_allowed: bool = True,
+) -> Phase2Result:
+    """
+    Execute Phase 2 product finding.
+
+    Args:
+        goal: Original user query
+        phase1_intelligence: Intelligence from Phase 1
+        vendor_hints: Vendors mentioned in Phase 1
+        search_terms: Search terms from Phase 1
+        price_range: Expected price range
+        session_id: Browser session ID
+        target_vendors: Number of vendors to visit (default 3)
+        event_emitter: Optional event emitter for progress events
+        human_assist_allowed: Whether to allow human intervention for CAPTCHAs
+
+    Returns:
+        Phase2Result with products and recommendations
+    """
+    session_id = session_id or f"phase2_{int(time.time())}"
+    finder = Phase2ProductFinder(
+        session_id=session_id,
+        target_vendors=target_vendors,
+        event_emitter=event_emitter,
+        human_assist_allowed=human_assist_allowed,
+    )
+    return await finder.execute(
+        goal=goal,
+        phase1_intelligence=phase1_intelligence,
+        vendor_hints=vendor_hints,
+        search_terms=search_terms,
+        price_range=price_range,
+    )

@@ -1,0 +1,90 @@
+# Turn Compressor Recipe
+# Compresses full context.md into essential summary for turn index
+#
+# Used by Phase 8 (Save) to create searchable turn summaries
+# for retrieval by future queries.
+
+name: memory_turn_compressor
+category: memory
+role: turn_compressor
+model_layer: NERVES  # Compression tasks use NERVES (temp 0.1)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/memory/turn_compressor.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    path_type: "turn"
+    optional: false
+    max_tokens: 3000
+    description: "Full context.md document (sections 0-7)"
+
+# Output document
+output_doc:
+  path: "turn_summary.yaml"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 4000
+  prompt: 600       # turn_compressor.md prompt
+  input_docs: 3000  # full context.md
+  output: 350       # YAML summary output
+  buffer: 50
+
+# Trimming strategy
+trimming_strategy:
+  method: intelligent_truncate
+  priority:
+    - keep: section_0    # Always keep user query
+    - keep: section_5    # Always keep response
+    - keep: section_6    # Always keep validation
+    - truncate: section_4  # Truncate verbose tool results
+    - truncate: section_3  # Truncate plan details
+    - truncate: section_2  # Truncate gathered context
+
+# Output format (YAML, not JSON)
+output_format: yaml
+output_schema: null  # YAML document structure defined in prompt
+
+# Quality gates
+quality_gates:
+  schema_validation: false  # YAML output, validate structure manually
+  max_retries: 1
+
+# Description
+description: |
+  Turn Compressor creates concise summaries of completed turns for:
+  1. Turn index storage (searchable by future queries)
+  2. Quick context retrieval (what happened in this turn)
+  3. Pattern matching (finding similar past turns)
+
+  **Always Preserve:**
+  - Original user query (from section 0)
+  - Key outcome/result (from section 5/6)
+  - Tools used and their purpose
+  - Claims/findings with sources
+  - Validation result (APPROVE/RETRY/REVISE/FAIL)
+
+  **Include If Present:**
+  - Error conditions and how resolved
+  - User feedback signals
+  - Significant decisions made
+
+  **Omit:**
+  - Verbose tool output
+  - Intermediate reasoning steps
+  - Redundant context
+  - System metadata
+
+  **Output Structure (YAML):**
+  - summary: query, intent, topic
+  - outcome: result, validation, confidence
+  - actions: tool + purpose pairs
+  - claims: key findings with sources
+  - keywords: 3-7 search terms
+
+  Input: context.md (full turn document)
+  Output: turn_summary.yaml for TurnIndexDB storage

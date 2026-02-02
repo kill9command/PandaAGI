@@ -1,0 +1,76 @@
+# Research Page Reader Recipe
+# Reads pages, classifies type, and extracts structured data
+# Part of the Research Loop - MIND role for page understanding
+
+name: research_page_reader
+category: research
+role: page_reader
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/page_reader.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+    description: "Section 0: Research goal for relevance assessment"
+
+# Note: Page content and URL map are passed directly to the LLM
+# The calling code adds the page content and optional URL map to the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "page_data"
+
+# Token budget
+token_budget:
+  total: 5500
+  prompt: 600
+  input_docs: 4200      # context.md (300) + page_content (~3500) + url_map (~400)
+  output: 700
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 5200
+
+# Output schema
+output_schema: PAGE_DATA
+
+# Description
+description: |
+  Page Reader identifies page type and extracts structured data.
+
+  **Page Types:**
+  - forum_thread: Discussion with posts/comments
+  - product_detail_page: Single product info
+  - product_listing: Multiple products
+  - article: Blog/news/guide
+  - review: Product review
+  - vendor_catalog: Seller's product list
+  - search_results: Search page
+  - unknown: Cannot determine
+
+  **Extraction varies by type:**
+  - Forums: thread_title, main_question, top_answers, consensus, products_mentioned
+  - PDPs: product_name, price, price_numeric, in_stock, vendor, specs
+  - Listings: category, vendor, products array
+  - Articles: title, author, date, main_thesis, key_points
+  - Reviews: product_reviewed, rating, verdict, pros, cons
+
+  **Always includes metadata:**
+  - url, content_length, was_truncated
+  - extraction_confidence, goal_relevance
+
+  **Input:**
+  - context.md Section 0: Research goal
+  - Page content: Raw text from the page
+  - URL map: Optional text-to-URL mappings
+
+  This is a MIND role (temperature 0.5) for page understanding.

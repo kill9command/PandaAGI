@@ -1,0 +1,92 @@
+# Browser Pagination Handler Recipe
+# Analyzes page for pagination patterns and decides whether to continue
+# Used by WebAgent to handle multi-page result navigation
+
+name: browser_pagination_handler
+category: browser
+role: browser_agent
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/pagination_handler.md  # ~700 tokens
+
+# Input documents
+input_docs:
+  - path: page_state.json
+    description: Current page URL, links, buttons, and pagination elements detected
+    max_tokens: 1000
+    required: true
+    path_type: temp
+
+  - path: context.md
+    description: Goal from context document
+    sections: ["0", "3"]
+    max_tokens: 300
+    required: true
+    path_type: turn
+
+  - path: pagination_state.json
+    description: Items found so far, pages visited, last page summary
+    max_tokens: 500
+    required: true
+    path_type: temp
+
+# Output documents
+output_docs:
+  - pagination_action.json  # {has_more_pages, should_continue, navigation_type, next_action, ...}
+
+# Token budget
+token_budget:
+  total: 3000
+  prompt: 700         # Fixed cost: pagination_handler.md
+  input_docs: 1800    # page_state (1000) + context (300) + pagination_state (500)
+  output: 300         # JSON pagination output
+  buffer: 200         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: page_state        # Truncate page content first
+    - truncate: pagination_state  # Then pagination state
+
+# Output schema
+output_schema: BROWSER_PAGINATION_ACTION
+
+# Description
+description: |
+  Browser Pagination Handler examines a webpage to determine if there are more
+  pages worth exploring and how to navigate to them.
+
+  **Input Documents:**
+  - page_state.json: Current page URL, links, buttons, pagination elements
+  - context.md: Goal (determines coverage requirements)
+  - pagination_state.json: Items found so far, pages visited, last page summary
+
+  **Pagination Patterns Detected:**
+  - Standard pagination: "Next", ">", numbered page links
+  - Infinite scroll: "Load More" buttons, content that loads on scroll
+  - Category navigation: Tabs like "Available", "Sold", "Retired"
+  - Thread pagination: Forum-style "Page 1 of 5"
+
+  **Output:**
+  {
+    "has_more_pages": true,
+    "should_continue": true,
+    "navigation_type": "pagination|load_more|category|scroll|none",
+    "next_action": {
+      "action": "click",
+      "target_id": "c24",
+      "target_text": "Next Page"
+    },
+    "pages_remaining_estimate": 3,
+    "reason": "Brief explanation of decision",
+    "confidence": 0.85
+  }
+
+  **Key Behavior:**
+  - Quality over quantity: Stop when items are sufficient, not when pages run out
+  - Diminishing returns: If last page added <2 new items, likely declining
+  - Stuck prevention: If same "Next" clicked twice without change, report no more pages
+  - Maximum page limit: Typically stops at 5 pages unless goal requires more

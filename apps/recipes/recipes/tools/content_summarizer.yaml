@@ -1,0 +1,103 @@
+# Content Summarizer Recipe
+# Summarizes research source content while preserving structure
+#
+# Used for token budget management when Phase 1 sources exceed limits.
+# Compresses verbose content while preserving key findings.
+
+name: tools_content_summarizer
+category: tools
+role: content_summarizer
+model_layer: NERVES  # Compression uses NERVES (temp 0.1)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/tools/content_summarizer.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 100
+    description: "Original research query for context"
+
+  - path: "source_url"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 100
+    description: "URL of the source being summarized"
+
+  - path: "page_type"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 20
+    description: "Type of page (forum, guide, product_page, etc.)"
+
+  - path: "content"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 2000
+    description: "Original content to summarize (pre-truncated)"
+
+  - path: "target_content_tokens"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 10
+    description: "Target token count for output"
+
+# Output document
+output_doc:
+  path: "summarized_content.txt"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 3000
+  prompt: 500         # content_summarizer.md prompt
+  input_docs: 2230    # query + url + type + content + target
+  output: 800         # summarized content
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: query
+    - keep: source_url
+    - keep: page_type
+    - keep: target_content_tokens
+    - truncate: content
+
+# Output schema
+output_schema:
+  type: string
+  description: "Structured summary with sections for Summary, Key Points, Vendors, Products/Prices"
+
+# Quality gates
+quality_gates:
+  schema_validation: false  # Plain text output
+  max_retries: 1
+
+# Description
+description: |
+  Content Summarizer compresses research source content for token budget management.
+
+  **Preserves:**
+  - Document structure (Summary, Key Points, Vendors, Products)
+  - Specific names and numbers (vendors, prices, specs)
+  - Expert recommendations
+
+  **Removes:**
+  - Repetitive information
+  - Off-topic tangents
+  - Navigation/UI artifacts
+
+  Input: query + source_url + page_type + content + target_content_tokens
+  Output: Structured summary fitting target token budget
+
+# Integration
+integration:
+  invoked_by:
+    - shared.llm_utils._summarize_single_source
+    - shared.llm_utils.summarize_sources_for_budget
+  invocation_point: when_sources_exceed_token_budget

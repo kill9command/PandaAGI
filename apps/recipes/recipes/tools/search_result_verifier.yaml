@@ -1,0 +1,14 @@
+name: search_result_verifier
+role: verifier
+description: Verifies if search result HTML matches user query intent
+
+prompt_fragments:
+  - "apps/prompts/tools/search_result_verifier.md"
+
+input_docs: []
+
+token_budget:
+  total: 500
+  prompt: 400
+  input_docs: 0
+  output: 100

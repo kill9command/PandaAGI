@@ -1,0 +1,95 @@
+# Query Reflection Recipe
+# Refines failed search queries using LLM reasoning
+#
+# Part of the Reflexion Loop pattern: when searches fail,
+# the LLM analyzes what went wrong and suggests better queries.
+
+name: research_query_reflection
+category: research
+role: query_reflection
+model_layer: MIND  # Reasoning tasks use MIND (temp 0.5)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/query_reflection.md"
+
+# Input documents
+input_docs:
+  - path: "original_query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 100
+    description: "The query that failed to produce good results"
+
+  - path: "search_context"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 100
+    description: "What we're trying to find (e.g., 'product pricing', 'research papers')"
+
+  - path: "previous_results_summary"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "Summary of what we got (e.g., 'No results', '3 results but wrong category')"
+
+  - path: "attempt_number"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 10
+    description: "Which attempt this is (1, 2, 3...)"
+
+# Output document
+output_doc:
+  path: "refined_query.txt"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 600
+  prompt: 300       # query_reflection.md prompt
+  input_docs: 410   # query + context + summary + attempt
+  output: 80        # Just the refined query
+  buffer: 50
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: original_query
+    - keep: search_context
+    - keep: attempt_number
+    - truncate: previous_results_summary
+
+# Output schema
+output_schema:
+  type: string
+  description: "The refined query text (plain string, no quotes)"
+
+# Quality gates
+quality_gates:
+  schema_validation: false  # Plain text output
+  max_retries: 1
+
+# Description
+description: |
+  Query Reflection analyzes failed searches and suggests improved queries.
+
+  **Refinement Strategies:**
+  - Add specificity: brand names, model numbers
+  - Try synonyms or alternative phrasings
+  - Add context keywords ("buy", "for sale", "official")
+  - Remove ambiguous or overly broad terms
+
+  **Output:**
+  Plain text query string only - no quotes, no explanation.
+
+  Input: original_query + search_context + previous_results_summary + attempt_number
+  Output: Refined query text
+
+# Integration
+integration:
+  invoked_by:
+    - reflection_engine.llm_refine_query
+    - reflection_engine.llm_refine_query_async
+  invocation_point: when_search_returns_poor_results

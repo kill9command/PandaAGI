@@ -1,0 +1,86 @@
+# Phase 3: Planner (Code Mode) Recipe
+# Strategic decision-maker: WHAT needs to be done
+# Architecture: architecture/main-system-patterns/phase3-planner.md
+
+name: phase3_planner_code
+category: pipeline
+phase: 3
+role: MIND
+mode: code
+temperature: 0.5
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase3_planner_code.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 2000
+    description: "Sections 0-2: query, gathered context, reflection decision"
+  - path: "context.md"
+    sections: ["0", "1", "2", "3", "4", "5", "6", "7"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 3500
+    description: "Full context on RETRY (includes failure feedback in section 7)"
+
+output_doc:
+  path: "context.md"
+  section: "3"
+  description: "Writes section 3 with strategic plan (goals, approach, success criteria)"
+
+token_budget:
+  total: 6500
+  prompt: 2000
+  input_docs: 2200
+  output: 2000
+  buffer: 300
+
+llm_params:
+  temperature: 0.5
+  max_tokens: 2000
+
+output_schema: STRATEGIC_PLAN
+
+description: |
+  Phase 3: Planner (Code Mode) - Strategic Decision-Maker
+
+  Uses MIND role (temp=0.5) for reasoning and planning.
+  Determines WHAT needs to be done for code operations.
+
+  **Core Question:** "What are the goals and how should we approach them?"
+
+  **Code Mode Intent Mapping:**
+  - edit -> file.edit (modify existing file)
+  - create -> file.write (create new file)
+  - git -> git.* (version control operations)
+  - test -> test.run (execute test suite)
+  - refactor -> file.edit (restructure code)
+
+  **Code Mode Tools Available:**
+  - file.read, file.write, file.edit, file.delete
+  - file.glob, file.grep, file.read_outline
+  - repo.scope_discover
+  - git.status, git.diff, git.commit_safe, git.push
+  - bash.execute
+  - test.run, code.verify_suite
+
+  **Output (STRATEGIC_PLAN):**
+  ```json
+  {
+    "_type": "STRATEGIC_PLAN",
+    "route_to": "executor|synthesis|clarify",
+    "goals": [
+      {"id": "GOAL_1", "description": "Understand current implementation", "priority": "high"},
+      {"id": "GOAL_2", "description": "Add error handling", "depends_on": "GOAL_1"},
+      {"id": "GOAL_3", "description": "Verify changes work", "depends_on": "GOAL_2"}
+    ],
+    "approach": "Read current code, add try/except blocks, run tests",
+    "success_criteria": "Error handling added and tests pass",
+    "reason": "Need to read and modify code files"
+  }
+  ```
+
+  **Key Principle:** Strategic, not tactical. The Executor handles specific operations.

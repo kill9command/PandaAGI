@@ -1,0 +1,102 @@
+# PDP Selector Recipe
+# Learns CSS selectors for Product Detail Pages via LLM calibration
+#
+# Used by PDPExtractor when no known selectors exist for a domain.
+# The LLM analyzes page structure and outputs reliable CSS selectors.
+
+name: tools_pdp_selector
+category: tools
+role: pdp_selector
+model_layer: REFLEX  # Classification/extraction uses REFLEX (temp 0.3)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/tools/pdp_selector.md"
+
+# Input documents
+input_docs:
+  - path: "page_url"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "URL and page title of the PDP"
+
+  - path: "page_analysis"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 2000
+    description: "Discovered price elements, title candidates, cart buttons, meta data"
+
+# Output document
+output_doc:
+  path: "pdp_selectors.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 3000
+  prompt: 600       # pdp_selector.md prompt
+  input_docs: 2200  # page analysis data
+  output: 500       # JSON selectors
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: page_url        # Always keep URL
+    - truncate: page_analysis  # Truncate analysis if too long
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - page_type
+    - price_selector
+    - title_selector
+  properties:
+    page_type:
+      type: string
+      enum: ["pdp"]
+    price_selector:
+      type: string
+      description: "CSS selector for main product price"
+    title_selector:
+      type: string
+      description: "CSS selector for product title"
+    cart_button_selector:
+      type: string
+      description: "CSS selector for Add to Cart button"
+    product_card_selector:
+      type: string
+    link_selector:
+      type: string
+    image_selector:
+      type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+# Description
+description: |
+  PDP Selector learns CSS selectors for extracting product data from PDPs.
+
+  **Selection Priority:**
+  1. [data-testid="..."] - Most stable across deployments
+  2. #id - Unique identifiers
+  3. Semantic class names like ".product-price"
+
+  **Avoid:**
+  - CSS-in-JS hashed classes (change between deployments)
+  - Deeply nested selectors (fragile)
+
+  Input: page_url + page_analysis (discovered elements)
+  Output: CSS selectors for price, title, cart button
+
+# Integration
+integration:
+  invoked_by:
+    - pdp_extractor._calibrate_pdp
+  invocation_point: when_no_known_selectors_for_domain

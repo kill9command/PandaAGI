@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --panda-bg: #101014;
+  --panda-surface: #17171c;
+  --panda-border: #22222a;
+  --panda-text: #ececf1;
+  --panda-muted: #9aa3c2;
+  --panda-accent: #445fe6;
+}
+
+body {
+  background: var(--panda-bg);
+  color: var(--panda-text);
+  font-family: 'Segoe UI', 'Fira Sans', Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  background: #191920;
+}
+::-webkit-scrollbar-thumb {
+  background: #22222b;
+  border-radius: 10px;
+}
+
+/* Spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #68a8ef;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Code blocks */
+pre code {
+  display: block;
+  padding: 1em;
+  overflow-x: auto;
+  background: #1e1e1e;
+  border-radius: 6px;
+}
+
+code {
+  font-family: 'Fira Mono', 'Consolas', monospace;
+  font-size: 0.9em;
+}
+
+/* Links */
+a {
+  color: #68a8ef;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}

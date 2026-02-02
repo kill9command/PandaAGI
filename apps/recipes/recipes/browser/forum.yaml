@@ -1,0 +1,39 @@
+# Forum Extractor Recipe
+name: browser_forum
+category: browser
+role: forum_extractor
+model_layer: MIND
+
+prompt_fragments:
+  - "apps/prompts/browser/forum.md"
+
+input_docs:
+  - path: "extraction_goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "url"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "content"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3500
+
+output_doc:
+  path: "forum_extraction.json"
+  path_type: "temp"
+
+token_budget:
+  total: 5500
+  prompt: 700
+  input_docs: 3900
+  output: 1200
+
+description: |
+  Extracts key information from forum discussions.
+
+integration:
+  invoked_by:
+    - prose_extractor._extract_forum

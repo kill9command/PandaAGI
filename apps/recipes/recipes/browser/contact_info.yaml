@@ -1,0 +1,39 @@
+# Contact Info Extractor Recipe
+name: browser_contact_info
+category: browser
+role: contact_extractor
+model_layer: REFLEX
+
+prompt_fragments:
+  - "apps/prompts/browser/contact_info.md"
+
+input_docs:
+  - path: "extraction_goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "url"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "content"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 2000
+
+output_doc:
+  path: "contact_extraction.json"
+  path_type: "temp"
+
+token_budget:
+  total: 3500
+  prompt: 500
+  input_docs: 2400
+  output: 600
+
+description: |
+  Extracts contact information from pages.
+
+integration:
+  invoked_by:
+    - prose_extractor._extract_contact_info

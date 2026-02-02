@@ -1,0 +1,75 @@
+# Research SERP Analyzer Recipe
+# Extracts organic search results from SERP content
+# Part of the Research Loop - REFLEX role for extraction
+
+name: research_serp_analyzer
+category: research
+role: serp_analyzer
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/serp_analyzer.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+    description: "Section 0: Original query and intent for relevance assessment"
+
+# Note: SERP content is passed directly to the LLM, not from a document
+# The calling code adds the SERP content to the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "serp_results"
+
+# Token budget
+token_budget:
+  total: 3500
+  prompt: 600
+  input_docs: 2400      # context.md (300) + SERP content (~2100)
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 3200
+
+# Output schema
+output_schema: SERP_RESULTS
+
+# Description
+description: |
+  SERP Analyzer extracts organic search results from search engine results pages.
+
+  **Extract:**
+  - Organic result links (blue clickable titles)
+  - Complete destination URLs (not google.com redirects)
+  - Result titles and snippet text
+  - Position in results
+
+  **Exclude:**
+  - Ads and sponsored results
+  - Knowledge panels
+  - Featured snippets
+  - Image/video carousels
+  - "People also ask" boxes
+  - Any URL containing "google.com"
+
+  **Input:**
+  - context.md Section 0: Goal and intent
+  - SERP content: Raw text from search results page
+
+  **Output:**
+  JSON with results array:
+  - results: [{title, url, snippet, position}, ...]
+  - total_organic_found: count
+  - shopping_results_detected: boolean
+  - knowledge_panel_detected: boolean
+
+  This is a REFLEX role (temperature 0.3) for extraction.

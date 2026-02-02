@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>jsTree Debug Test</title>
+  <link rel="stylesheet" href="/static/vendor/jstree-themes/style.min.css" />
+</head>
+<body>
+  <h1>jsTree Initialization Debug</h1>
+  <div id="test-tree">
+    <ul>
+      <li>Root
+        <ul>
+          <li>Child 1</li>
+          <li>Child 2</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <div id="debug-output" style="margin-top: 20px; padding: 10px; background: #f0f0f0; font-family: monospace; white-space: pre-wrap;"></div>
+
+  <script>
+    const debug = [];
+    function log(msg) {
+      debug.push(msg);
+      console.log(msg);
+    }
+    
+    log('=== BEFORE JQUERY LOAD ===');
+    log('typeof jQuery: ' + typeof jQuery);
+    log('typeof window.jQuery: ' + typeof window.jQuery);
+    log('typeof $: ' + typeof $);
+  </script>
+
+  <script src="/static/vendor/jquery.min.js"></script>
+
+  <script>
+    log('\n=== AFTER JQUERY LOAD ===');
+    log('typeof jQuery: ' + typeof jQuery);
+    log('typeof window.jQuery: ' + typeof window.jQuery);
+    log('typeof $: ' + typeof $);
+    log('jQuery version: ' + (typeof jQuery !== 'undefined' ? jQuery.fn.jquery : 'N/A'));
+    log('jQuery.fn type: ' + typeof jQuery.fn);
+    log('jQuery.fn keys: ' + Object.keys(jQuery.fn).slice(0, 10).join(', '));
+  </script>
+
+  <script src="/static/vendor/jstree.min.js"></script>
+
+  <script>
+    log('\n=== AFTER JSTREE LOAD ===');
+    log('typeof jQuery.fn.jstree: ' + typeof jQuery.fn.jstree);
+    log('typeof jQuery.jstree: ' + typeof jQuery.jstree);
+    log('jQuery.jstree exists: ' + (jQuery.jstree ? 'YES' : 'NO'));
+    
+    if (jQuery.jstree) {
+      log('jQuery.jstree.version: ' + jQuery.jstree.version);
+      log('jQuery.jstree keys: ' + Object.keys(jQuery.jstree).join(', '));
+    }
+    
+    log('\njQuery.fn keys after jsTree: ' + Object.keys(jQuery.fn).slice(0, 15).join(', '));
+    
+    if (typeof jQuery.fn.jstree === 'function') {
+      log('\n=== SUCCESS: jsTree loaded! ===');
+      try {
+        jQuery('#test-tree').jstree();
+        log('jsTree initialized on #test-tree');
+      } catch(e) {
+        log('ERROR initializing jsTree: ' + e.message);
+      }
+    } else {
+      log('\n=== FAILURE: jsTree not loaded ===');
+    }
+    
+    // Display debug output
+    document.getElementById('debug-output').textContent = debug.join('\n');
+  </script>
+</body>
+</html>

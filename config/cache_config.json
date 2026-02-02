@@ -1,0 +1,35 @@
+{
+  "cache_classes": {
+    "short_lived": {
+      "ttl_seconds": 3600,
+      "max_size_mb": 100,
+      "eviction_policy": "lru",
+      "compression_enabled": false
+    },
+    "medium_term": {
+      "ttl_seconds": 86400,
+      "max_size_mb": 500,
+      "eviction_policy": "lru",
+      "compression_enabled": false
+    },
+    "long_term": {
+      "ttl_seconds": 604800,
+      "max_size_mb": 2000,
+      "eviction_policy": "lru",
+      "compression_enabled": false
+    }
+  },
+  "similarity_thresholds": {
+    "response": 0.85,
+    "claims": 0.90,
+    "tools": 0.95
+  },
+  "eviction_check_interval_seconds": 3600,
+  "eviction_policy": "lru",
+  "embedding_weight": 0.7,
+  "keyword_weight": 0.3,
+  "min_quality_for_cache": 0.3,
+  "cache_base_dir": "panda_system_docs/shared_state",
+  "cascade_enabled": true,
+  "compression_enabled": false
+}

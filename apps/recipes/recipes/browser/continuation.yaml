@@ -1,0 +1,80 @@
+# Browser Continuation Evaluator Recipe
+# Evaluates whether to continue browsing more pages or stop
+# Used by WebAgent to decide when enough information has been gathered
+
+name: browser_continuation
+category: browser
+role: browser_agent
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/continuation.md  # ~600 tokens
+
+# Input documents
+input_docs:
+  - path: browsing_state.json
+    description: Pages visited, goal, previous summaries, last page summary, statistics
+    max_tokens: 1500
+    required: true
+    path_type: temp
+
+  - path: context.md
+    description: Goal from context document
+    sections: ["0", "3"]
+    max_tokens: 300
+    required: true
+    path_type: turn
+
+# Output documents
+output_docs:
+  - continuation_decision.json  # {continue, reason, confidence, new_info_score, goal_satisfaction}
+
+# Token budget
+token_budget:
+  total: 2800
+  prompt: 600         # Fixed cost: continuation.md
+  input_docs: 1800    # browsing_state (1500) + context (300)
+  output: 250         # JSON continuation output
+  buffer: 150         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: browsing_state  # Truncate browsing state first, keep goal
+
+# Output schema
+output_schema: BROWSER_CONTINUATION_DECISION
+
+# Description
+description: |
+  Browser Continuation Evaluator analyzes browsing progress and decides whether
+  to continue visiting more pages or stop because sufficient information has
+  been gathered.
+
+  **Input Documents:**
+  - browsing_state.json: Pages visited, goal, summaries, statistics
+  - context.md: Original goal and query (for priority interpretation)
+
+  **Evaluation Criteria:**
+  - Stop when: 2+ pages with duplicate info, comprehensive coverage, diminishing returns
+  - Continue when: Last page had new info, exploring categories, need more sources
+
+  **Output:**
+  {
+    "continue": true,
+    "reason": "Brief explanation of decision (1-2 sentences)",
+    "confidence": 0.85,
+    "new_info_score": 0.7,
+    "goal_satisfaction": 0.6
+  }
+
+  **Scoring Guidelines:**
+  - new_info_score (0.0-1.0): How much new information the last page added
+  - goal_satisfaction (0.0-1.0): How well we've satisfied the browsing goal
+
+  **Key Behavior:**
+  - Quality focus: Stop when items are sufficient, not just when pages run out
+  - Diminishing returns: If new_info_score < 0.3 for 2+ pages, stop
+  - Goal-aware: Interpret original query to understand coverage requirements

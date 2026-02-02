@@ -1,0 +1,79 @@
+# Research Content Extractor Recipe
+# Extracts relevant information from page content
+# Part of the Research Loop - MIND role for reasoning/extraction
+
+name: research_content_extractor
+category: research
+role: content_extractor
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/content_extractor.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+    description: "Section 0: Query with user priority signals (cheapest, best)"
+
+  - path: "research_state.md"
+    optional: true
+    max_tokens: 400
+    path_type: "turn"
+    description: "Current research state (helps avoid redundant extraction)"
+
+# Note: Page content is passed directly to the LLM, not from a document
+# The calling code adds the sanitized page content to the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "findings"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 500
+  input_docs: 3800      # context.md (300) + research_state.md (400) + page_content (~3100)
+  output: 600
+  buffer: 100
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 4800
+
+# Output schema
+output_schema: PAGE_FINDINGS
+
+# Description
+description: |
+  Content Extractor reads page text and extracts relevant information.
+
+  **For Informational Queries:**
+  - key_facts: Important information relevant to goal
+  - recommendations: Advice or suggestions
+  - sources_cited: References mentioned
+
+  **For Commerce Queries:**
+  - recommended_products: Products mentioned positively
+  - price_expectations: Price ranges mentioned
+  - specs_to_look_for: Features users recommend
+  - warnings: Things to avoid
+  - vendors_mentioned: Where users suggest buying
+
+  **Always Include:**
+  - relevance: 0.0-1.0 how relevant was this page
+  - confidence: 0.0-1.0 how confident in extracted info
+  - summary: 1-2 sentence summary
+
+  **Input:**
+  - context.md Section 0: Query with user priority signals
+  - research_state.md: What we've already found
+  - Page content: Sanitized text from visited page
+
+  This is a MIND role (temperature 0.5) for reasoning and extraction.

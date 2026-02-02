@@ -1,0 +1,103 @@
+# Viability Reasoning Recipe
+# Evaluates products against Phase 1 requirements reasoning
+#
+# Used by product_viability.py to validate extracted products
+
+name: research_viability_reasoning
+category: research
+role: viability_evaluator
+model_layer: MIND  # Reasoning task (temp 0.1)
+
+# Prompt fragments - uses the viability_evaluator_v2 prompt
+prompt_fragments:
+  - "apps/prompts/tools/viability_evaluator_v2.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User's original query"
+
+  - path: "requirements_reasoning"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 1500
+    description: "YAML requirements reasoning from Phase 1"
+
+  - path: "products"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 2500
+    description: "Products to evaluate (formatted list)"
+
+# Output document
+output_doc:
+  path: "viability_results.yaml"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 5500
+  prompt: 800
+  input_docs: 4200
+  output: 2000
+  buffer: 0
+
+# Output schema
+output_schema:
+  type: array
+  items:
+    type: object
+    required:
+      - product_index
+      - product_name
+      - decision
+      - score
+    properties:
+      product_index:
+        type: integer
+      product_name:
+        type: string
+      reasoning:
+        type: object
+        properties:
+          fundamental_check:
+            type: string
+          user_satisfaction:
+            type: string
+          requirements_check:
+            type: string
+      decision:
+        type: string
+        enum: ["ACCEPT", "REJECT", "UNCERTAIN"]
+      score:
+        type: number
+        minimum: 0
+        maximum: 1
+      rejection_reason:
+        type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 2
+
+description: |
+  Evaluates extracted products against Phase 1 requirements reasoning.
+
+  For each product:
+  1. Fundamental check - is it the right TYPE of product?
+  2. User satisfaction - would user be happy?
+  3. Requirements check - meets must_be, must_have, no disqualifiers?
+
+  Output: YAML array with decision (ACCEPT/REJECT/UNCERTAIN) and score.
+
+  Critical: Do NOT reject products for unrecognized model numbers.
+  Retailers have current data; LLM training may be outdated.
+
+integration:
+  invoked_by:
+    - product_viability.evaluate_viability_with_reasoning
+  invocation_point: after_product_extraction

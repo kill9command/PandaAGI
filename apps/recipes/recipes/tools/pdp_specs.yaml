@@ -1,0 +1,88 @@
+# PDP Specs Extraction Recipe
+# Extracts product specifications from PDP content using LLM
+#
+# Used by PDPExtractor when mechanical spec extraction (JSON-LD, HTML tables)
+# doesn't find the specs needed for the user's goal.
+
+name: tools_pdp_specs
+category: tools
+role: pdp_specs
+model_layer: MIND  # Extraction/reasoning uses MIND (temp 0.5)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/tools/pdp_specs.md"
+
+# Input documents
+input_docs:
+  - path: "extraction_goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 150
+    description: "User's search goal (e.g., 'laptop with nvidia gpu')"
+
+  - path: "page_content"
+    path_type: "temp"
+    optional: false
+    max_tokens: 4000
+    description: "Text content from the PDP page"
+
+# Output document
+output_doc:
+  path: "pdp_specs.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 500       # pdp_specs.md prompt
+  input_docs: 4150  # goal + page content
+  output: 500       # JSON specs
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: extraction_goal  # Always keep goal
+    - truncate: page_content # Truncate page if too long
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - specs
+  properties:
+    specs:
+      type: object
+      description: "Key-value pairs of extracted specs"
+      additionalProperties:
+        type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+# Description
+description: |
+  PDP Specs extracts technical specifications from PDP page content.
+
+  **Normalized Keys:**
+  - gpu, cpu, ram, storage, display, battery, weight, os
+  - Other specs: lowercase with underscores (screen_size, refresh_rate)
+
+  **Rules:**
+  - Only extract specs explicitly stated on page
+  - Preserve original values with units ("16GB DDR5")
+  - Empty object {} is valid if no specs found
+  - Focus on specs relevant to user's goal
+
+  Input: extraction_goal + page_content
+  Output: JSON with specs object
+
+# Integration
+integration:
+  invoked_by:
+    - pdp_extractor._extract_specs_with_llm
+  invocation_point: when_mechanical_extraction_misses_specs

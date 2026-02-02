@@ -1,0 +1,98 @@
+# Topic Extractor Recipe
+# Extracts structured topic metadata from research queries
+#
+# Used by KnowledgeExtractor to organize research results
+# into a topic hierarchy for knowledge retrieval.
+
+name: research_topic_extractor
+category: research
+role: topic_extractor
+model_layer: REFLEX  # Classification/extraction uses REFLEX (temp 0.3)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/topic_extractor.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User's research query"
+
+  - path: "research_context"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 500
+    description: "Optional context from research results (findings, sources)"
+
+# Output document
+output_doc:
+  path: "topic_metadata.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 1200
+  prompt: 600       # topic_extractor.md prompt
+  input_docs: 700   # query + context
+  output: 500       # JSON topic metadata
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: query
+    - truncate: research_context
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - topic_name
+    - topic_slug
+  properties:
+    topic_name:
+      type: string
+      description: "Human-readable topic title"
+    topic_slug:
+      type: string
+      description: "URL-safe identifier (lowercase, underscores)"
+    parent_slug:
+      type: ["string", "null"]
+      description: "Parent topic slug or null"
+    retailers:
+      type: array
+      items:
+        type: string
+      description: "List of relevant retailer names"
+    is_new_domain:
+      type: boolean
+      description: "Whether this is a new/unique topic area"
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+# Description
+description: |
+  Topic Extractor creates structured topic metadata from research queries.
+
+  **Output Fields:**
+  - topic_name: Human-readable (Title Case)
+  - topic_slug: URL-safe (lowercase_underscores)
+  - parent_slug: Parent category or null
+  - retailers: Relevant retailer list
+  - is_new_domain: Whether topic is unique
+
+  Input: query + optional research_context
+  Output: JSON topic metadata for knowledge organization
+
+# Integration
+integration:
+  invoked_by:
+    - knowledge_extractor._extract_topic_llm
+  invocation_point: after_research_completion

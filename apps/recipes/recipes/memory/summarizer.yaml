@@ -1,0 +1,71 @@
+# Summarizer Recipe (Memory Write Layer)
+# Turn summarization + persistent memory writes
+# Architecture: architecture/DOCUMENT-IO-SYSTEM/PROMPT_MANAGEMENT_SYSTEM.md
+
+name: summarizer
+category: memory
+role: summarizer
+phase: turn_end
+mode: null  # Unified for both chat and code
+temperature: 0.3
+
+prompt_fragments:
+  - "apps/prompts/memory/summarizer.md"
+
+input_docs:
+  - path: "user_query"
+    optional: false
+    max_tokens: 300
+    path_type: "inline"
+    description: "What the user asked this turn"
+
+  - path: "answer"
+    optional: false
+    max_tokens: 600
+    path_type: "inline"
+    description: "The assistant's response"
+
+  - path: "context"
+    optional: true
+    max_tokens: 500
+    path_type: "inline"
+    description: "Unified context with claims (replaces capsule)"
+
+output_docs:
+  - "turn_summary.json"    # For immediate next turn
+  - "memory_writes.json"   # Instructions for persistent memory
+
+token_budget:
+  total: 4000
+  prompt: 1000          # summarizer.md prompt
+  input_docs: 1400      # user + answer + context
+  output: 1400          # JSON summary + memory writes
+  buffer: 200           # Safety margin
+
+llm_params:
+  temperature: 0.3
+  max_tokens: 1500
+
+output_schema: SUMMARIZER_OUTPUT  # JSON format defined in prompt
+
+description: |
+  Summarizer (Memory Write Layer) handles two responsibilities:
+
+  1. **TURN-LEVEL (for immediate next query):**
+     - Compress current turn -> turn_summary
+     - Key findings, topic, satisfaction estimate
+     - This becomes prior_turn_summary for Context Builder
+
+  2. **LONG-TERM MEMORY (persistent storage):**
+     - Detect new user preferences -> write to user_preferences.md
+     - Detect new user facts -> write to user_facts.md
+     - Detect system learnings -> write to system_learnings.md
+     - Create lessons from successful/failed patterns
+
+  **Memory Write Triggers:**
+  - User says "remember..." -> user_facts.md
+  - User reveals preference -> user_preferences.md
+  - System learns something -> system_learnings.md
+  - Research yields reusable fact -> domain_knowledge.md
+
+  **Phase:** Summarization (Phase 8 in canonical flow, after response sent)

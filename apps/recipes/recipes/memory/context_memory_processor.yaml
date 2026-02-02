@@ -1,0 +1,154 @@
+# Context Memory Processor Recipe
+# Processes complete turns and extracts memories for session context
+#
+# Used by context_manager_memory.py to extract preferences, topics,
+# facts, and quality assessments from completed turns.
+
+name: memory_context_memory_processor
+category: memory
+role: context_memory_processor
+model_layer: MIND  # Reasoning task uses MIND (temp 0.2)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/memory/context_memory_processor.md"
+
+# Input documents
+input_docs:
+  - path: "context_section"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 400
+    description: "Current session context (preferences, topic, recent turns)"
+
+  - path: "user_message"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 300
+    description: "User's message this turn"
+
+  - path: "tool_section"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 300
+    description: "Summary of tools executed this turn"
+
+  - path: "capsule_section"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 400
+    description: "Claims generated from tool results"
+
+  - path: "guide_response"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 500
+    description: "Guide's synthesized response (truncated)"
+
+  - path: "intent_classification"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 50
+    description: "Intent classification (transactional, informational, etc.)"
+
+  - path: "current_topic"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 100
+    description: "Current stored topic for change detection"
+
+# Output document
+output_doc:
+  path: "memory_update.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 3000
+  prompt: 800       # context_memory_processor.md prompt
+  input_docs: 1400  # various turn data
+  output: 800       # JSON with preferences, facts, quality
+  buffer: 0
+
+# Trimming strategy
+trimming_strategy:
+  method: intelligent_truncate
+  priority:
+    - keep: user_message
+    - keep: intent_classification
+    - keep: current_topic
+    - truncate: context_section
+    - truncate: guide_response
+    - truncate: capsule_section
+    - truncate: tool_section
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - preferences
+    - confidence
+    - quality
+  properties:
+    preferences:
+      type: object
+      additionalProperties:
+        type: string
+    confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    topic:
+      type: string
+    topic_confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    facts:
+      type: object
+      additionalProperties:
+        type: array
+        items:
+          type: string
+    quality:
+      type: object
+      required:
+        - user_need_met
+        - information_complete
+        - requires_followup
+      properties:
+        user_need_met:
+          type: boolean
+        information_complete:
+          type: boolean
+        requires_followup:
+          type: boolean
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 2
+
+# Description
+description: |
+  Context Memory Processor extracts memories from completed turns.
+
+  **Extracts:**
+  - Preferences: Only from EXPLICIT declarations (not exploratory queries)
+  - Topics: Current focus from THIS turn (detects topic changes)
+  - Facts: Key information organized by domain
+  - Quality: Whether user's need was met
+
+  **Critical Rules:**
+  - "Find X" = exploratory, DO NOT extract as preference
+  - "My favorite is X" = explicit declaration, EXTRACT
+  - Topic is always from current turn, not preserved from history
+
+  Input: context + user_message + tools + capsule + response + intent
+  Output: memory_update.json with preferences, topic, facts, quality
+
+# Integration
+integration:
+  invoked_by:
+    - context_manager_memory.ContextManagerMemory._build_memory_processing_prompt
+  invocation_point: after_synthesis_before_save

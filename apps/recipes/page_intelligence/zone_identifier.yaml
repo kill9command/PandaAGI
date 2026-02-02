@@ -1,0 +1,84 @@
+# Zone Identifier Recipe
+# Phase 1 of Page Intelligence Pipeline
+# Identifies semantic zones on a webpage
+
+name: zone_identifier
+role: page_intelligence
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/page_intelligence/zone_identifier.md  # ~600 tokens
+
+# Input documents
+input_docs:
+  - path: page_context.json
+    description: Page URL, title, DOM structure summary, repeated element classes
+    max_tokens: 1500
+    required: true
+    path_type: dynamic
+
+  - path: ocr_text_blocks.json
+    description: OCR-detected text blocks with bounding boxes
+    max_tokens: 800
+    required: false
+    path_type: dynamic
+
+# Output documents
+output_docs:
+  - zones.json  # List of identified zones with semantic labels and bounding info
+
+# Token budget
+token_budget:
+  total: 3500
+  prompt: 600        # Fixed cost: zone_identifier.md
+  input_docs: 2300   # page_context (1500) + ocr_text_blocks (800)
+  output: 400        # Zone definitions JSON
+  buffer: 200        # Safety buffer
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: page_context  # Truncate DOM structure if too long
+
+# Output schema
+output_schema: ZONE_IDENTIFIER
+
+# Description
+description: |
+  Zone Identifier analyzes a webpage to identify semantic zones:
+
+  **Zones to identify:**
+  - header (site navigation, logo, account links)
+  - navigation (category menus, breadcrumbs, sidebar nav)
+  - search_filters (price ranges, category filters, sort options)
+  - product_grid (main product listing area)
+  - product_details (PDP: title, price, specs, buy button)
+  - content_prose (article text, descriptions, reviews)
+  - footer (footer links, copyright)
+  - ads (sponsored content, banners)
+  - pagination (page numbers, next/prev)
+
+  **Input Documents:**
+  - page_context.json: URL, title, DOM structure, repeated classes
+  - ocr_text_blocks.json: Vision-detected text with coordinates
+
+  **Output:**
+  {
+    "zones": [
+      {
+        "zone_type": "product_grid",
+        "confidence": 0.95,
+        "dom_anchors": [".search-results", "#main-results"],
+        "bounds": {"top": 200, "left": 50, "width": 900, "height": 2000},
+        "item_count_estimate": 24,
+        "notes": "Main product listing with 24 cards"
+      },
+      ...
+    ],
+    "page_type": "search_results",  # or "product_detail", "category", "homepage"
+    "has_products": true
+  }
+
+  Phase: 1 of 3 in Page Intelligence Pipeline

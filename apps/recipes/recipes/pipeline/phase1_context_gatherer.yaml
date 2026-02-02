@@ -1,0 +1,90 @@
+# Phase 1: Context Gatherer Recipe (formerly Phase 2 in old architecture)
+# Assembles relevant context for the query
+# Architecture: architecture/main-system-patterns/phase2-context-gathering.md
+
+name: phase1_context_gatherer
+category: pipeline
+phase: 1
+role: MIND
+temperature: 0.5
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase1_context_gatherer.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 500
+    description: "Section 0 with user query, intent, mode from Phase 0"
+  - path: "turn_index"
+    sections: ["summaries"]
+    path_type: "index"
+    optional: true
+    max_tokens: 2500
+    description: "Turn summaries from index (last 20 turns)"
+  - path: "memory_headers"
+    sections: ["preferences", "facts"]
+    path_type: "memory"
+    optional: true
+    max_tokens: 400
+    description: "Memory store key-value previews"
+  - path: "research_cache_headers"
+    sections: ["cache"]
+    path_type: "cache"
+    optional: true
+    max_tokens: 500
+    description: "Research cache topic, age, quality headers"
+  - path: "forever_memory"
+    sections: ["knowledge"]
+    path_type: "obsidian"
+    optional: true
+    max_tokens: 1000
+    description: "Obsidian forever memory knowledge documents"
+
+output_doc:
+  path: "context.md"
+  section: "1"
+  description: "Writes section 1 with gathered context (preferences, prior turns, cached research)"
+
+token_budget:
+  total: 10500
+  prompt: 800
+  input_docs: 4900
+  output: 500
+  buffer: 300
+
+llm_params:
+  temperature: 0.5
+  max_tokens: 600
+
+output_schema: GATHERED_CONTEXT
+
+description: |
+  Phase 1: Context Gatherer (2-Phase Process)
+
+  Uses MIND role (temp=0.5) for reasoning about relevance.
+  Only runs when Phase 2 (Reflection) has decided PROCEED.
+
+  **2-Phase Process:**
+  1. RETRIEVAL (~5,500 tokens): Identify relevant sources without loading full docs
+  2. SYNTHESIS (~5,000 tokens): Follow links, extract details, compile section 1
+
+  **Input Sources:**
+  - QueryAnalysis from Phase 0
+  - Turn Index (prior turns summaries)
+  - Memory Store (preferences, facts)
+  - Research Index (cached research)
+  - Visit Records (cached page data)
+  - Obsidian Memory (forever memory)
+
+  **Output (context.md section 1):**
+  - Session Preferences table
+  - Relevant Prior Turns table
+  - Cached Research Intelligence with quality scores
+  - Visit Record Data
+  - Source References with links
+
+  **Dual Format:**
+  Human-readable markdown with embedded YAML _meta blocks for programmatic parsing.

@@ -1,0 +1,24 @@
+# ~/.continue/assistants/pandora.yaml
+name: pandora
+version: 0.1.0
+schema: v1
+
+models:
+  - name: Solver
+    provider: openai
+    apiBase: http://127.0.0.1:9000/v1
+    model: qwen3-30b-solver
+    roles: [chat, apply]
+    capabilities: [tool_use]
+    defaultCompletionOptions:
+      temperature: 0.2
+      maxTokens: 2048
+
+  - name: Thinking
+    provider: openai
+    apiBase: http://127.0.0.1:9000/v1
+    model: qwen3-4b-thinking
+    roles: [tool_use]
+    defaultCompletionOptions:
+      temperature: 0.2
+      maxTokens: 1024

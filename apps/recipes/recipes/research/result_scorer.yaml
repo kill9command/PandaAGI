@@ -1,0 +1,85 @@
+# Research Result Scorer Recipe
+# Scores search results for relevance and prioritizes which pages to visit
+# Part of the Research Loop - REFLEX role for quick scoring decisions
+
+name: research_result_scorer
+category: research
+role: result_scorer
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/result_scorer.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+    description: "Section 0: Query with user priority signals (cheapest, best)"
+
+  - path: "research_state.md"
+    optional: true
+    max_tokens: 500
+    path_type: "turn"
+    description: "Current research state (what we've found so far)"
+
+# Note: Search results are passed directly to the LLM
+# The calling code adds the numbered list of results to the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "scored_results"
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 400
+  input_docs: 1600      # context.md (300) + research_state.md (500) + search results (~800)
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 2300
+
+# Output schema
+output_schema: RESULT_SCORES
+
+# Description
+description: |
+  Result Scorer evaluates search results and decides which pages to visit.
+
+  **Scoring Dimensions:**
+  - Relevance (0.0-1.0): How likely to have useful info
+  - Source Type: forum | review | vendor | news | official | guide | other
+  - Priority: must_visit | should_visit | maybe | skip
+
+  **Priority Rules by Intent:**
+
+  Commerce/Transactional (Phase 1):
+  1. Forums (reddit) - real user experiences
+  2. Review sites (Tom's Hardware, CNET) - expert analysis
+  3. Guides - decision help
+  - Lower: vendor pages (useful in Phase 2, not Phase 1)
+
+  Informational:
+  1. Official sources (.gov, .edu)
+  2. Expert guides/tutorials
+  3. Forums for real-world experience
+
+  **Input:**
+  - context.md Section 0: Query with priority signals
+  - research_state.md: Current findings
+  - Search results: Titles, URLs, snippets
+
+  **Output:**
+  JSON with scored results:
+  - scored_results: [{index, title, url, score, source_type, priority, reason}]
+  - visit_plan: {must_visit: [], should_visit: [], maybe: [], skip: []}
+  - summary: Brief summary of result quality
+
+  This is a REFLEX role (temperature 0.3) for quick scoring.

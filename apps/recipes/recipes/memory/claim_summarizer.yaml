@@ -1,0 +1,88 @@
+# Claim Summarizer Recipe
+# Compresses research claims for forever memory storage
+#
+# Used by memory system to compress verbose claims before persisting
+# to the knowledge base for long-term storage and retrieval.
+
+name: memory_claim_summarizer
+category: memory
+role: claim_summarizer
+model_layer: NERVES  # Compression tasks use NERVES (temp 0.1)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/memory/claim_summarizer.md"
+
+# Input documents
+input_docs:
+  - path: "claims.json"
+    path_type: "temp"
+    optional: false
+    max_tokens: 1000
+    description: "Array of claims to compress, each with text and source"
+
+  - path: "compression_config"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 100
+    description: "Optional config with max_chars target per claim"
+
+# Output document
+output_doc:
+  path: "compressed_claims.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 2000
+  prompt: 500       # claim_summarizer.md prompt
+  input_docs: 1000  # claims to compress
+  output: 400       # compressed output
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: claims  # Keep as many claims as fit
+
+# Output schema
+output_schema:
+  type: array
+  items:
+    type: object
+    required:
+      - index
+      - compressed
+    properties:
+      index:
+        type: integer
+        description: "Original claim index (1-based)"
+      compressed:
+        type: string
+        description: "Compressed claim text"
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+# Description
+description: |
+  Claim Summarizer compresses research claims while preserving critical information
+  for permanent storage in the knowledge base.
+
+  **Preservation Rules:**
+  - Exact prices, specs, measurements
+  - Vendor/source attribution
+  - Product names and models
+  - Dates when relevant
+
+  **Compression Strategy:**
+  - Remove filler words
+  - Use standard abbreviations
+  - Keep factual core, remove commentary
+  - Target ~100 chars per claim
+
+  Input: claims.json (array of verbose claims)
+  Output: compressed_claims.json (numbered compressed claims)

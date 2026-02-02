@@ -1,0 +1,74 @@
+# Phase 2: Reflection Recipe (formerly Phase 1 in old architecture)
+# Fast binary gate: PROCEED or CLARIFY
+# Architecture: architecture/main-system-patterns/phase1-reflection.md
+
+name: phase2_reflection
+category: pipeline
+phase: 2
+role: REFLEX
+temperature: 0.3
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase2_reflection.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 1200
+    description: "Section 0 (query analysis) and Section 1 (gathered context)"
+
+output_doc:
+  path: "context.md"
+  section: "2"
+  description: "Writes section 2 with PROCEED/CLARIFY decision"
+
+token_budget:
+  total: 3500
+  prompt: 1500
+  input_docs: 1500
+  output: 300
+  buffer: 200
+
+llm_params:
+  temperature: 0.3
+  max_tokens: 400
+
+output_schema: REFLECTION_DECISION
+
+description: |
+  Phase 2: Reflection (Binary Gate)
+
+  Uses REFLEX role (temp=0.3) for fast, deterministic classification.
+  This is the PROCEED/CLARIFY gate before proceeding to Planner.
+
+  **Core Question:** "Can we answer this query?"
+
+  **Design Principles:**
+  - Fast execution (small model, minimal tokens)
+  - Default to PROCEED when uncertain
+  - Only CLARIFY when genuinely ambiguous AND query could not be resolved
+
+  **Decisions:**
+  | Decision | When to Use | Next Phase |
+  |----------|-------------|------------|
+  | PROCEED  | Query clear enough to attempt | Phase 3 (Planner) |
+  | CLARIFY  | Query genuinely ambiguous | Return to user |
+
+  **Uses reference_resolution.status from Phase 0:**
+  - not_needed: Query was explicit -> strongly favor PROCEED
+  - resolved: References interpreted -> strongly favor PROCEED
+  - failed: Could not resolve -> lean toward CLARIFY
+
+  **Output:**
+  ```json
+  {
+    "decision": "PROCEED|CLARIFY",
+    "confidence": 0.0-1.0,
+    "reasoning": "brief explanation",
+    "interaction_type": "ACTION|RETRY|RECALL|CLARIFICATION|INFORMATIONAL",
+    "is_followup": boolean,
+    "clarification_question": "string if CLARIFY"
+  }
+  ```

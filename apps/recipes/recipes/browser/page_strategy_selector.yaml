@@ -1,0 +1,88 @@
+# Page Strategy Selector Recipe
+# Chooses extraction strategy for each zone based on selector quality
+# Used by Page Intelligence Phase 3 to decide extraction method
+
+name: page_strategy_selector
+category: browser
+role: page_intelligence
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/page_strategy_selector.md  # ~600 tokens
+
+# Input documents
+input_docs:
+  - path: zones.json
+    description: Zones from Phase 1 (zone_type, confidence)
+    max_tokens: 400
+    required: true
+    path_type: temp
+
+  - path: selectors.json
+    description: Selectors from Phase 2 (item_selector, fields, confidence)
+    max_tokens: 500
+    required: true
+    path_type: temp
+
+  - path: extraction_goal.json
+    description: What we're trying to extract (goals, priorities)
+    max_tokens: 200
+    required: true
+    path_type: temp
+
+# Output documents
+output_docs:
+  - strategy.json  # {strategies: [...], primary_zone, skip_zones}
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 600         # Fixed cost: page_strategy_selector.md
+  input_docs: 1100    # zones (400) + selectors (500) + extraction_goal (200)
+  output: 700         # JSON strategy output
+  buffer: 100         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: selectors  # Truncate selectors first
+
+# Output schema
+output_schema: PAGE_EXTRACTION_STRATEGY
+
+# Description
+description: |
+  Page Strategy Selector chooses the best extraction method for each zone.
+
+  **Input Documents:**
+  - zones.json: Zones from Phase 1
+  - selectors.json: Selectors from Phase 2
+  - extraction_goal.json: What we're trying to extract
+
+  **Available Strategies:**
+  - selector_extraction: Fast, reliable when selectors are good (confidence > 0.7)
+  - vision_extraction: Works without DOM, for visual-heavy pages
+  - hybrid_extraction: Best accuracy, combines selector + vision
+  - prose_extraction: For unstructured content, contact-based pricing
+
+  **Output:**
+  {
+    "strategies": [
+      {
+        "zone": "product_grid",
+        "method": "selector_extraction",
+        "confidence": 0.9,
+        "fallback": "hybrid_extraction",
+        "reason": "High-confidence selectors for standard grid"
+      }
+    ],
+    "primary_zone": "product_grid",
+    "skip_zones": ["header", "footer", "ads"]
+  }
+
+  **Key Behavior:**
+  - Always sets a fallback for selector_extraction
+  - Skips non-content zones (header, footer, ads, navigation)
+  - Prioritizes accuracy for price-sensitive extractions

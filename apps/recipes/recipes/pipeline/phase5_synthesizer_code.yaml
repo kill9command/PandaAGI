@@ -1,0 +1,98 @@
+# Phase 5: Synthesizer (Code Mode) Recipe
+# User-facing response generation for code operations
+# Architecture: architecture/main-system-patterns/phase6-synthesis.md
+
+name: phase5_synthesizer_code
+category: pipeline
+phase: 5
+role: VOICE
+mode: code
+temperature: 0.7
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase5_synthesizer_code.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2", "3", "4"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 5000
+    description: "Sections 0-4: query, context, reflection, plan, execution results"
+  - path: "toolresults.md"
+    sections: ["all"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 2000
+    description: "Full tool execution results with file contents, test output"
+
+output_doc:
+  path: "context.md"
+  section: "5"
+  description: "Writes section 5 with response preview and validation checklist"
+
+secondary_output:
+  path: "response.md"
+  description: "Full response delivered to user"
+
+token_budget:
+  total: 12000
+  prompt: 1500
+  input_docs: 7000
+  output: 3100
+  buffer: 400
+
+llm_params:
+  temperature: 0.7
+  max_tokens: 3100
+
+output_schema: SYNTHESIS_RESPONSE
+
+description: |
+  Phase 5: Synthesizer (Code Mode) - User Voice
+
+  Uses VOICE role (temp=0.7) for clear, technical communication.
+  Higher output budget for code mode (3100 vs 1000 tokens).
+
+  **Code Intent Response Pattern:**
+  ```markdown
+  I've made the requested changes to `auth.py`:
+
+  ## Changes Made
+  - Added `validate_token()` function at line 45
+  - Updated imports to include `jwt` module
+  - Added unit test in `test_auth.py`
+
+  ## Files Modified
+  - `src/auth.py` - Added token validation
+  - `tests/test_auth.py` - Added 3 test cases
+
+  All tests passing
+  ```
+
+  **Code Response Elements:**
+  - Operation summary (what was done)
+  - Files modified list with descriptions
+  - Code blocks for relevant snippets
+  - Test results summary
+  - Any warnings or notes
+
+  **Key Constraints:**
+  1. Use section 4 data for file changes (authoritative)
+  2. Include specific line numbers when relevant
+  3. Summarize test results clearly
+  4. Acknowledge any partial completions
+
+  **Output to context.md section 5:**
+  ```markdown
+  ## 5. Synthesis
+
+  **Response Preview:**
+  I've updated auth.py with the new error handling...
+
+  **Validation Checklist:**
+  - [x] Claims match evidence
+  - [x] Intent satisfied
+  - [x] Files modified correctly
+  - [x] Test results reported
+  ```

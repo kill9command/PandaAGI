@@ -1,0 +1,94 @@
+# Browser Extraction Validator Recipe
+# Validates extracted product data for completeness and quality
+# Used by WebAgent after extraction to assess data quality
+
+name: browser_extraction_validator
+category: browser
+role: browser_agent
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/extraction_validator.md  # ~900 tokens
+
+# Input documents
+input_docs:
+  - path: extracted_products.json
+    description: Array of extracted products with title, price, url, vendor, image_url, specs
+    max_tokens: 2000
+    required: true
+    path_type: temp
+
+  - path: context.md
+    description: Goal and original query from context document
+    sections: ["0", "3"]
+    max_tokens: 400
+    required: true
+    path_type: turn
+
+# Output documents
+output_docs:
+  - validation_result.json  # {valid_products, invalid_products, issues, quality_score, ...}
+
+# Token budget
+token_budget:
+  total: 4000
+  prompt: 900         # Fixed cost: extraction_validator.md
+  input_docs: 2400    # extracted_products (2000) + context (400)
+  output: 500         # JSON validation output (detailed)
+  buffer: 200         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: extracted_products  # Truncate product list if too long
+
+# Output schema
+output_schema: BROWSER_EXTRACTION_VALIDATION
+
+# Description
+description: |
+  Browser Extraction Validator checks extracted product data for completeness,
+  validity, and goal alignment.
+
+  **Input Documents:**
+  - extracted_products.json: Array of products with title, price, url, vendor, specs
+  - context.md: Goal and original query (for checking goal alignment)
+
+  **Validation Rules:**
+  - Required fields: title (>3 chars), price (parseable), url (valid http/https)
+  - Important fields: vendor, availability
+  - Optional fields: image_url, specs, rating, reviews_count
+
+  **Quality Scoring (0.0 - 1.0):**
+  - 0.9-1.0: All products have required fields, most have optional
+  - 0.7-0.8: All required fields, some missing optional
+  - 0.5-0.6: Some products missing required fields
+  - 0.3-0.4: Many products missing required fields
+  - 0.0-0.2: Most products invalid or unusable
+
+  **Output:**
+  {
+    "valid_products": [0, 1, 3, 4],
+    "invalid_products": [2],
+    "issues": {
+      "2": {"missing_fields": ["price"], "invalid_fields": [], "reason": "..."}
+    },
+    "quality_score": 0.85,
+    "completeness": {"has_price": 4, "has_url": 5, "has_availability": 3, "total": 5},
+    "duplicates": [[1, 3]],
+    "goal_alignment": {
+      "matches_category": true,
+      "matches_specs": true,
+      "matches_price_intent": true,
+      "confidence": 0.9
+    },
+    "recommendations": ["Consider re-extracting product 2 from its detail page"]
+  }
+
+  **Key Behavior:**
+  - Lenient on optional fields, strict on required fields
+  - Detect duplicates (same URL, or same title+price+vendor)
+  - Goal alignment matters: 5 valid products that don't match < 3 that do
+  - Actionable recommendations: tell what to do, not just what's wrong

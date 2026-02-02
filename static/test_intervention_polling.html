@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Intervention Polling Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a22;
+            color: #cfd3e9;
+        }
+        #status {
+            background: #2a2a33;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #68a8ef;
+        }
+        #interventions {
+            background: #2a2a33;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            min-height: 100px;
+        }
+        .intervention {
+            background: #2a1a1a;
+            border: 2px solid #ff6b6b;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        button {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .skip { background: #666; }
+        .skip:hover { background: #555; }
+        pre {
+            background: #1a1a22;
+            padding: 10px;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Intervention Polling Test</h1>
+
+    <div id="status">
+        <strong>Status:</strong> <span id="status-text">Initializing...</span><br>
+        <strong>Poll Count:</strong> <span id="poll-count">0</span><br>
+        <strong>Last Poll:</strong> <span id="last-poll">Never</span><br>
+        <strong>Interventions Found:</strong> <span id="intervention-count">0</span>
+    </div>
+
+    <div id="interventions">
+        <strong>Pending Interventions:</strong>
+        <div id="intervention-list">None</div>
+    </div>
+
+    <h2>Manual Test</h2>
+    <button onclick="testEndpoint()">Test /api/captchas/pending</button>
+    <button onclick="clearQueue()">Clear Queue (Force Resolve All)</button>
+
+    <h2>Debug Log</h2>
+    <pre id="log"></pre>
+
+    <script>
+        let pollCount = 0;
+        let intervalId = null;
+
+        function log(message) {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            logEl.textContent += `[${timestamp}] ${message}\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+            console.log(message);
+        }
+
+        async function testEndpoint() {
+            log('Testing endpoint /api/captchas/pending...');
+            try {
+                const response = await fetch('/api/captchas/pending');
+                const data = await response.json();
+                log(`Response: ${JSON.stringify(data, null, 2)}`);
+                updateInterventionDisplay(data.interventions || []);
+            } catch (error) {
+                log(`Error: ${error.message}`);
+            }
+        }
+
+        async function clearQueue() {
+            log('Clearing intervention queue...');
+            try {
+                const response = await fetch('/api/captchas/pending');
+                const data = await response.json();
+                const interventions = data.interventions || [];
+
+                for (const intervention of interventions) {
+                    log(`Resolving intervention: ${intervention.intervention_id}`);
+                    const resolveResponse = await fetch(`/interventions/${intervention.intervention_id}/resolve`, {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ resolved: false, cookies: null })
+                    });
+
+                    if (resolveResponse.ok) {
+                        log(`✓ Resolved: ${intervention.intervention_id}`);
+                    } else {
+                        log(`✗ Failed to resolve: ${intervention.intervention_id}`);
+                    }
+                }
+
+                log('Queue cleared. Refreshing...');
+                setTimeout(testEndpoint, 500);
+            } catch (error) {
+                log(`Error: ${error.message}`);
+            }
+        }
+
+        function updateInterventionDisplay(interventions) {
+            const listEl = document.getElementById('intervention-list');
+            const countEl = document.getElementById('intervention-count');
+
+            countEl.textContent = interventions.length;
+
+            if (interventions.length === 0) {
+                listEl.innerHTML = '<em>None</em>';
+                return;
+            }
+
+            listEl.innerHTML = '';
+            interventions.forEach(intervention => {
+                const div = document.createElement('div');
+                div.className = 'intervention';
+                div.innerHTML = `
+                    <strong>ID:</strong> ${intervention.intervention_id}<br>
+                    <strong>Type:</strong> ${intervention.type}<br>
+                    <strong>Domain:</strong> ${intervention.domain}<br>
+                    <strong>Created:</strong> ${intervention.created_at}<br>
+                    <button onclick="resolveIntervention('${intervention.intervention_id}', true)">✓ Resolve</button>
+                    <button class="skip" onclick="resolveIntervention('${intervention.intervention_id}', false)">Skip</button>
+                `;
+                listEl.appendChild(div);
+            });
+        }
+
+        async function resolveIntervention(id, success) {
+            log(`Resolving intervention ${id} (success=${success})...`);
+            try {
+                const response = await fetch(`/interventions/${id}/resolve`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ resolved: success, cookies: null })
+                });
+
+                if (response.ok) {
+                    log(`✓ Intervention resolved: ${id}`);
+                    setTimeout(testEndpoint, 500);
+                } else {
+                    log(`✗ Failed to resolve: ${await response.text()}`);
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`);
+            }
+        }
+
+        async function poll() {
+            pollCount++;
+            document.getElementById('poll-count').textContent = pollCount;
+            document.getElementById('last-poll').textContent = new Date().toLocaleTimeString();
+
+            try {
+                const response = await fetch('/api/captchas/pending');
+                if (response.ok) {
+                    const data = await response.json();
+                    const interventions = data.interventions || [];
+                    log(`Poll ${pollCount}: Found ${interventions.length} intervention(s)`);
+                    updateInterventionDisplay(interventions);
+
+                    if (interventions.length > 0 && pollCount === 1) {
+                        log('⚠️ FOUND EXISTING INTERVENTIONS ON FIRST POLL!');
+                    }
+                } else {
+                    log(`Poll ${pollCount}: Error ${response.status}`);
+                }
+            } catch (error) {
+                log(`Poll ${pollCount}: Exception - ${error.message}`);
+            }
+        }
+
+        // Start polling
+        log('Starting intervention polling (every 2 seconds)...');
+        document.getElementById('status-text').textContent = 'Polling active';
+
+        // Immediate first poll
+        poll();
+
+        // Then poll every 2 seconds
+        intervalId = setInterval(poll, 2000);
+    </script>
+</body>
+</html>

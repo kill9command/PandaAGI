@@ -1,0 +1,107 @@
+# Strategy Selector Recipe
+# Phase 3 of Page Intelligence Pipeline
+# Chooses extraction strategy based on zone analysis and selectors
+
+name: strategy_selector
+role: page_intelligence
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments
+prompt_fragments:
+  - apps/prompts/page_intelligence/strategy_selector.md  # ~400 tokens
+
+# Input documents
+input_docs:
+  - path: zones.json
+    description: Identified zones from Phase 1
+    max_tokens: 400
+    required: true
+    path_type: dynamic
+
+  - path: selectors.json
+    description: Generated selectors from Phase 2
+    max_tokens: 600
+    required: true
+    path_type: dynamic
+
+  - path: extraction_goal.json
+    description: What we're trying to extract (products, content, etc.)
+    max_tokens: 200
+    required: true
+    path_type: dynamic
+
+# Output documents
+output_docs:
+  - strategy.json  # Extraction strategy per zone
+
+# Token budget
+token_budget:
+  total: 2200
+  prompt: 400        # Fixed cost: strategy_selector.md
+  input_docs: 1200   # zones (400) + selectors (600) + extraction_goal (200)
+  output: 400        # Strategy definitions JSON
+  buffer: 200        # Safety buffer
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: selectors  # Truncate selector details if too long
+
+# Output schema
+output_schema: STRATEGY_SELECTOR
+
+# Description
+description: |
+  Strategy Selector decides HOW to extract from each zone based on analysis.
+
+  **Available Strategies:**
+
+  1. **selector_extraction**
+     - Use when: Strong selectors with high confidence, grid-like layouts
+     - Pro: Fast, reliable, structured output
+     - Con: Fails if page structure changes
+
+  2. **vision_extraction**
+     - Use when: Complex visual layouts, image-heavy content
+     - Pro: Works without DOM knowledge
+     - Con: Slower, requires OCR
+
+  3. **hybrid_extraction**
+     - Use when: Good selectors but need visual verification
+     - Pro: Best accuracy, cross-validates DOM and OCR
+     - Con: Most expensive
+
+  4. **prose_extraction**
+     - Use when: No product zone, contact-based pricing, prose content
+     - Pro: Handles edge cases gracefully
+     - Con: Unstructured output
+
+  **Input Documents:**
+  - zones.json: What zones exist and their properties
+  - selectors.json: CSS selectors for each zone
+  - extraction_goal.json: What we need to extract
+
+  **Output:**
+  {
+    "strategies": [
+      {
+        "zone": "product_grid",
+        "method": "selector_extraction",
+        "confidence": 0.9,
+        "fallback": "hybrid_extraction",
+        "reason": "Strong selectors, standard e-commerce grid"
+      },
+      {
+        "zone": "product_details",
+        "method": "hybrid_extraction",
+        "confidence": 0.7,
+        "fallback": "vision_extraction",
+        "reason": "Complex layout, verify price with OCR"
+      }
+    ],
+    "primary_zone": "product_grid",
+    "skip_zones": ["header", "footer", "ads"]
+  }
+
+  Phase: 3 of 3 in Page Intelligence Pipeline

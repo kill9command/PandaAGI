@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>jsTree AMD Conflict Test</title>
+</head>
+<body>
+  <h1>Testing AMD Conflict</h1>
+  <div id="output" style="font-family: monospace; white-space: pre-wrap; padding: 10px; background: #f0f0f0;"></div>
+
+  <script>
+    const log = [];
+    function addLog(msg) {
+      log.push(msg);
+      console.log(msg);
+      document.getElementById('output').textContent = log.join('\n');
+    }
+  </script>
+
+  <!-- Monaco loader BEFORE jsTree -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+
+  <script>
+    addLog('After Monaco loader:');
+    addLog('typeof define: ' + typeof define);
+    addLog('typeof define.amd: ' + typeof define.amd);
+    addLog('typeof require: ' + typeof require);
+  </script>
+
+  <script src="/static/vendor/jquery.min.js"></script>
+
+  <script>
+    addLog('\nAfter jQuery:');
+    addLog('typeof jQuery: ' + typeof jQuery);
+    addLog('jQuery version: ' + jQuery.fn.jquery);
+  </script>
+
+  <script src="/static/vendor/jstree.min.js"></script>
+
+  <script>
+    addLog('\nAfter jsTree:');
+    addLog('typeof jQuery.fn.jstree: ' + typeof jQuery.fn.jstree);
+    addLog('typeof jQuery.jstree: ' + typeof jQuery.jstree);
+    
+    if (typeof define !== 'undefined') {
+      addLog('\nAMD define is present - this might cause jsTree to use AMD loading!');
+    }
+  </script>
+</body>
+</html>

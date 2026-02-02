@@ -1,0 +1,69 @@
+# Research Webpage Reader Recipe
+# Extracts structured information from web pages based on reading goal
+# Part of the Research Loop - MIND role for content analysis
+
+name: research_webpage_reader
+category: research
+role: webpage_reader
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/webpage_reader.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0", "3"]
+    optional: false
+    max_tokens: 400
+    path_type: "turn"
+    description: "Section 0: Original query. Section 3: Reading goal"
+
+# Note: Page content and URL map are passed directly in the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "page_extraction"
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 500
+  input_docs: 1500      # Page content (truncated)
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 2300
+
+# Output schema
+output_schema: PAGE_EXTRACTION
+
+# Description
+description: |
+  Webpage Reader extracts structured information from web page content.
+
+  **Page Types Handled:**
+  - forum_thread: Discussion threads with posts
+  - vendor_catalog: Product listing pages
+  - article: Blog posts, news, guides
+  - product_listing: E-commerce category pages
+  - product_page: Single product detail pages
+  - search_results: Search result pages
+
+  **Extraction Includes:**
+  - page_type classification
+  - main_content summary
+  - products array (if applicable)
+  - facts and opinions
+
+  **URL Matching:**
+  When products are mentioned, matches them to URLs from provided URL map.
+
+  **Output:**
+  JSON with page_type, main_content, products, facts, opinions
+
+  This is a MIND role (temperature 0.5) for content analysis.

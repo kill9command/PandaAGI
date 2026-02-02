@@ -1,0 +1,96 @@
+# Phase 4: Coordinator (Code Mode) Recipe
+# Tactical execution: Executor loop + Tool Expert coordination
+# Architecture: architecture/main-system-patterns/phase4-executor.md + phase5-coordinator.md
+
+name: phase4_coordinator_code
+category: pipeline
+phase: 4
+role: MIND
+mode: code
+temperature: 0.5
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase4_coordinator_code.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2", "3"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 2500
+    description: "Sections 0-3: query, context, reflection, strategic plan"
+  - path: "context.md"
+    sections: ["4"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 3000
+    description: "Section 4: Accumulated execution results from prior iterations"
+
+output_doc:
+  path: "context.md"
+  section: "4"
+  description: "Writes/appends section 4 with execution progress and tool results"
+
+token_budget:
+  total: 12000
+  prompt: 2000
+  input_docs: 5500
+  output: 4000
+  buffer: 500
+
+llm_params:
+  temperature: 0.5
+  max_tokens: 4000
+
+output_schema: COORDINATOR_RESULT
+
+description: |
+  Phase 4: Coordinator (Code Mode) - Executor + Tool Expert
+
+  Uses MIND role (temp=0.5). Higher token budget for code operations.
+
+  **Code Mode Tools (in addition to chat tools):**
+  | Tool | When to Select |
+  |------|----------------|
+  | file.write | "create file", "write to" |
+  | file.edit | "edit", "modify", "change", "update file" |
+  | file.delete | "delete file", "remove file" |
+  | repo.scope_discover | "find related files", "discover structure" |
+  | file.read_outline | "show structure", "outline of" |
+  | git.status | "git status", "what changed" |
+  | git.diff | "show diff", "what's different" |
+  | git.commit_safe | "commit", "save changes to git" |
+  | git.push | "push", "upload changes" |
+  | bash.execute | "run command", "execute" |
+  | test.run | "run tests", "verify", "check tests" |
+  | code.verify_suite | "run test suite", "verify all tests" |
+
+  **Multi-Step Code Workflow:**
+  1. COMMAND: "Read the auth.py file" -> file.read
+  2. ANALYZE: "Current implementation uses basic auth..."
+  3. COMMAND: "Edit auth.py to add JWT validation" -> file.edit
+  4. COMMAND: "Run the auth tests" -> test.run
+  5. COMPLETE: "All goals achieved, tests passing"
+
+  **Goal Dependencies:**
+  When goals have dependencies, complete them in order:
+  - GOAL_1: Read current implementation
+  - GOAL_2: Make changes (depends on GOAL_1)
+  - GOAL_3: Run tests (depends on GOAL_2)
+
+  **Output (COORDINATOR_RESULT):**
+  ```json
+  {
+    "_type": "COORDINATOR_RESULT",
+    "action": "COMMAND|ANALYZE|COMPLETE|BLOCKED",
+    "tool_selected": "file.edit",
+    "tool_args": {
+      "file_path": "src/auth.py",
+      "old_string": "...",
+      "new_string": "..."
+    },
+    "status": "success|error|blocked",
+    "result": {...},
+    "goals_progress": [...]
+  }
+  ```

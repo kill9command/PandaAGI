@@ -1,0 +1,86 @@
+# Phase 3: Planner (Chat Mode) Recipe
+# Strategic decision-maker: WHAT needs to be done
+# Architecture: architecture/main-system-patterns/phase3-planner.md
+
+name: phase3_planner_chat
+category: pipeline
+phase: 3
+role: MIND
+mode: chat
+temperature: 0.5
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase3_planner_chat.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 2000
+    description: "Sections 0-2: query, gathered context, reflection decision"
+  - path: "context.md"
+    sections: ["0", "1", "2", "3", "4", "5", "6", "7"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 3500
+    description: "Full context on RETRY (includes failure feedback in section 7)"
+
+output_doc:
+  path: "context.md"
+  section: "3"
+  description: "Writes section 3 with strategic plan (goals, approach, success criteria)"
+
+token_budget:
+  total: 10000
+  prompt: 2000
+  input_docs: 6000
+  output: 1500
+  buffer: 500
+
+llm_params:
+  temperature: 0.5
+  max_tokens: 2000
+
+output_schema: STRATEGIC_PLAN
+
+description: |
+  Phase 3: Planner (Chat Mode) - Strategic Decision-Maker
+
+  Uses MIND role (temp=0.5) for reasoning and planning.
+  Determines WHAT needs to be done, not HOW.
+
+  **Core Question:** "What are the goals and how should we approach them?"
+
+  **Routing Decisions:**
+  | Route | When | Next Phase |
+  |-------|------|------------|
+  | executor | Need tool execution | Phase 4 (Executor) |
+  | synthesis | Can answer from context | Phase 6 (Synthesis) |
+  | clarify | Query unclear post-context | Return to user |
+
+  **Intent to Tool Mapping (Chat Mode):**
+  - commerce -> internet.research
+  - informational -> internet.research
+  - recall -> memory.search
+  - preference -> memory.save
+  - navigation -> browser.navigate
+  - greeting -> (none - synthesis)
+
+  **Output (STRATEGIC_PLAN):**
+  ```json
+  {
+    "_type": "STRATEGIC_PLAN",
+    "route_to": "executor|synthesis|clarify",
+    "goals": [
+      {"id": "GOAL_1", "description": "...", "priority": "high|medium|low"}
+    ],
+    "approach": "High-level strategy description",
+    "success_criteria": "How to know when done",
+    "context_summary": "Brief summary of relevant context",
+    "reason": "Why this routing decision"
+  }
+  ```
+
+  **Key Principle:** Strategic, not tactical. Defines goals, not tool calls.
+  The Executor (Phase 4) determines HOW to achieve goals.

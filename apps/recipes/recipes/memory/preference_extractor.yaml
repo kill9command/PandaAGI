@@ -1,0 +1,155 @@
+# Preference Extractor Recipe
+# Extracts user preferences from conversation context
+#
+# Used by memory system to detect and store user preferences
+# for personalization and future query understanding.
+
+name: memory_preference_extractor
+category: memory
+role: preference_extractor
+model_layer: REFLEX  # Classification tasks use REFLEX (temp 0.3)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/memory/preference_extractor.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "Current user query"
+
+  - path: "context"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 800
+    description: "Conversation context from previous turns"
+
+# Output document
+output_doc:
+  path: "extracted_preferences.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 2000
+  prompt: 700       # preference_extractor.md prompt (includes examples)
+  input_docs: 1000  # query + context
+  output: 250       # JSON preferences output
+  buffer: 50
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: query     # Always keep current query
+    - truncate: context  # Truncate older context if needed
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - preferences
+    - topic
+    - overall_confidence
+  properties:
+    preferences:
+      type: object
+      properties:
+        budget:
+          type: object
+          properties:
+            value:
+              type: string
+            type:
+              type: string
+              enum: ["explicit", "implicit"]
+            confidence:
+              type: number
+        brands:
+          type: object
+          properties:
+            positive:
+              type: array
+              items:
+                type: string
+            negative:
+              type: array
+              items:
+                type: string
+            confidence:
+              type: number
+        features:
+          type: object
+          properties:
+            required:
+              type: array
+              items:
+                type: string
+            preferred:
+              type: array
+              items:
+                type: string
+            avoided:
+              type: array
+              items:
+                type: string
+            confidence:
+              type: number
+        shopping:
+          type: object
+          properties:
+            preferred_vendors:
+              type: array
+              items:
+                type: string
+            requirements:
+              type: array
+              items:
+                type: string
+            confidence:
+              type: number
+    topic:
+      type: string
+    entities:
+      type: array
+      items:
+        type: string
+    overall_confidence:
+      type: number
+      minimum: 0
+      maximum: 1
+    reasoning:
+      type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  confidence_threshold: 0.4  # Low threshold - preferences often implicit
+  max_retries: 1
+
+# Description
+description: |
+  Preference Extractor detects explicit and implicit user preferences from
+  conversation context for permanent storage in the user profile.
+
+  **Preference Types:**
+  - Budget: explicit ("under $1000") and implicit ("cheap", "affordable")
+  - Brands: positive/negative mentions and patterns
+  - Features: must-haves, nice-to-haves, deal-breakers
+  - Shopping: vendor preferences, shipping needs
+
+  **Confidence Guidelines:**
+  - Explicit statement: 0.95
+  - Strong implication: 0.80
+  - Weak implication: 0.60
+  - Single word hint: 0.40
+
+  **Storage:**
+  Extracted preferences stored in /Preferences/User/{user_id}.md with
+  timestamp, source turn reference, and cumulative updates.
+
+  Input: query + context
+  Output: extracted_preferences.json with structured preferences

@@ -1,0 +1,86 @@
+# Page Zone Identifier Recipe
+# Identifies semantic zones on a webpage (header, nav, product_grid, etc.)
+# Used by Page Intelligence Phase 1 to understand page structure
+
+name: page_zone_identifier
+category: browser
+role: page_intelligence
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/page_zone_identifier.md  # ~1200 tokens
+
+# Input documents
+input_docs:
+  - path: page_context.json
+    description: Page context including URL, title, DOM structure, repeated classes
+    max_tokens: 1500
+    required: true
+    path_type: temp
+
+  - path: ocr_text_blocks.json
+    description: Optional OCR text blocks with bounds
+    max_tokens: 400
+    required: false
+    path_type: temp
+
+# Output documents
+output_docs:
+  - zones.json  # {zones: [...], page_type, has_products, page_notices, availability_status}
+
+# Token budget
+token_budget:
+  total: 4200
+  prompt: 1200        # Fixed cost: page_zone_identifier.md
+  input_docs: 1900    # page_context (1500) + ocr_text_blocks (400)
+  output: 1000        # JSON zones output
+  buffer: 100         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: page_context    # Truncate page context first
+    - truncate: ocr_text_blocks # Then OCR blocks
+
+# Output schema
+output_schema: PAGE_ZONES
+
+# Description
+description: |
+  Page Zone Identifier analyzes a webpage to identify semantic zones.
+
+  **Input Documents:**
+  - page_context.json: URL, title, DOM structure, repeated classes, stable selectors
+  - ocr_text_blocks.json: Optional OCR text blocks with bounds
+
+  **Zone Types:**
+  - Universal: header, navigation, footer, ads, pagination, content_prose
+  - Commerce: search_filters, product_grid, product_details
+  - Forum: thread_list, popular_topics, discussion_content, post_list, comments
+  - News: article_list, article_content, news_feed
+  - Search: instant_answer, organic_results
+
+  **Output:**
+  {
+    "zones": [
+      {
+        "zone_type": "product_grid",
+        "confidence": 0.95,
+        "dom_anchors": [".search-results", "#main-content"],
+        "bounds": {"top": 200, "left": 50, "width": 900, "height": 2000},
+        "item_count_estimate": 24,
+        "notes": "Main product listing"
+      }
+    ],
+    "page_type": "search_results",
+    "has_products": true,
+    "page_notices": [...],
+    "availability_status": "available_online"
+  }
+
+  **Key Behavior:**
+  - Prioritizes stable selectors (data-testid, id) over class names
+  - Extracts page notices for availability, shipping, restrictions
+  - Detects breeder/adoption site terminology correctly

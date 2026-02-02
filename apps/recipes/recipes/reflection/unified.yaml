@@ -1,0 +1,65 @@
+# Unified Reflection Gate Recipe
+# Architecture: architecture/main-system-patterns/phase1-reflection.md
+# Simplified PROCEED/CLARIFY gate
+
+name: reflection_unified
+category: reflection
+role: REFLEX
+temperature: 0.1
+
+prompt_fragments:
+  - "apps/prompts/reflection/unified.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 1200
+    description: "Section 0 (user query) and Section 1 (gathered context)"
+
+output_doc:
+  path: "context.md"
+  section: "2"
+  description: "Writes section 2 with PROCEED/CLARIFY decision"
+
+token_budget:
+  total: 2500
+  prompt: 800
+  input_docs: 1200
+  output: 300
+  buffer: 200
+
+llm_params:
+  temperature: 0.1
+  max_tokens: 300
+
+output_schema: REFLECTION_UNIFIED
+
+description: |
+  Unified Reflection Gate
+
+  Uses REFLEX role (temp=0.1) for deterministic classification.
+  This is the PROCEED/CLARIFY gate before proceeding to Planner.
+
+  **Core Question:** "Can we answer this query?"
+
+  **Decisions:**
+  | Decision | When to Use | Confidence |
+  |----------|-------------|------------|
+  | PROCEED  | Enough to continue, Planner can handle gaps | >= 0.4 |
+  | CLARIFY  | Truly ambiguous, no context available | < 0.4 |
+
+  **Output Format:**
+  ```json
+  {
+    "_type": "REFLECTION_UNIFIED",
+    "decision": "PROCEED|CLARIFY",
+    "confidence": 0.0-1.0,
+    "reasoning": "brief explanation",
+    "query_type": "ACTION|RETRY|RECALL|CLARIFICATION|INFORMATIONAL",
+    "is_followup": boolean,
+    "clarification_question": "string if CLARIFY",
+    "strategy_hint": null
+  }
+  ```

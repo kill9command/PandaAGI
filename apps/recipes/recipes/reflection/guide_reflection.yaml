@@ -1,0 +1,55 @@
+# Guide Meta-Reflection Recipe
+# Part of the fractal meta-reflection pattern
+# Guide role asks: "Can I proceed with confidence?"
+
+name: guide_reflection
+category: reflection
+role: REFLEX
+temperature: 0.1
+
+prompt_fragments:
+  - "apps/prompts/reflection/guide_reflection.md"
+
+input_docs:
+  - path: "query"
+    path_type: "inline"
+    optional: false
+    description: "Current user query"
+  - path: "live_context"
+    path_type: "inline"
+    optional: true
+    description: "Living session context (recent turns, findings)"
+
+token_budget:
+  total: 1500
+  prompt: 900
+  input_docs: 400
+  output: 120
+  buffer: 80
+
+llm_params:
+  temperature: 0.1
+  max_tokens: 80
+
+output_schema: META_REFLECTION
+
+description: |
+  Guide Meta-Reflection Gate
+
+  Uses REFLEX role (temp=0.1) for fast classification.
+  Classifies query type (RETRY/ACTION/RECALL/INFORMATIONAL/CLARIFICATION/METADATA)
+  and evaluates confidence to proceed.
+
+  **Decision Options:**
+  - PROCEED: Confidence >= 0.8, have enough info
+  - NEED_INFO: Confidence 0.4-0.7, need system info (memory/search)
+  - CLARIFY: Confidence < 0.4, need user clarification
+
+  **Output Format:**
+  ```
+  QUERY_TYPE: [RETRY|ACTION|RECALL|INFORMATIONAL|CLARIFICATION|METADATA]
+  ACTION_VERBS: [list or "none"]
+  CONFIDENCE: [0.0-1.0]
+  REASON: [one sentence]
+  DECISION: [PROCEED|NEED_INFO|CLARIFY]
+  ```

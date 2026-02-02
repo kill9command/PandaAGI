@@ -1,0 +1,69 @@
+# Research Query Generator Recipe
+# Generates targeted search queries for research
+# Part of the Research Loop - MIND role for strategic query building
+
+name: research_query_generator
+category: research
+role: query_generator
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/query_generator.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 600
+    path_type: "turn"
+    description: "Section 0: Original query with user priority signals, resolved query, intent"
+
+  - path: "research_state.md"
+    optional: true
+    max_tokens: 400
+    path_type: "turn"
+    description: "Prior turn context and topic for dynamic query building"
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "queries"
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 800
+  input_docs: 1200
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 2300
+
+# Output schema
+output_schema: SEARCH_QUERIES
+
+# Description
+description: |
+  Query Generator creates 2-4 targeted search queries to find relevant information.
+
+  **Principles:**
+  - Preserve user priority signals ("cheapest", "best", "fastest")
+  - Remove search-hostile words ("recommend", "please", "can you")
+  - Keep price constraints ("under $1000")
+  - Match query style to phase (Phase 1: forums/reviews, Phase 2: vendors)
+
+  **Input:**
+  - context.md Section 0: Original query with priority signals
+  - research_state.md: Prior turn context, topic classification
+
+  **Output:**
+  JSON with queries array:
+  - queries: [{query, purpose, expected_sources}, ...]
+  - original_priority: cheapest | best | specific feature | none
+  - topic_focus: Brief description of research focus
+
+  This is a MIND role (temperature 0.5) for strategic reasoning.

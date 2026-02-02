@@ -1,0 +1,95 @@
+# Phase 4: Coordinator (Chat Mode) Recipe
+# Tactical execution: Executor loop + Tool Expert coordination
+# Architecture: architecture/main-system-patterns/phase4-executor.md + phase5-coordinator.md
+
+name: phase4_coordinator_chat
+category: pipeline
+phase: 4
+role: MIND
+mode: chat
+temperature: 0.5
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase4_coordinator_chat.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2", "3"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 2000
+    description: "Sections 0-3: query, context, reflection, strategic plan"
+  - path: "context.md"
+    sections: ["4"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 2000
+    description: "Section 4: Accumulated execution results from prior iterations"
+
+output_doc:
+  path: "context.md"
+  section: "4"
+  description: "Writes/appends section 4 with execution progress and tool results"
+
+token_budget:
+  total: 12000
+  prompt: 1500
+  input_docs: 7000
+  output: 3000
+  buffer: 500
+
+llm_params:
+  temperature: 0.5
+  max_tokens: 2500
+
+output_schema: COORDINATOR_RESULT
+
+description: |
+  Phase 4: Coordinator (Chat Mode) - Executor + Tool Expert
+
+  Uses MIND role (temp=0.5). Combines the Executor (tactical decisions) and
+  Coordinator (tool selection) into a single execution phase.
+
+  **Core Questions:**
+  - "What is the next step to achieve this goal?" (Executor)
+  - "Which tool best accomplishes this command?" (Tool Expert)
+
+  **Executor Actions:**
+  | Action | When | Result |
+  |--------|------|--------|
+  | COMMAND | Need external data or state change | Execute tool |
+  | ANALYZE | Compare/synthesize accumulated results | Analysis to section 4 |
+  | COMPLETE | All goals achieved | Proceed to Synthesis |
+  | BLOCKED | Cannot proceed | Create intervention |
+
+  **Chat Mode Tools:**
+  | Tool | When to Select |
+  |------|----------------|
+  | internet.research | "search", "find", "look up", web queries |
+  | memory.search | "recall", "what did I say", "my preferences" |
+  | memory.save | "remember", "save", "store" |
+  | memory.delete | "forget", "remove", "delete from memory" |
+  | file.read | "read file", "show contents" |
+  | file.glob | "find files", "list files matching" |
+  | file.grep | "search in files", "find text in" |
+
+  **Loop Limits:**
+  - Max iterations: 10
+  - Max consecutive tool calls: 5 (require ANALYZE before more)
+  - Max tool failures: 3 (then BLOCKED)
+
+  **Output (COORDINATOR_RESULT):**
+  ```json
+  {
+    "_type": "COORDINATOR_RESULT",
+    "action": "COMMAND|ANALYZE|COMPLETE|BLOCKED",
+    "tool_selected": "internet.research",
+    "tool_args": {...},
+    "status": "success|error|blocked",
+    "result": {...},
+    "claims": [...],
+    "goals_progress": [
+      {"goal_id": "GOAL_1", "status": "in_progress|achieved|blocked", "progress": "..."}
+    ]
+  }
+  ```

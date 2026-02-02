@@ -1,0 +1,73 @@
+# Topic Keyword Extractor Recipe
+# Extracts core topic keywords from user query
+#
+# Used in Phase 2 to build vendor-specific search queries.
+# Preserves user requirements like price constraints.
+
+name: research_topic_keyword_extractor
+category: research
+role: topic_extractor
+model_layer: REFLEX  # Classification/extraction uses REFLEX (temp 0.3)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/topic_keyword_extractor.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User query to extract topic from"
+
+# Output document
+output_doc:
+  path: "topic_keywords.txt"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 400
+  prompt: 200       # topic_keyword_extractor.md prompt
+  input_docs: 200   # query
+  output: 30        # topic keywords (2-5 words)
+  buffer: 30
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: query
+
+# Output schema
+output_schema:
+  type: string
+  description: "Topic keywords (2-5 words)"
+
+# Quality gates
+quality_gates:
+  schema_validation: false  # Plain text output
+  max_retries: 1
+
+# Description
+description: |
+  Topic Keyword Extractor finds the core topic in a user query.
+
+  **Removes:**
+  - Conversational filler (find me, can you, help me)
+  - Generic commerce words (for sale, buy)
+
+  **Preserves:**
+  - Price constraints (cheapest, budget, under $X)
+  - Product names and brands
+  - Key specifications
+
+  Input: User query
+  Output: 2-5 word topic description
+
+# Integration
+integration:
+  invoked_by:
+    - query_planner.plan_phase2_queries
+  invocation_point: phase2_topic_extraction

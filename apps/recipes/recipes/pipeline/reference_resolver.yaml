@@ -1,0 +1,57 @@
+# Reference Resolver Recipe
+# Resolves vague references in queries using conversation context
+#
+# Used in Phase 0 (Query Analyzer) to resolve pronouns and references
+# before context gathering begins.
+
+name: reference_resolver
+category: pipeline
+role: reflex
+model_layer: REFLEX  # Low temperature for consistent resolution
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/pipeline/reference_resolver.md"
+
+# Input documents (not used - this is a simple prompt with runtime placeholders)
+input_docs: []
+
+# Output document (inline response, not written to file)
+output_doc:
+  path: "resolved_query.txt"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 800
+  prompt: 400      # reference_resolver.md prompt
+  input_docs: 200  # context passed as placeholder
+  output: 150      # resolved query
+  buffer: 50
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+
+# Quality gates
+quality_gates:
+  schema_validation: false  # Output is plain text
+  max_retries: 1
+
+# Description
+description: |
+  Reference Resolver identifies and resolves vague references in user queries
+  using the immediately preceding conversation context (N-1 turn).
+
+  **Resolution Types:**
+  - Pronouns: "it", "that", "those", "them", "some"
+  - Definite references: "the thread", "the laptop"
+  - Implicit references: "tell me more", "what's the price"
+
+  **Behavior:**
+  - Returns resolved query if references found
+  - Returns original query unchanged if already explicit
+  - Low temperature (0.1) for consistent resolution
+
+  Input: query + context (via placeholders)
+  Output: resolved query text

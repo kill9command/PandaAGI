@@ -1,0 +1,67 @@
+# Research Organic Results Extractor Recipe
+# Fallback extraction of search results when primary methods fail
+# Part of the Research Loop - REFLEX role for extraction
+
+name: research_organic_results_extractor
+category: research
+role: organic_extractor
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/organic_results_extractor.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 200
+    path_type: "turn"
+    description: "Section 0: Query context"
+
+# Note: Page content is passed directly in the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "serp_results"
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 500
+  input_docs: 1500      # Filtered search content
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 2300
+
+# Output schema
+output_schema: ORGANIC_RESULTS
+
+# Description
+description: |
+  Organic Results Extractor is a fallback for extracting search results.
+
+  **Used When:**
+  - Primary SERP extraction fails
+  - Need to extract from raw page content
+
+  **Critical Rules:**
+  - Extract ONLY organic results (not AI summaries, instant answers)
+  - Skip google.com and duckduckgo.com URLs
+  - Skip navigation and internal links
+  - Quality over quantity - only confident extractions
+
+  **DuckDuckGo Structure:**
+  1. Navigation links - SKIP
+  2. AI summary section - SKIP
+  3. Organic results - EXTRACT FROM HERE
+
+  **Output:**
+  JSON with results array containing url, title, snippet
+
+  This is a REFLEX role (temperature 0.3) for extraction.

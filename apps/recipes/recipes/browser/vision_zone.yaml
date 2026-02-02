@@ -1,0 +1,81 @@
+# Vision Zone Extractor Recipe
+# Extracts items from OCR text blocks within a page zone
+#
+# Used by PageIntelligence VisionExtractor for zone-based extraction
+
+name: browser_vision_zone
+category: browser
+role: vision_zone_extractor
+model_layer: REFLEX  # Extraction (temp 0.1)
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/browser/vision_zone.md"
+
+# Input documents
+input_docs:
+  - path: "zone_type"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 50
+    description: "Type of zone (product_grid, search_results, etc.)"
+
+  - path: "extraction_goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "What to extract from the zone"
+
+  - path: "text_blocks"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3000
+    description: "OCR text blocks with coordinates"
+
+# Output document
+output_doc:
+  path: "extracted_items.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 800
+  input_docs: 3200
+  output: 2000
+  buffer: 0
+
+# Output schema
+output_schema:
+  type: array
+  items:
+    type: object
+    required:
+      - title
+    properties:
+      title:
+        type: string
+      price:
+        type: string
+      rating:
+        type: string
+      availability:
+        type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+description: |
+  Extracts items from OCR text blocks within a page zone.
+  Groups text by Y coordinate to identify rows, then extracts
+  title, price, rating from spatial patterns.
+
+  Input: zone_type + extraction_goal + text_blocks
+  Output: JSON array of extracted items
+
+integration:
+  invoked_by:
+    - page_intelligence.extractors.vision_extractor._extract_with_llm
+  invocation_point: during_zone_extraction

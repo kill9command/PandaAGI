@@ -1,0 +1,106 @@
+# Browser Multi-Page Synthesizer Recipe
+# Combines data from multiple pages into unified, deduplicated results
+# Used by WebAgent after visiting multiple pages to produce final output
+
+name: browser_multi_page_synth
+category: browser
+role: browser_agent
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/multi_page_synth.md  # ~1000 tokens
+
+# Input documents
+input_docs:
+  - path: page_results.json
+    description: Array of results from each page (url, page_number, items, summary)
+    max_tokens: 3000
+    required: true
+    path_type: temp
+
+  - path: context.md
+    description: Goal and original query from context document
+    sections: ["0", "3"]
+    max_tokens: 400
+    required: true
+    path_type: turn
+
+  - path: synthesis_stats.json
+    description: Total counts of items, pages, unique items
+    max_tokens: 200
+    required: false
+    path_type: temp
+
+# Output documents
+output_docs:
+  - synthesized_results.json  # {unified_results, summary, key_findings, patterns, statistics, ...}
+
+# Token budget
+token_budget:
+  total: 5500
+  prompt: 1000        # Fixed cost: multi_page_synth.md
+  input_docs: 3600    # page_results (3000) + context (400) + synthesis_stats (200)
+  output: 700         # JSON synthesis output (detailed)
+  buffer: 200         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: page_results  # Truncate page results if too long
+
+# Output schema
+output_schema: BROWSER_MULTI_PAGE_SYNTHESIS
+
+# Description
+description: |
+  Browser Multi-Page Synthesizer combines data gathered from multiple pages
+  into a unified, deduplicated result set with insights and patterns.
+
+  **Input Documents:**
+  - page_results.json: Results from each page (url, page_number, items, summary)
+  - context.md: Goal and original query (for priority signals)
+  - synthesis_stats.json: Total counts for context
+
+  **Deduplication Rules:**
+  - Same URL = definitive duplicate
+  - Same title + same price + same vendor = duplicate
+  - Very similar title (>90%) + same price = likely duplicate
+  - When merging: keep entry with more complete data, preserve earliest source
+
+  **Priority Signals from Original Query:**
+  - "cheapest" -> Sort by price, highlight lowest
+  - "best" -> Highlight ratings/reviews
+  - "compare" -> Emphasize differences
+  - "all" -> Ensure comprehensive coverage
+
+  **Output:**
+  {
+    "unified_results": [
+      {"title": "...", "price": 599.99, "url": "...", "vendor": "...", "sources": [...], "confidence": 0.95}
+    ],
+    "summary": "Overall summary of findings (2-3 sentences)",
+    "key_findings": ["Most important finding 1", "..."],
+    "patterns": {
+      "price_range": {"min": 399, "max": 1299, "median": 699},
+      "common_specs": ["16GB RAM", "512GB SSD"],
+      "availability": "mostly_in_stock"
+    },
+    "statistics": {
+      "total_items_seen": 45,
+      "unique_items": 32,
+      "duplicates_merged": 13,
+      "pages_synthesized": 5
+    },
+    "confidence": 0.85,
+    "coverage": "comprehensive|partial|minimal",
+    "recommendations": ["Consider checking additional vendors"]
+  }
+
+  **Key Behavior:**
+  - Dedupe aggressively: Same item on multiple pages becomes one entry
+  - Preserve sources: Track where each item was found for verification
+  - Goal-aware sorting: Sort results by relevance to original query intent
+  - Honest about gaps: If coverage is limited, say so clearly
+  - Actionable insights: Key findings should help user make decisions

@@ -1,0 +1,50 @@
+# Coordinator Meta-Reflection Recipe
+# Part of the fractal meta-reflection pattern
+# Coordinator role asks: "Can I create a solid execution plan?"
+
+name: coordinator_reflection
+category: reflection
+role: REFLEX
+temperature: 0.1
+
+prompt_fragments:
+  - "apps/prompts/reflection/coordinator_reflection.md"
+
+input_docs:
+  - path: "ticket"
+    path_type: "inline"
+    optional: false
+    description: "Task ticket from Guide (goal, context, subtasks)"
+
+token_budget:
+  total: 1200
+  prompt: 500
+  input_docs: 500
+  output: 120
+  buffer: 80
+
+llm_params:
+  temperature: 0.1
+  max_tokens: 80
+
+output_schema: META_REFLECTION
+
+description: |
+  Coordinator Meta-Reflection Gate
+
+  Uses REFLEX role (temp=0.1) for fast evaluation.
+  Evaluates planning confidence based on available tools and task clarity.
+
+  **Confidence Scale:**
+  - 1.0: Perfect match, clear plan with right tools
+  - 0.8: Good fit, can create effective plan
+  - 0.6: Partial fit, might need workarounds
+  - 0.4: Missing key tools or unclear requirements
+  - 0.2: Cannot execute effectively
+
+  **Output Format:**
+  ```
+  CONFIDENCE: [0.0-1.0]
+  REASON: [one sentence]
+  CAN_PROCEED: [YES|NO|UNSURE]
+  ```

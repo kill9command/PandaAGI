@@ -1,0 +1,103 @@
+# Phase 6: Validator Recipe
+# Quality gate: Verify response accuracy before delivery
+# Architecture: architecture/main-system-patterns/phase7-validation.md
+
+name: phase6_validator
+category: pipeline
+phase: 6
+role: MIND
+mode: null  # Unified for both chat and code
+temperature: 0.5
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase6_validator.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2", "3", "4", "5"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 4000
+    description: "Full context: query, context, reflection, plan, execution, synthesis"
+  # Note: response is in context.md §5, not a separate file
+  # Keeping this optional for backwards compatibility
+  - path: "response.md"
+    sections: ["all"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 1500
+    description: "Draft response to validate (optional, response is in §5)"
+  - path: "toolresults.md"
+    sections: ["all"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 500
+    description: "Full tool results for price cross-checking"
+
+output_doc:
+  path: "context.md"
+  section: "6"
+  description: "Writes section 6 with validation result"
+
+token_budget:
+  total: 6000
+  prompt: 1500
+  input_docs: 4000
+  output: 300
+  buffer: 200
+
+llm_params:
+  temperature: 0.5
+  max_tokens: 500
+
+output_schema: VALIDATION_RESULT
+
+description: |
+  Phase 6: Validator - Quality Gate
+
+  Uses MIND role (temp=0.5) for accurate assessment.
+  Final checkpoint before delivering response to user.
+
+  **Core Question:** "Is this response accurate and complete?"
+
+  **Four Mandatory Checks:**
+  1. Claims Supported - Every claim has evidence in section 4 or 1
+  2. No Hallucinations - No invented information
+  3. Query Addressed - Response answers section 0 question
+  4. Coherent Format - Well-structured and readable
+
+  **Decision Table:**
+  | Decision | Confidence | Action |
+  |----------|------------|--------|
+  | APPROVE | >= 0.80 | Send to user, Phase 7 (Save) |
+  | REVISE | 0.50-0.79 | Loop to Phase 5 with hints |
+  | RETRY | 0.30-0.49 | Loop to Phase 3 with fixes |
+  | FAIL | < 0.30 | Send error message |
+
+  **Loop Limits:**
+  - REVISE: Max 2 attempts
+  - RETRY: Max 1 attempt
+  - Combined: Max 3 total
+
+  **Output (VALIDATION_RESULT):**
+  ```json
+  {
+    "decision": "APPROVE|REVISE|RETRY|FAIL",
+    "confidence": 0.0-1.0,
+    "issues": ["list of problems found"],
+    "checks": {
+      "claims_supported": true|false,
+      "no_hallucinations": true|false,
+      "query_addressed": true|false,
+      "coherent_format": true|false
+    },
+    "revision_hints": "Guidance for Synthesis if REVISE",
+    "suggested_fixes": "Guidance for Planner if RETRY"
+  }
+  ```
+
+  **Multi-Goal Validation:**
+  When query has multiple goals, validate each independently:
+  - All goals PASS -> APPROVE
+  - Any goal FAIL, others PASS -> REVISE
+  - Multiple goals FAIL -> RETRY

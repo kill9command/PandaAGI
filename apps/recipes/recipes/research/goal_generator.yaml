@@ -1,0 +1,69 @@
+# Research Goal Generator Recipe
+# Generates follow-up research goals when initial pass is incomplete
+# Part of the Research Loop - MIND role for planning
+
+name: research_goal_generator
+category: research
+role: goal_generator
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/goal_generator.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 400
+    path_type: "turn"
+    description: "Section 0: Original query"
+
+  - path: "research_state.md"
+    optional: true
+    max_tokens: 600
+    path_type: "turn"
+    description: "Current research state and evaluation"
+
+# Note: Evaluation details are passed directly in the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "next_goals"
+
+# Token budget
+token_budget:
+  total: 2000
+  prompt: 600
+  input_docs: 900
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 1800
+
+# Output schema
+output_schema: RESEARCH_GOALS
+
+# Description
+description: |
+  Goal Generator creates specific research goals for follow-up passes.
+
+  **When Called:**
+  - Initial research completed but criteria not fully met
+  - Gaps in coverage, quality, or completeness
+  - Need refined queries to find missing information
+
+  **Goal Principles:**
+  - Actionable and specific (not vague)
+  - Address unmet criteria (coverage, quality, completeness)
+  - Include refined search query
+  - 2-3 sources per goal is optimal
+
+  **Output:**
+  JSON with goals array, queries array, and expected_improvement
+
+  This is a MIND role (temperature 0.5) for strategic planning.

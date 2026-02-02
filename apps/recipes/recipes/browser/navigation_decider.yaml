@@ -1,0 +1,97 @@
+# Browser Navigation Decider Recipe
+# Reads page state and outputs next action during browser automation
+# Used by WebAgent to decide click/scroll/extract/paginate/done
+
+name: browser_navigation_decider
+category: browser
+role: browser_agent
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/navigation_decider.md  # ~800 tokens
+
+# Input documents
+input_docs:
+  - path: page_state.json
+    description: Current page understanding (url, page_type, zones, interactive_elements, products, text_content)
+    max_tokens: 1500
+    required: true
+    path_type: temp
+
+  - path: context.md
+    description: Goal and original query from context document
+    sections: ["0", "3"]
+    max_tokens: 400
+    required: true
+    path_type: turn
+
+  - path: action_history.json
+    description: Previous actions taken in this session
+    max_tokens: 300
+    required: false
+    path_type: temp
+
+  - path: site_knowledge.json
+    description: Learned patterns for this domain
+    max_tokens: 200
+    required: false
+    path_type: temp
+
+# Output documents
+output_docs:
+  - navigation_action.json  # {action, target_id, reasoning, expected_state, confidence}
+
+# Token budget
+token_budget:
+  total: 3500
+  prompt: 800         # Fixed cost: navigation_decider.md
+  input_docs: 2400    # page_state (1500) + context (400) + action_history (300) + site_knowledge (200)
+  output: 200         # JSON action output
+  buffer: 100         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: page_state      # Truncate page content first
+    - truncate: action_history  # Then action history
+
+# Output schema
+output_schema: BROWSER_NAVIGATION_ACTION
+
+# Description
+description: |
+  Browser Navigation Decider analyzes the current page state and decides the next action
+  to achieve the browsing goal.
+
+  **Input Documents:**
+  - page_state.json: Current page understanding (URL, zones, elements, visible products)
+  - context.md: Goal and original query (contains user priority signals like "cheapest")
+  - action_history.json: Previous actions for stuck prevention
+  - site_knowledge.json: Learned patterns for this domain
+
+  **Available Actions:**
+  - click: Navigate to a link, button, or filter (requires target_id)
+  - scroll: Load more content or see below the fold
+  - extract: Page shows relevant products with prices - extract them
+  - paginate: Move to next page of results (requires target_id)
+  - done: Goal achieved or no further actions useful
+
+  **Output:**
+  {
+    "action": "click|scroll|extract|paginate|done",
+    "target_id": "c12",
+    "reasoning": "Brief explanation of why this action helps achieve the goal",
+    "expected_state": {
+      "page_type": "listing",
+      "must_see": ["$", "laptop"]
+    },
+    "confidence": 0.85
+  }
+
+  **Key Behavior:**
+  - Reads original_query for user priorities ("cheapest", "best", etc.)
+  - Checks action_history to prevent stuck loops
+  - Content-first: If products + prices visible, extract before navigating
+  - No hardcoded domain rules - decides based on page content and goal

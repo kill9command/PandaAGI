@@ -1,0 +1,78 @@
+# Phase 0: Query Analyzer Recipe
+# Intent classification, reference resolution, mode detection
+# Architecture: architecture/main-system-patterns/phase0-query-analyzer.md
+
+name: phase0_query_analyzer
+category: pipeline
+phase: 0
+role: REFLEX
+temperature: 0.3
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase0_query_analyzer.md"
+
+input_docs:
+  - path: "user_query"
+    sections: ["raw_query"]
+    path_type: "input"
+    optional: false
+    max_tokens: 100
+    description: "Raw user input"
+  - path: "turn_summaries"
+    sections: ["summaries"]
+    path_type: "input"
+    optional: true
+    max_tokens: 450
+    description: "Summaries from turns N-1, N-2, N-3 for reference resolution"
+
+output_doc:
+  path: "context.md"
+  section: "0"
+  description: "Writes section 0 with resolved query, intent, mode, content_reference"
+
+token_budget:
+  total: 1500
+  prompt: 600
+  input_docs: 550
+  output: 200
+  buffer: 150
+
+llm_params:
+  temperature: 0.3
+  max_tokens: 200
+
+output_schema: QUERY_ANALYSIS
+
+description: |
+  Phase 0: Query Analyzer
+
+  Runs BEFORE Reflection (Phase 1). Uses REFLEX role (temp=0.3) for fast,
+  deterministic classification.
+
+  **Responsibilities:**
+  - Resolve pronoun and reference expressions to explicit entities
+  - Classify query intent (commerce, informational, recall, etc.)
+  - Detect operating mode (chat vs code)
+  - Identify references to prior conversation content
+  - Correct spelling/terminology using authoritative sources
+
+  **Intent Classification:**
+  - Chat: greeting, preference, recall, query, commerce, navigation, site_search, informational
+  - Code: edit, create, git, test, refactor
+
+  **Output:**
+  ```json
+  {
+    "resolved_query": "string",
+    "reference_resolution": {
+      "status": "not_needed|resolved|failed",
+      "original_references": ["string"],
+      "resolved_to": "string|null"
+    },
+    "query_type": "specific_content|general_question|followup|new_topic",
+    "intent": "greeting|preference|recall|...",
+    "mode": "chat|code",
+    "content_reference": {...},
+    "reasoning": "string"
+  }
+  ```

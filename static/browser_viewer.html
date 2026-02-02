@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Browser Viewer - CAPTCHA Solver</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #header {
+            background: rgba(0, 0, 0, 0.95);
+            padding: 12px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        #instructions {
+            font-size: 13px;
+            color: #999;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn:hover {
+            background: #4b5563;
+        }
+
+        #vnc-iframe {
+            flex: 1;
+            width: 100%;
+            border: none;
+            background: #000;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .instructions-box {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            max-width: 500px;
+        }
+
+        .instructions-box h3 {
+            color: #3b82f6;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .instructions-box ol {
+            padding-left: 20px;
+            line-height: 1.8;
+        }
+
+        .instructions-box li {
+            color: #ccc;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="viewer-container">
+        <div id="header">
+            <div id="info">
+                <div class="status-dot"></div>
+                <span id="instructions">You are viewing the server's browser. Solve the CAPTCHA, then click "I Solved It" in the Research Monitor.</span>
+            </div>
+            <button class="btn" onclick="window.close()">Close</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Connecting to server browser...</div>
+            <div class="instructions-box">
+                <h3>What to do:</h3>
+                <ol>
+                    <li>Wait for the browser view to load below</li>
+                    <li>You'll see the exact browser the system is using</li>
+                    <li>Solve the CAPTCHA by clicking/typing normally</li>
+                    <li>Return to the Research Monitor and click "I Solved It"</li>
+                </ol>
+            </div>
+        </div>
+
+        <iframe id="vnc-iframe" style="display:none;"></iframe>
+    </div>
+
+    <script>
+        // Always use Gateway's websocket proxy - works for all access methods
+        const serverHostname = window.location.hostname;
+        const serverPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+
+        // Use Gateway's /novnc_ws websocket proxy endpoint
+        const novncUrl = `${window.location.protocol}//${serverHostname}:${serverPort}/vnc_lite.html?host=${serverHostname}&port=${serverPort}&path=novnc_ws&scale=true`;
+
+        console.log('[BrowserViewer] Redirecting to noVNC via Gateway proxy:', novncUrl);
+        window.location.href = novncUrl;
+    </script>
+</body>
+</html>

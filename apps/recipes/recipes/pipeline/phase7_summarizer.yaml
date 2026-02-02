@@ -1,0 +1,79 @@
+# Phase 7: Summarizer Recipe
+# Generates turn summary for indexing (runs after Save)
+# Architecture: architecture/main-system-patterns/phase2-context-gathering.md (Section 11)
+
+name: phase7_summarizer
+category: pipeline
+phase: 7
+role: REFLEX
+mode: null  # Unified for both chat and code
+temperature: 0.3
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase7_summarizer.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2", "3", "4", "5", "6"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 3000
+    description: "Full completed context.md (sections 0-6)"
+
+output_doc:
+  path: "turn_index"
+  section: "summary"
+  description: "Turn summary written to turn index database"
+
+token_budget:
+  total: 4000
+  prompt: 800
+  input_docs: 3000
+  output: 150
+  buffer: 50
+
+llm_params:
+  temperature: 0.3
+  max_tokens: 200
+
+output_schema: TURN_SUMMARY
+
+description: |
+  Phase 7: Summarizer - Turn Index Generation
+
+  Uses REFLEX role (temp=0.3) for deterministic summarization.
+  Runs AFTER response is sent to user (background task).
+  Not part of the response path - purely for indexing.
+
+  **Core Question:** "How do we summarize this turn for future retrieval?"
+
+  **Responsibilities:**
+  - Generate concise 1-2 sentence summary of what happened
+  - Extract 2-5 topic keywords
+  - Classify intent for index filtering
+  - Identify if research was conducted
+  - Tag with research topic if applicable
+
+  **Output (TURN_SUMMARY):**
+  ```json
+  {
+    "summary": "Searched for budget NVIDIA GPU laptops, found 12 options from 5 vendors",
+    "topics": ["laptop", "nvidia", "gpu", "budget", "gaming"],
+    "intent": "commerce",
+    "has_research": true,
+    "research_topic": "commerce.laptop"
+  }
+  ```
+
+  **Usage by Context Gatherer:**
+  The turn summary is stored in turn_index.db and used by Phase 1 (Context Gatherer)
+  to quickly identify relevant prior turns without loading full context.md files.
+
+  **Summary Guidelines:**
+  - Focus on WHAT happened, not HOW
+  - Include key entities (products, topics, decisions)
+  - Keep under 100 characters
+  - Use present tense verbs ("Searched", "Compared", "Found")
+
+  **Note:** This phase does NOT affect the response to the user.
+  It runs asynchronously after the turn is saved.

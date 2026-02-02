@@ -1,0 +1,65 @@
+# Research Shopping Query Generator Recipe
+# Generates optimized shopping queries for Phase 2 vendor discovery
+# Part of the Research Loop - MIND role for strategic query building
+
+name: research_shopping_query_generator
+category: research
+role: query_generator
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/shopping_query_generator.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 400
+    path_type: "turn"
+    description: "Section 0: Original query with user priority signals"
+
+# Note: Additional context (specs, requirements, vendors) is passed directly in the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "shopping_queries"
+
+# Token budget
+token_budget:
+  total: 2000
+  prompt: 800
+  input_docs: 700
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 1800
+
+# Output schema
+output_schema: SHOPPING_QUERIES
+
+# Description
+description: |
+  Shopping Query Generator creates optimized search queries for Phase 2 vendor discovery.
+
+  **Principles:**
+  - Preserve user's specificity level (generic "NVIDIA" stays generic)
+  - Remove guidance words ("cheapest", "best") - used for ranking, not search
+  - Keep price constraints ("under $1000")
+  - Primary query ends with "for sale"
+  - Site-specific queries optimized per vendor
+
+  **Input:**
+  - context.md Section 0: Original query
+  - specs: Discovered specifications from Phase 1
+  - hard_reqs: User's explicit requirements
+  - vendors: Target vendors for site-specific queries
+
+  **Output:**
+  JSON with primary query and site_specific queries dict
+
+  This is a MIND role (temperature 0.5) for strategic reasoning.

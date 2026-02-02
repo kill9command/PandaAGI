@@ -1,0 +1,70 @@
+# Research Strategy Selector Recipe
+# Selects research strategy based on intent and goals
+# Part of the Research Loop - REFLEX role for quick classification
+
+name: research_strategy_selector
+category: research
+role: strategy_selector
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/strategy_selector.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0", "3"]
+    optional: false
+    max_tokens: 800
+    path_type: "turn"
+    description: "Section 0: Original query, intent. Section 3: Research goals from Planner"
+
+  - path: "research_state.md"
+    optional: true
+    max_tokens: 500
+    path_type: "turn"
+    description: "Prior research intelligence (if cached)"
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "strategy"
+
+# Token budget
+token_budget:
+  total: 3000
+  prompt: 1000
+  input_docs: 1500
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 2800
+
+# Output schema
+output_schema: STRATEGY_DECISION
+
+# Description
+description: |
+  Strategy Selector decides which research phases to execute:
+
+  **Strategies:**
+  - PHASE1_ONLY: Informational queries - gather intelligence only
+  - PHASE1_AND_PHASE2: Commerce queries - research then find products
+  - PHASE2_ONLY: Commerce with cached intelligence - skip to vendors
+
+  **Input:**
+  - context.md Section 0: Original query, intent classification
+  - context.md Section 3: Research goals from Planner
+  - research_state.md: Prior cached intelligence (if any)
+
+  **Output:**
+  JSON with strategy decision:
+  - strategy: PHASE1_ONLY | PHASE1_AND_PHASE2 | PHASE2_ONLY
+  - reasoning: Why this strategy
+  - intent: informational | commerce | transactional
+  - cached_intelligence_used: boolean
+
+  This is a REFLEX role (temperature 0.3) for quick classification.

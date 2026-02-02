@@ -1,0 +1,94 @@
+# Research Goal Checker Recipe
+# Evaluates whether research goals are met and decides CONTINUE or COMPLETE
+# Part of the Research Loop - REFLEX role for loop control
+
+name: research_goal_checker
+category: research
+role: goal_checker
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/goal_checker.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0", "3"]
+    optional: false
+    max_tokens: 500
+    path_type: "turn"
+    description: "Section 0: Original query. Section 3: Research goals from Planner"
+
+  - path: "research.md"
+    optional: false
+    max_tokens: 1500
+    path_type: "turn"
+    description: "Current research findings summary"
+
+# Note: Resources used (searches, visits, time) are passed directly to the LLM
+# The calling code adds resource constraints to the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "goal_status"
+
+# Token budget
+token_budget:
+  total: 3500
+  prompt: 600
+  input_docs: 2200      # context.md (500) + research.md (1500) + resources (~200)
+  output: 700
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 3200
+
+# Output schema
+output_schema: GOAL_CHECK
+
+# Description
+description: |
+  Goal Checker evaluates research progress and decides whether to continue.
+
+  **Evaluation Criteria:**
+
+  1. Coverage (Breadth):
+     - MET: 3+ credible sources visited
+     - NOT_MET: <3 sources OR single source type only
+
+  2. Quality (Trustworthiness):
+     - MET: Average confidence >= 0.75
+     - NOT_MET: Average confidence < 0.75
+
+  3. Completeness (All Required Info):
+     Commerce: products, prices, specs, vendors
+     Informational: key_facts, recommendations, sources
+     - MET: All required fields have data
+     - NOT_MET: Missing critical fields
+
+  4. Contradictions:
+     - RESOLVED: None or explained
+     - FLAGGED: Unresolved that matter
+
+  **Decision Matrix:**
+  - All MET + RESOLVED -> COMPLETE
+  - Any NOT_MET or FLAGGED -> CONTINUE (if resources available)
+  - Resources exhausted -> COMPLETE (best effort)
+
+  **Input:**
+  - context.md Section 0, 3: Query and goals
+  - research.md: Current findings summary
+  - Resources: searches_used, pages_visited, elapsed_time, constraints
+
+  **Output:**
+  JSON with:
+  - decision: CONTINUE | COMPLETE
+  - evaluation: {coverage, quality, completeness, contradictions}
+  - resources: {used, max, can_continue}
+  - reasoning: Why this decision
+  - if_continue: {focus, suggested_queries, target_sources}
+
+  This is a REFLEX role (temperature 0.3) for loop control decisions.

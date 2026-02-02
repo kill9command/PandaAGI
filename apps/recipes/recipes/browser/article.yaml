@@ -1,0 +1,39 @@
+# Article Extractor Recipe
+name: browser_article
+category: browser
+role: article_extractor
+model_layer: MIND
+
+prompt_fragments:
+  - "apps/prompts/browser/article.md"
+
+input_docs:
+  - path: "extraction_goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "url"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "content"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3000
+
+output_doc:
+  path: "article_extraction.json"
+  path_type: "temp"
+
+token_budget:
+  total: 5000
+  prompt: 600
+  input_docs: 3400
+  output: 1000
+
+description: |
+  Extracts key information from article/blog content.
+
+integration:
+  invoked_by:
+    - prose_extractor._extract_article

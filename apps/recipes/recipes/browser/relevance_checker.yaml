@@ -1,0 +1,77 @@
+# Browser Relevance Checker Recipe
+# Quick-scan filter to determine if a page is relevant before expensive extraction
+# Used by WebAgent as a gate before extraction operations
+
+name: browser_relevance_checker
+category: browser
+role: browser_agent
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/relevance_checker.md  # ~600 tokens
+
+# Input documents
+input_docs:
+  - path: page_state.json
+    description: Page URL, title, and text preview of page content
+    max_tokens: 1000
+    required: true
+    path_type: temp
+
+  - path: context.md
+    description: Goal and original query from context document
+    sections: ["0", "3"]
+    max_tokens: 400
+    required: true
+    path_type: turn
+
+# Output documents
+output_docs:
+  - relevance_decision.json  # {relevance, confidence, reason, blockers}
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 600         # Fixed cost: relevance_checker.md
+  input_docs: 1400    # page_state (1000) + context (400)
+  output: 300         # JSON relevance output
+  buffer: 200         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: page_state  # Truncate page content first, keep goal
+
+# Output schema
+output_schema: BROWSER_RELEVANCE_DECISION
+
+# Description
+description: |
+  Browser Relevance Checker performs a quick scan to determine if a page is
+  relevant enough to warrant detailed extraction. This is a fast filter used
+  BEFORE expensive extraction operations.
+
+  **Input Documents:**
+  - page_state.json: URL, title, and text preview of page content
+  - context.md: Goal and original query (what we're looking for)
+
+  **Relevance Categories:**
+  - RELEVANT: Page directly contains products/info matching the goal
+  - PARTIALLY_RELEVANT: Page might contain useful info or navigation to it
+  - IRRELEVANT: Page will not help (wrong topic, error page, blocked)
+
+  **Output:**
+  {
+    "relevance": "relevant|partially_relevant|irrelevant",
+    "confidence": 0.85,
+    "reason": "Brief explanation (1 sentence)",
+    "blockers": ["captcha", "login_required"]
+  }
+
+  **Key Behavior:**
+  - Speed over precision - this is a quick filter, not deep analysis
+  - When uncertain, lean toward PARTIALLY_RELEVANT (let extraction decide)
+  - Detect blockers (captcha, login, error) for intervention handling
+  - Check original query to ensure page relates to user's actual request

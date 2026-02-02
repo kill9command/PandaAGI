@@ -1,0 +1,90 @@
+# Selector Generator Recipe
+# Phase 2 of Page Intelligence Pipeline
+# Generates CSS selectors for extraction based on zone analysis
+
+name: selector_generator
+role: page_intelligence
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments
+prompt_fragments:
+  - apps/prompts/page_intelligence/selector_generator.md  # ~500 tokens
+
+# Input documents
+input_docs:
+  - path: zones.json
+    description: Identified zones from Phase 1 (zone_type, dom_anchors, bounds)
+    max_tokens: 400
+    required: true
+    path_type: dynamic
+
+  - path: zone_html_samples.json
+    description: Actual HTML snippets from each zone's DOM anchor
+    max_tokens: 2000
+    required: true
+    path_type: dynamic
+
+# Output documents
+output_docs:
+  - selectors.json  # CSS selectors for each zone's extractable elements
+
+# Token budget
+token_budget:
+  total: 3500
+  prompt: 500        # Fixed cost: selector_generator.md
+  input_docs: 2400   # zones (400) + zone_html_samples (2000)
+  output: 400        # Selector definitions JSON
+  buffer: 200        # Safety buffer
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: zone_html_samples  # Truncate HTML samples if too long
+
+# Output schema
+output_schema: SELECTOR_GENERATOR
+
+# Description
+description: |
+  Selector Generator creates precise CSS selectors based on actual HTML samples.
+
+  **Key Principle:**
+  The LLM sees REAL HTML from each zone, not guessed structures. This ensures
+  generated selectors actually exist in the DOM.
+
+  **Input Documents:**
+  - zones.json: Zone definitions from Phase 1 (what zones exist)
+  - zone_html_samples.json: Actual HTML snippets from each zone
+
+  **For Each Zone, Generate:**
+  - item_selector: CSS selector for repeated items (e.g., product cards)
+  - field_selectors: Selectors for fields within each item
+    - title: Product/item title
+    - price: Price display
+    - url: Link to detail page
+    - image: Product image
+    - (other zone-specific fields)
+
+  **Output:**
+  {
+    "zones": {
+      "product_grid": {
+        "item_selector": ".s-result-item[data-component-type='s-search-result']",
+        "fields": {
+          "title": {"selector": "h2 span.a-text-normal", "attribute": "textContent"},
+          "price": {"selector": ".a-price .a-offscreen", "attribute": "textContent"},
+          "url": {"selector": "h2 a.a-link-normal", "attribute": "href"},
+          "image": {"selector": "img.s-image", "attribute": "src"}
+        },
+        "confidence": 0.9
+      }
+    },
+    "validation_notes": ["Tested selectors against provided HTML samples"]
+  }
+
+  **Critical Rule:**
+  ONLY output selectors that match elements visible in zone_html_samples.json.
+  Never guess or hallucinate selectors.
+
+  Phase: 2 of 3 in Page Intelligence Pipeline

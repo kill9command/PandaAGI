@@ -1,0 +1,74 @@
+# Raw OCR Extractor Recipe
+# Extracts product data from ungrouped raw OCR text (fallback)
+#
+# Used by VisionExtractor when spatial grouping fails
+
+name: browser_raw_ocr
+category: browser
+role: ocr_extractor_fallback
+model_layer: REFLEX  # Extraction (temp 0.2 for creative parsing)
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/browser/raw_ocr.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User's search query"
+
+  - path: "raw_ocr_text"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3000
+    description: "Raw ungrouped OCR text from screenshot"
+
+# Output document
+output_doc:
+  path: "extracted_products.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 4500
+  prompt: 700
+  input_docs: 3200
+  output: 2000
+  buffer: 100
+
+# Output schema
+output_schema:
+  type: array
+  items:
+    type: object
+    required:
+      - title
+      - price
+      - price_numeric
+    properties:
+      title:
+        type: string
+      price:
+        type: string
+      price_numeric:
+        type: number
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+description: |
+  Fallback extractor for when OCR grouping fails.
+  Parses raw, ungrouped OCR text to find products.
+
+  Input: query + raw_ocr_text (all text concatenated)
+  Output: JSON array of products with title, price, price_numeric
+
+integration:
+  invoked_by:
+    - product_perception.vision_extractor._llm_fallback_all_text
+  invocation_point: after_grouped_extraction_fails

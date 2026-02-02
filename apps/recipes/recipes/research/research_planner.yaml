@@ -1,0 +1,39 @@
+# Research Planner Recipe
+# Decides next action in research loop: search, visit, or done
+# Used by apps/tools/internet_research/research_loop.py
+
+name: research_planner
+role: research_planner
+phase: planning
+
+# Prompt file
+prompt_fragments:
+  - "apps/prompts/research/research_planner.md"
+
+# Input documents
+input_docs:
+  - path: "research_state.md"
+    optional: false
+    max_tokens: 2000
+    path_type: "turn"
+    description: "Current research state with goal, search results, visited pages, intelligence"
+
+# Output specification
+output_schema: RESEARCH_ACTION
+
+# Token budget
+token_budget:
+  total: 3000
+  prompt: 800
+  input_docs: 1700
+  output: 400
+  buffer: 100
+
+# Description
+description: |
+  Research Planner decides the next action in the research loop:
+  - search: Execute a web search with specific query
+  - visit: Visit a URL from search results
+  - done: Complete research with current findings
+
+  Output is JSON: {"action": "search|visit|done", "query|url": "...", "reason": "..."}

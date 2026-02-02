@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Thinking Viz Test</title>
+</head>
+<body>
+  <h1>Thinking Visualization Test</h1>
+  <p>Open browser console (F12) and check for JavaScript errors</p>
+  <p>Test: <a href="http://127.0.0.1:9000/" target="_blank">Open Pandora UI</a></p>
+
+  <h2>Manual Test Steps:</h2>
+  <ol>
+    <li>Open Pandora UI at http://127.0.0.1:9000/</li>
+    <li>Open browser console (F12 → Console tab)</li>
+    <li>Send a test query like "ping"</li>
+    <li>Look for console logs starting with "[Thinking]"</li>
+    <li>Check if you see:
+      <ul>
+        <li><code>[Thinking] ThinkingVisualizer initialized</code></li>
+        <li><code>[Thinking] Response received, trace_id: ...</code></li>
+        <li><code>[Thinking] Connecting to: ...</code></li>
+        <li><code>[Thinking] Event received: ...</code></li>
+      </ul>
+    </li>
+    <li>Check if thinking panel appears at top of messages area</li>
+  </ol>
+
+  <h2>Expected Behavior:</h2>
+  <ul>
+    <li>Thinking panel should appear with spinner</li>
+    <li>Panel should show stages: "Query received", "Planning", "Executing", etc.</li>
+    <li>Console should show SSE events being received</li>
+  </ul>
+
+  <h2>Common Issues:</h2>
+  <ul>
+    <li><strong>Panel doesn't appear:</strong> Check if thinking-panel element exists in DOM</li>
+    <li><strong>No SSE events:</strong> Check if /v1/thinking/{trace_id} endpoint is reachable</li>
+    <li><strong>JavaScript errors:</strong> Check console for errors in ThinkingVisualizer class</li>
+  </ul>
+
+  <script>
+    console.log('Test page loaded. Follow manual test steps above.');
+    console.log('Gateway should be at: http://127.0.0.1:9000/');
+  </script>
+</body>
+</html>

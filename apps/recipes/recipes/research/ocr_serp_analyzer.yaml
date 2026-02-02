@@ -1,0 +1,62 @@
+# Research OCR SERP Analyzer Recipe
+# Analyzes OCR text from search screenshots and matches with URLs
+# Part of the Research Loop - REFLEX role for extraction
+
+name: research_ocr_serp_analyzer
+category: research
+role: serp_analyzer
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/ocr_serp_analyzer.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 200
+    path_type: "turn"
+    description: "Section 0: Query context for relevance assessment"
+
+# Note: OCR text and URL list are passed directly in the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "serp_results"
+
+# Token budget
+token_budget:
+  total: 3000
+  prompt: 400
+  input_docs: 2100      # OCR text + URL list
+  output: 500
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 2800
+
+# Output schema
+output_schema: OCR_SERP_RESULTS
+
+# Description
+description: |
+  OCR SERP Analyzer matches OCR-extracted text from search screenshots with actual URLs.
+
+  **Used When:**
+  - Search results are rendered as images
+  - Need to correlate visible text with clickable URLs
+
+  **Principles:**
+  - Match titles from OCR to URLs from URL list
+  - Only use URLs that appear in the provided list
+  - Never fabricate URLs
+  - Skip ads and navigation elements
+
+  **Output:**
+  JSON array with title, url, snippet for each result
+
+  This is a REFLEX role (temperature 0.3) for extraction.

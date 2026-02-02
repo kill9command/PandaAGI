@@ -1,0 +1,79 @@
+# Page Selector Generator Recipe
+# Generates CSS selectors for extracting data from identified zones
+# Used by Page Intelligence Phase 2 to create extraction selectors
+
+name: page_selector_generator
+category: browser
+role: page_intelligence
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/page_selector_generator.md  # ~700 tokens
+
+# Input documents
+input_docs:
+  - path: zones.json
+    description: Zones identified by Phase 1 (zone_identifier)
+    max_tokens: 500
+    required: true
+    path_type: temp
+
+  - path: zone_html_samples.json
+    description: Actual HTML snippets from each zone
+    max_tokens: 2000
+    required: true
+    path_type: temp
+
+# Output documents
+output_docs:
+  - selectors.json  # {zones: {zone_type: {item_selector, fields, confidence}}, validation_notes}
+
+# Token budget
+token_budget:
+  total: 4000
+  prompt: 700         # Fixed cost: page_selector_generator.md
+  input_docs: 2500    # zones (500) + zone_html_samples (2000)
+  output: 700         # JSON selector output
+  buffer: 100         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: zone_html_samples  # Truncate HTML samples first
+
+# Output schema
+output_schema: PAGE_SELECTORS
+
+# Description
+description: |
+  Page Selector Generator creates CSS selectors for extracting data from identified zones.
+
+  **Input Documents:**
+  - zones.json: Zones from Phase 1 (zone_type, confidence, dom_anchors)
+  - zone_html_samples.json: Actual HTML snippets from each zone
+
+  **Key Principle:**
+  LLM sees REAL HTML from each zone, not guessed structures.
+  This ensures generated selectors actually exist in the DOM.
+
+  **Output:**
+  {
+    "zones": {
+      "product_grid": {
+        "item_selector": ".s-result-item",
+        "fields": {
+          "title": {"selector": "h2 span", "attribute": "textContent"},
+          "price": {"selector": ".a-price", "attribute": "textContent", "transform": "price"},
+          "url": {"selector": "a", "attribute": "href"}
+        },
+        "confidence": 0.9
+      }
+    },
+    "validation_notes": ["All selectors verified against HTML samples"]
+  }
+
+  **Critical Rule:**
+  ONLY output selectors that match elements visible in the HTML samples.
+  Do NOT guess selectors based on common patterns.

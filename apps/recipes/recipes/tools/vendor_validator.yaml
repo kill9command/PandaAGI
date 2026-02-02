@@ -1,0 +1,110 @@
+# Vendor Validator Recipe
+# Validates vendors are appropriate for user's goal
+#
+# Used by llm_candidate_filter.py to validate vendors from
+# research intelligence before visiting.
+
+name: tools_vendor_validator
+category: tools
+role: vendor_validator
+model_layer: REFLEX  # Classification task uses REFLEX (temp 0.1)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/filtering/vendor_validator.md"
+
+# Input documents
+input_docs:
+  - path: "goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User's goal (what they want to find/buy)"
+
+  - path: "vendor_list"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 1000
+    description: "List of candidate vendors from intelligence"
+
+# Output document
+output_doc:
+  path: "validated_vendors.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 800       # vendor_validator.md prompt
+  input_docs: 1200  # goal + vendor list
+  output: 400       # JSON with approved/rejected
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: intelligent_truncate
+  priority:
+    - keep: goal
+    - truncate: vendor_list
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - approved
+    - rejected
+    - summary
+  properties:
+    approved:
+      type: array
+      items:
+        type: object
+        required:
+          - index
+          - reason
+        properties:
+          index:
+            type: integer
+          reason:
+            type: string
+    rejected:
+      type: array
+      items:
+        type: object
+        required:
+          - index
+          - reason
+        properties:
+          index:
+            type: integer
+          reason:
+            type: string
+    summary:
+      type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 2
+
+# Description
+description: |
+  Vendor Validator checks if vendors are appropriate for the user's goal.
+
+  **Validation Logic:**
+  - Match vendor type to goal (breeders for live animals, retailers for supplies)
+  - Reject vendors that don't sell what user wants
+  - Prevent wasted visits to irrelevant sources
+
+  **Example:**
+  - Goal: "buy Syrian hamster" -> Reject Chewy (sells supplies, not animals)
+  - Goal: "buy laptop" -> Reject PetSmart (wrong category)
+
+  Input: goal + vendor_list
+  Output: validated_vendors.json with approved/rejected
+
+# Integration
+integration:
+  invoked_by:
+    - llm_candidate_filter.validate_vendors_for_goal
+  invocation_point: after_intelligence_gathering

@@ -1,0 +1,31 @@
+{
+  "item_selector": ".item-info",
+  "fields": {
+    "title": {
+      "selector": ".item-title",
+      "attribute": "textContent"
+    },
+    "price": {
+      "selector": ".price-current",
+      "attribute": "textContent",
+      "transform": "price"
+    },
+    "url": {
+      "selector": "a",
+      "attribute": "href"
+    },
+    "image": {
+      "selector": "img",
+      "attribute": "src"
+    }
+  },
+  "url_patterns": {
+    "search_param": "d",
+    "price_param": null,
+    "price_encoding": null
+  },
+  "validated": true,
+  "domain": "newegg.com",
+  "site_intent": "product_listings",
+  "learned_at": "2025-12-08T16:42:45.286297"
+}

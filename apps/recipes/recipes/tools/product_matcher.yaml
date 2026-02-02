@@ -1,0 +1,103 @@
+# Product Matcher Recipe
+# Extracts and validates product information from listing text
+#
+# Used by commerce_mcp to verify product relevance
+
+name: tools_product_matcher
+category: tools
+role: product_matcher
+model_layer: REFLEX  # Extraction/classification (temp 0.1)
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/tools/product_matcher.md"
+
+# Input documents
+input_docs:
+  - path: "intent"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 300
+    description: "User intent (item_type, must_have, must_not_have, sellers)"
+
+  - path: "listing_text"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 4000
+    description: "Cleaned text from product listing page"
+
+# Output document
+output_doc:
+  path: "product_match.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 5500
+  prompt: 900
+  input_docs: 4100
+  output: 500
+  buffer: 0
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - title
+    - relevance_score
+  properties:
+    title:
+      type: string
+    price:
+      type: string
+    original_price:
+      type: string
+    availability:
+      type: string
+      enum: ["in_stock", "out_of_stock", "limited", "preorder", "contact", "unknown"]
+    seller_name:
+      type: string
+    condition:
+      type: string
+      enum: ["new", "used", "refurbished"]
+    relevance_score:
+      type: number
+      minimum: 0
+      maximum: 1
+    match_analysis:
+      type: object
+      properties:
+        matched_attributes:
+          type: array
+          items:
+            type: string
+        missing_attributes:
+          type: array
+          items:
+            type: string
+        disqualifying_attributes:
+          type: array
+          items:
+            type: string
+        category_match:
+          type: boolean
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  confidence_threshold: 0.3
+  max_retries: 1
+
+description: |
+  Extracts product data from listing text and validates relevance to user intent.
+
+  Extraction: title, price, availability, seller, condition
+  Validation: relevance_score (0-1) based on must-have/must-not-have
+
+  Input: intent + listing_text
+  Output: product_match.json with extracted data and relevance score
+
+integration:
+  invoked_by:
+    - commerce_mcp._extract_with_llm
+  invocation_point: after_page_fetch

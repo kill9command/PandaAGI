@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Panda AI — Transcripts</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div id="chat-container">
+    <header>Transcripts</header>
+    <div id="mode-bar">
+      <button id="refresh">Refresh</button>
+      <span style="margin-left:12px;color:#cfd3e9;">Filter by user query:</span>
+      <input type="text" id="query" placeholder="type to filter..." style="width:260px;">
+      <button id="search">Search</button>
+      <button id="clear">Clear</button>
+      <span class="wrap-break"></span>
+      <label style="color:#cfd3e9;"><input type="checkbox" id="select-all"> Select all</label>
+      <button id="delete-selected" title="Delete selected transcripts">Delete</button>
+    </div>
+    <div id="transcripts-list" class="sources-list"></div>
+    <div id="transcript-detail" class="sources-list"></div>
+  </div>
+  <script src="/static/transcripts.js?v=1"></script>
+</body>
+</html>

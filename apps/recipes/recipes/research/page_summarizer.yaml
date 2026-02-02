@@ -1,0 +1,64 @@
+# Research Page Summarizer Recipe
+# Summarizes web page content focused on research goal
+# Part of the Research Loop - MIND role for content summarization
+
+name: research_page_summarizer
+category: research
+role: page_summarizer
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/page_summarizer.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0", "3"]
+    optional: false
+    max_tokens: 400
+    path_type: "turn"
+    description: "Section 0: Original query. Section 3: Research goals"
+
+# Note: Page content is passed directly in the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "page_summary"
+
+# Token budget
+token_budget:
+  total: 3500
+  prompt: 600
+  input_docs: 2100      # Page content is primary input
+  output: 800           # 200-400 word summaries
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 3300
+
+# Output schema
+output_schema: PAGE_SUMMARY
+
+# Description
+description: |
+  Page Summarizer creates goal-focused summaries of web page content.
+
+  **Principles:**
+  - Focus on what's relevant to the research goal
+  - Include specific details (names, prices, specs, dates)
+  - Capture page metadata (pagination, reply counts, dates)
+  - Target 200-400 words
+
+  **Summary Types:**
+  - Information queries: Lead with the answer
+  - Overview queries: Bullet list of topics
+  - Product queries: Names, prices, specs
+  - Comparison queries: Pros, cons, rankings
+
+  **Output Format:**
+  Plain text summary with page metadata at end
+
+  This is a MIND role (temperature 0.5) for content summarization.

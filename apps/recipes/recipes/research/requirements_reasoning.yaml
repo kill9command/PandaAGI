@@ -1,0 +1,73 @@
+# Research Requirements Reasoning Recipe
+# Analyzes user shopping queries to understand true requirements
+# Part of the Research Loop - MIND role for reasoning
+
+name: research_requirements_reasoning
+category: research
+role: requirements_reasoner
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/requirements_reasoning.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0"]
+    optional: false
+    max_tokens: 500
+    path_type: "turn"
+    description: "Section 0: Original query and user context"
+
+  - path: "research_state.md"
+    optional: true
+    max_tokens: 800
+    path_type: "turn"
+    description: "Phase 1 research findings and intelligence"
+
+# Note: Query, context, and research_summary are passed via template variables
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "requirements_analysis"
+
+# Token budget
+token_budget:
+  total: 3000
+  prompt: 800
+  input_docs: 1000
+  output: 1200          # YAML output can be detailed
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 2800
+
+# Output schema
+output_schema: REQUIREMENTS_REASONING
+
+# Description
+description: |
+  Requirements Reasoning analyzes shopping queries to understand true user needs.
+
+  **Analysis Steps:**
+  1. Assess research quality (relevant? current? outdated?)
+  2. Identify what user is actually looking for
+  3. Define validity criteria (what makes a product valid)
+  4. Define disqualifiers (what's wrong category)
+  5. Extract specifications (user-stated vs recommended)
+  6. Optimize search strategy
+
+  **Critical Rules:**
+  - Never fabricate requirements user didn't state
+  - Implicit requirements matter (hamster = live animal)
+  - Disqualifiers prevent bad matches
+  - Expand technical terms with variants
+
+  **Output:**
+  YAML with intelligence_assessment, query_understanding, validity_criteria,
+  disqualifiers, specifications, and search_optimization
+
+  This is a MIND role (temperature 0.5) for reasoning.

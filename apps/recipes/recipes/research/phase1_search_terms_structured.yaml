@@ -1,0 +1,98 @@
+# Phase 1 Search Terms Structured Recipe
+# Extracts search components from user query as structured JSON
+#
+# Uses deterministic query assembly: LLM extracts components,
+# code builds the final query string for reliability.
+
+name: research_phase1_search_terms_structured
+category: research
+role: search_term_builder
+model_layer: REFLEX  # Classification/extraction uses REFLEX (temp 0.3)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/phase1_search_terms_structured.md"
+
+# Input documents
+input_docs:
+  - path: "user_query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "Original user query to convert to search terms"
+
+  - path: "prior_context"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 300
+    description: "Summary of prior turn context for connecting keywords"
+
+# Output document
+output_doc:
+  path: "search_components.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 800
+  prompt: 500       # phase1_search_terms_structured.md prompt
+  input_docs: 500   # query + context
+  output: 150       # JSON components
+  buffer: 50
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: user_query
+    - truncate: prior_context
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - keywords
+  properties:
+    keywords:
+      type: array
+      items:
+        type: string
+      description: "Core search terms (2-6 words)"
+    site:
+      type: ["string", "null"]
+      description: "Domain to search within (e.g., reddit.com) or null"
+    quoted_phrase:
+      type: ["string", "null"]
+      description: "Exact phrase to search for or null"
+    context_keywords:
+      type: array
+      items:
+        type: string
+      description: "Keywords from prior context"
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+# Description
+description: |
+  Phase 1 Search Terms extracts structured search components from user queries.
+
+  **Key Features:**
+  - Preserves price signals (cheapest, budget, under $X)
+  - Maps site mentions to domains (Reddit -> reddit.com)
+  - Preserves exact quoted phrases
+  - Adds context keywords from prior turns
+
+  **Output Flow:**
+  LLM -> JSON components -> Deterministic assembly -> Final query
+
+  Input: user_query + prior_context
+  Output: JSON with keywords, site, quoted_phrase, context_keywords
+
+# Integration
+integration:
+  invoked_by:
+    - query_planner.build_phase1_search_terms
+  invocation_point: phase1_query_generation

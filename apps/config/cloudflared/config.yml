@@ -1,0 +1,17 @@
+# Cloudflare Tunnel config (template)
+# Replace values marked with <> before running.
+
+tunnel: <your_tunnel_name_or_uuid>
+credentials-file: /home/<user>/.cloudflared/<uuid>.json
+
+ingress:
+  - hostname: app.homebroodexotics.com
+    service: http://localhost:9000
+  - service: http_status:404
+
+# Optional: increase timeouts for long LLM responses
+originRequest:
+  httpHostHeader: app.homebroodexotics.com
+  connectTimeout: 30s
+  tcpKeepAlive: 30s
+  disableChunkedEncoding: true

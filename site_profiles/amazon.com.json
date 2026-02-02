@@ -1,0 +1,31 @@
+{
+  "item_selector": "[data-csa-c-type='item']",
+  "fields": {
+    "title": {
+      "selector": "div.a-section a span",
+      "attribute": "textContent"
+    },
+    "price": {
+      "selector": ".a-price-whole",
+      "attribute": "textContent",
+      "transform": "price"
+    },
+    "url": {
+      "selector": "div.a-section a",
+      "attribute": "href"
+    },
+    "image": {
+      "selector": "img",
+      "attribute": "src"
+    }
+  },
+  "url_patterns": {
+    "search_param": "k",
+    "price_param": null,
+    "price_encoding": null
+  },
+  "validated": true,
+  "domain": "amazon.com",
+  "site_intent": "product_listings",
+  "learned_at": "2025-12-08T16:36:19.419702"
+}

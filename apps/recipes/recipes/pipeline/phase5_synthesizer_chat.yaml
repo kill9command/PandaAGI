@@ -1,0 +1,92 @@
+# Phase 5: Synthesizer (Chat Mode) Recipe
+# User-facing response generation
+# Architecture: architecture/main-system-patterns/phase6-synthesis.md
+
+name: phase5_synthesizer_chat
+category: pipeline
+phase: 5
+role: VOICE
+mode: chat
+temperature: 0.7
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase5_synthesizer_chat.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2", "3", "4"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 4000
+    description: "Sections 0-4: query, context, reflection, plan, execution results"
+  - path: "toolresults.md"
+    sections: ["all"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 1500
+    description: "Full tool execution results with complete prices, URLs, product details"
+
+output_doc:
+  path: "context.md"
+  section: "5"
+  description: "Writes section 5 with response preview and validation checklist"
+
+secondary_output:
+  path: "response.md"
+  description: "Full response delivered to user"
+
+token_budget:
+  total: 10000
+  prompt: 1500
+  input_docs: 5500
+  output: 2700
+  buffer: 300
+
+llm_params:
+  temperature: 0.7
+  max_tokens: 1000
+
+output_schema: SYNTHESIS_RESPONSE
+
+description: |
+  Phase 5: Synthesizer (Chat Mode) - User Voice
+
+  Uses VOICE role (temp=0.7) for natural, engaging dialogue.
+  This is the ONLY model the user "hears".
+
+  **Core Question:** "How do I present this to the user?"
+
+  **Two Synthesis Paths:**
+  | Path | Condition | Primary Data Source |
+  |------|-----------|---------------------|
+  | With Tools | Coordinator completed | Section 4 claims (fresh) |
+  | Without Tools | Planner routed to synthesis | Section 1 context (cached) |
+
+  **Response Patterns by Intent:**
+  | Intent | Pattern |
+  |--------|---------|
+  | commerce | Structured list with prices, links, specs |
+  | query | Prose explanation with citations |
+  | recall | Direct answer from memory |
+  | preference | Acknowledgment + confirmation |
+  | greeting | Friendly response, no elaboration |
+
+  **Key Constraints:**
+  1. Capsule-Only: ONLY use data from context.md (no hallucinations)
+  2. URL Preservation: Convert URLs to clickable markdown links
+  3. Intent-Aware: Format adapts to query intent
+  4. Section 4 Priority: Fresh tool data takes precedence over section 1
+
+  **Output to context.md section 5:**
+  ```markdown
+  ## 5. Synthesis
+
+  **Response Preview:**
+  Great news! I found 2 Syrian hamsters for sale...
+
+  **Validation Checklist:**
+  - [x] Claims match evidence
+  - [x] Intent satisfied
+  - [x] No hallucinations
+  - [x] Appropriate format
+  ```

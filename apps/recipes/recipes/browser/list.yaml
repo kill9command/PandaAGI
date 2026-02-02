@@ -1,0 +1,39 @@
+# List Extractor Recipe
+name: browser_list
+category: browser
+role: list_extractor
+model_layer: REFLEX
+
+prompt_fragments:
+  - "apps/prompts/browser/list.md"
+
+input_docs:
+  - path: "extraction_goal"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "url"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+  - path: "content"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3000
+
+output_doc:
+  path: "list_extraction.json"
+  path_type: "temp"
+
+token_budget:
+  total: 4500
+  prompt: 500
+  input_docs: 3400
+  output: 1000
+
+description: |
+  Extracts items from list-style content.
+
+integration:
+  invoked_by:
+    - prose_extractor._extract_list

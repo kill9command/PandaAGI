@@ -1,0 +1,86 @@
+[
+  {
+    "query": "find me a Syrian hamster for sale",
+    "expected_classification": {
+      "intent": "commerce",
+      "content_type": "pets"
+    },
+    "expected_behavior": {
+      "should_include": ["live hamster", "breeder", "pet store"],
+      "should_not_include": ["plush", "toy", "stuffed", "cage", "food", "bedding"]
+    },
+    "description": "Live Syrian hamster purchase - CRITICAL REGRESSION TEST"
+  },
+  {
+    "query": "where can I buy a hamster",
+    "expected_classification": {
+      "intent": "commerce",
+      "content_type": "pets"
+    },
+    "expected_behavior": {
+      "should_include": ["live animal", "pet store", "breeder"],
+      "should_not_include": ["toy", "plush", "accessories"]
+    },
+    "description": "Generic hamster purchase"
+  },
+  {
+    "query": "hamster breeders near me",
+    "expected_classification": {
+      "intent": "commerce",
+      "content_type": "pets"
+    },
+    "expected_behavior": {
+      "should_include": ["breeder", "local", "live animals"],
+      "should_not_include": ["toy", "supplies"]
+    },
+    "description": "Local breeder search"
+  },
+  {
+    "query": "adopt a golden retriever puppy",
+    "expected_classification": {
+      "intent": "commerce",
+      "content_type": "pets"
+    },
+    "expected_behavior": {
+      "should_include": ["adoption", "rescue", "breeder", "live puppy"],
+      "should_not_include": ["toy", "plush"]
+    },
+    "description": "Dog adoption"
+  },
+  {
+    "query": "where to buy goldfish",
+    "expected_classification": {
+      "intent": "commerce",
+      "content_type": "pets"
+    },
+    "expected_behavior": {
+      "should_include": ["live fish", "pet store", "aquarium store"],
+      "should_not_include": ["toy", "decoration", "plastic fish"]
+    },
+    "description": "Fish purchase"
+  },
+  {
+    "query": "hamster cage and accessories",
+    "expected_classification": {
+      "intent": "commerce",
+      "content_type": "general"
+    },
+    "expected_behavior": {
+      "should_include": ["cage", "accessories", "supplies"],
+      "should_not_include": []
+    },
+    "description": "Pet supplies - NOT live animal (should be general)"
+  },
+  {
+    "query": "plush hamster toy",
+    "expected_classification": {
+      "intent": "commerce",
+      "content_type": "general"
+    },
+    "expected_behavior": {
+      "should_include": ["toy", "plush"],
+      "should_not_include": []
+    },
+    "description": "Toy - NOT live animal (should be general)"
+  }
+]

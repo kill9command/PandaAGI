@@ -1,0 +1,116 @@
+# Vendor Selector Recipe
+# Selects best sources from search results for product research
+#
+# Used by intelligent research to filter Google results
+
+name: tools_vendor_selector
+category: tools
+role: vendor_selector
+model_layer: REFLEX  # Classification task (temp 0.1)
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/tools/vendor_selector.md"
+
+# Input documents
+input_docs:
+  - path: "original_query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "Original user query with priority signals (cheapest, best, etc.)"
+
+  - path: "search_query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 150
+    description: "Optimized search query used for Google"
+
+  - path: "search_results"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 2500
+    description: "Search results to evaluate (url, title, snippet)"
+
+  - path: "intelligence_context"
+    path_type: "runtime"
+    optional: true
+    max_tokens: 500
+    description: "Phase 1 intelligence context (optional)"
+
+# Output document
+output_doc:
+  path: "selected_sources.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 4500
+  prompt: 1000
+  input_docs: 3000
+  output: 800
+  buffer: 200
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - sources
+  properties:
+    sources:
+      type: array
+      items:
+        type: object
+        required:
+          - index
+          - url
+          - domain
+          - source_type
+          - reasoning
+        properties:
+          index:
+            type: integer
+          url:
+            type: string
+          domain:
+            type: string
+          source_type:
+            type: string
+            enum: ["major_retailer", "specialty_retailer", "manufacturer", "marketplace", "comparison_site"]
+          reasoning:
+            type: string
+    skipped:
+      type: array
+      items:
+        type: object
+        required:
+          - index
+          - reason
+        properties:
+          index:
+            type: integer
+          reason:
+            type: string
+    selection_summary:
+      type: string
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  confidence_threshold: 0.5
+  max_retries: 2
+
+description: |
+  Selects best sources from Google search results for product research.
+
+  Prioritizes retailers and manufacturers over forums/articles.
+  Interprets user priority signals from original query (cheapest, best, etc.).
+
+  Input: original_query + search_query + search_results + intelligence_context
+  Output: selected_sources.json with sources and skipped lists
+
+integration:
+  invoked_by:
+    - llm_candidate_filter.select_vendor_candidates
+    - research_orchestrator.filter_results
+  invocation_point: after_google_search

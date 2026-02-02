@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Pandora AI Chatbot with Creative and Research Modes" />
+  <meta name="keywords" content="AI, chatbot, research, creative writing, code assistant" />
+  <meta name="author" content="Pandora Team" />
+  <meta name="robots" content="index, follow" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="google" content="notranslate" />
+
+  <!-- PWA & Mobile -->
+  <meta name="theme-color" content="#007bff" />
+  <meta name="application-name" content="Pandora" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Pandora" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="HandheldFriendly" content="true" />
+
+  <!-- Microsoft -->
+  <meta name="msapplication-TileColor" content="#007bff" />
+  <meta name="msapplication-TileImage" content="/static/icons/icon-192.png" />
+  <meta name="msapplication-navbutton-color" content="#007bff" />
+
+  <!-- Social Media -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Pandora AI Chatbot" />
+  <meta name="twitter:description" content="AI-powered research and creative writing assistant" />
+  <meta name="twitter:image" content="/static/icons/icon-512.png" />
+  <meta property="og:title" content="Pandora AI Chatbot" />
+  <meta property="og:type" content="website" />
+  <meta property="og:description" content="AI-powered research and creative writing assistant" />
+  <meta property="og:image" content="/static/icons/icon-512.png" />
+
+  <title>Pandora AI</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="icon" href="/static/icons/icon-192.png" />
+  <!-- Monaco Editor -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.css" />
+  <!-- jsTree for file tree -->
+  <link rel="stylesheet" href="/static/vendor/jstree-themes/style.min.css" />
+  <!-- Human-Assisted Web Crawling -->
+  <link rel="stylesheet" href="/static/research_panel.css" />
+</head>
+<body>
+  <div id="chat-container" style="margin-top:0;">
+    <header><img src="/static/icons/panda-hamster.svg" alt="Panda AI" style="height:26px;vertical-align:middle;margin-right:8px;">Panda AI <a href="/static/transcripts.html" style="font-size:0.6em;margin-left:10px;color:#68a8ef;">Transcripts</a> <a href="/static/research_monitor.html" target="_blank" style="font-size:0.6em;margin-left:10px;color:#4caf50;">🔍 Research Monitor</a></header>
+    <div id="mode-bar">
+      <label><input type="radio" name="mode" value="chat" checked> Chat</label>
+      <label style="margin-left:12px;"><input type="radio" name="mode" value="code"> Code</label>
+      <label id="style-label" style="margin-left:16px;">Style:
+        <select id="style-select">
+          <option value="concise" selected>Concise</option>
+          <option value="educational">Educational</option>
+          <option value="tutorial">Tutorial</option>
+        </select>
+      </label>
+      <label style="margin-left:16px;" title="Select whose memories/profile to use">
+        Profile:
+        <select id="profile-select">
+          <option value="henry" selected>henry</option>
+          <option value="wife">wife</option>
+          <option value="daughter">daughter</option>
+        </select>
+      </label>
+      <span style="margin-left:12px;" title="Add another profile name">
+        <input type="text" id="profile-name-input" placeholder="Add profile" style="width:140px;" autocomplete="off" data-lpignore="true" data-form-type="other" />
+        <button type="button" id="profile-add">Add</button>
+        <label style="margin-left:8px;"><input type="checkbox" id="profile-remember" checked> Remember</label>
+      </span>
+      <span class="wrap-break"></span>
+      <span id="repo-root-wrap" style="margin-left:16px; display:none;" title="Set project folder to operate in (affects server tools)">
+        Repo:
+        <input type="text" id="repo-root-input" placeholder="/home/henry/code/myproject" style="width:280px;" autocomplete="off" data-lpignore="true" data-form-type="other" />
+        <button type="button" id="repo-root-save">Save</button>
+      </span>
+      <span id="api-key-wrap" style="margin-left:16px;" title="Bearer API key for the Proxy">
+        API Key:
+        <input type="password" id="api-key-input" name="api-key-field" placeholder="sk-local" style="width:160px;" autocomplete="new-password" />
+        <button type="button" id="api-key-save">Save</button>
+      </span>
+      <span class="wrap-break"></span>
+      <label id="execution-mode-label" style="margin-left:16px; display:none;" title="Control how autonomous code operations are">
+        Execution:
+        <select id="execution-mode-select" style="background:#101014;color:#ececf1;border:1px solid #2a2a33;border-radius:6px;padding:2px 6px;">
+          <option value="interactive">Interactive (confirm each)</option>
+          <option value="autonomous" selected>Autonomous (auto-exec)</option>
+          <option value="full_auto">Full Auto (no confirm)</option>
+        </select>
+      </label>
+      <button type="button" id="prompts-open">Prompts</button>
+      <button type="button" id="policy-open">Policy</button>
+      <label style="margin-left:12px;" title="Submit via background jobs and poll results (recommended over tunnel)"><input type="checkbox" id="use-jobs-toggle"> Use jobs</label>
+      <span class="wrap-break"></span>
+      <label style="margin-left:12px;" title="Send API calls to your LAN host instead of this origin"><input type="checkbox" id="use-lan-toggle"> Use LAN</label>
+      <span id="conn-indicator" class="conn-status" title="Connection status"><span class="dot"></span><span class="label">Origin</span></span>
+      <span id="write-path-indicator" style="margin-left:16px; font-size:0.85em; color:#9aa3c2;" title="Click Policy to configure">Write paths: Loading...</span>
+    </div>
+    <!-- Context Status Bar - Shows active repo, mode permissions, and working directory -->
+    <div id="context-status-bar" style="background:#1a1a22; border-top:1px solid #2a2a33; padding:8px 12px; display:flex; gap:16px; align-items:center; font-size:0.85em; flex-wrap:wrap;">
+      <span id="active-repo-indicator" style="color:#7fd288;">
+        <span style="color:#9aa3c2;">Repo:</span>
+        <span id="active-repo-path" style="font-family:monospace;">/home/henry/pythonprojects/pandaai</span>
+      </span>
+      <span id="mode-permissions-indicator" style="color:#68a8ef;">
+        <span style="color:#9aa3c2;">Mode:</span>
+        <span id="mode-name">chat</span>
+        <span id="mode-perms" style="color:#7fd288;">(read-only)</span>
+      </span>
+      <span id="cwd-indicator" style="color:#ffa500;">
+        <span style="color:#9aa3c2;">CWD:</span>
+        <span id="cwd-path" style="font-family:monospace;">/home/henry/pythonprojects/pandaai</span>
+      </span>
+      <button id="workspace-config" style="margin-left:auto; font-size:0.8em; background:#2a2a33; color:#9aa3c2; border:1px solid #3a3a43; border-radius:4px; padding:4px 8px; cursor:pointer;" title="Configure workspace settings">⚙️ Configure</button>
+    </div>
+
+    <!-- 3-Panel IDE Workspace (shown in code mode) -->
+    <div id="ide-workspace" style="display:none; height:calc(100vh - 280px); background:#0d0d11;">
+      <div style="display:flex; height:100%; gap:4px;">
+        <!-- File Tree Panel (Left 20%) -->
+        <div id="file-tree-panel" style="width:20%; background:#101014; border-right:1px solid #2a2a33; overflow:auto;">
+          <div style="padding:8px; border-bottom:1px solid #2a2a33; display:flex; align-items:center; justify-content:space-between;">
+            <strong style="color:#cfd3e9; font-size:0.9em;">FILES</strong>
+            <button id="file-tree-refresh" style="background:transparent; border:none; color:#68a8ef; cursor:pointer; font-size:1.1em;" title="Refresh file tree">↻</button>
+          </div>
+          <div id="file-tree" style="padding:4px;"></div>
+        </div>
+
+        <!-- Monaco Editor Panel (Center 50%) -->
+        <div id="editor-panel" style="width:50%; background:#1e1e1e; display:flex; flex-direction:column;">
+          <div id="editor-tabs" style="display:flex; gap:2px; background:#0d0d11; padding:4px; border-bottom:1px solid #2a2a33; flex-wrap:wrap; min-height:32px;"></div>
+          <div id="monaco-container" style="flex:1; width:100%; height:100%;"></div>
+        </div>
+
+        <!-- Task Tracker Panel (Right 30%) -->
+        <div id="task-tracker-panel" style="width:30%; background:#101014; border-left:1px solid #2a2a33; display:flex; flex-direction:column;">
+          <div style="padding:8px; border-bottom:1px solid #2a2a33;">
+            <strong style="color:#cfd3e9; font-size:0.9em;">TASKS</strong>
+          </div>
+          <div id="task-tracker-content" style="flex:1; overflow:auto; padding:8px;">
+            <div style="color:#9aa3c2; font-size:0.85em; text-align:center; padding:20px;">
+              No active tasks
+            </div>
+          </div>
+          <div id="task-tracker-controls" style="padding:8px; border-top:1px solid #2a2a33; display:none;">
+            <button id="pause-execution" style="width:100%; padding:6px; background:#ff6b6b; color:#fff; border:none; border-radius:4px; cursor:pointer;">⏸ Pause Execution</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prompts panel -->
+    <div id="prompts-panel" style="display:none; background:#181820; border-top:1px solid #22222a; padding:12px;">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+        <label>Prompt:</label>
+        <select id="prompts-select" style="background:#101014;color:#ececf1;border:1px solid #2a2a33;border-radius:6px;padding:4px 8px;"></select>
+        <button type="button" id="prompts-load">Load</button>
+        <button type="button" id="prompts-save">Save</button>
+        <button type="button" id="prompts-close">Close</button>
+      </div>
+      <textarea id="prompts-editor" rows="12" style="width:100%; background:#101014; color:#ececf1; border:1px solid #2a2a33; border-radius:6px; padding:8px;"></textarea>
+      <div style="font-size:0.9em;color:#cfd3e9;margin-top:6px;">Edits save to disk; take effect on next request.</div>
+      <div style="margin-top:10px;">
+        <div style="display:flex; align-items:center; gap:8px; color:#cfd3e9; margin-bottom:4px;">
+          <strong>Backups</strong>
+          <button type="button" id="prompts-refresh-backups">Refresh</button>
+        </div>
+        <ul id="prompts-backups" style="list-style:none; padding-left:0; margin:0; max-height:140px; overflow:auto; border:1px solid #2a2a33; border-radius:6px; background:#101014;"></ul>
+      </div>
+    </div>
+    <div id="advanced-settings" style="display:none;">
+      <div class="setting-group">
+        <label>Model Preset:
+          <select id="model-preset">
+            <option value="creative">Creative (temp: 0.8, top_p: 0.95)</option>
+            <option value="research" selected>Research (temp: 0.2, top_p: 0.9)</option>
+          </select>
+        </label>
+        <label>Temperature:
+          <input type="range" id="temperature-slider" min="0" max="1" step="0.1" value="0.2">
+          <span id="temperature-value">0.2</span>
+        </label>
+        <label>Top P:
+          <input type="range" id="top-p-slider" min="0" max="1" step="0.05" value="0.9">
+          <span id="top-p-value">0.9</span>
+        </label>
+      </div>
+    </div>
+    <!-- Confirmation bar for deferred actions (e.g., file.create in Chat) -->
+    <div id="confirm-bar" style="display:none;"></div>
+    <!-- Error panel for displaying errors and recovery options -->
+    <div id="error-panel" style="display:none; background:#2a1a1a; border-top:2px solid #ff4444; padding:12px; position:fixed; bottom:0; left:0; right:0; z-index:1000; max-height:200px; overflow:auto;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+        <strong style="color:#ff6b6b;">⚠️ Errors Detected</strong>
+        <button id="error-panel-close" style="background:transparent; border:none; color:#ff6b6b; cursor:pointer; font-size:1.2em;">×</button>
+      </div>
+      <div id="error-list" style="font-size:0.9em;"></div>
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        <button id="error-retry" style="padding:4px 8px; background:#ff6b6b; color:#fff; border:none; border-radius:4px; cursor:pointer;">🔄 Retry</button>
+        <button id="error-clear" style="padding:4px 8px; background:#444; color:#fff; border:none; border-radius:4px; cursor:pointer;">Clear</button>
+      </div>
+    </div>
+    <!-- Policy panel (toggles for write policy and tool enables) -->
+    <div id="policy-panel" style="display:none; background:#181820; border-top:1px solid #22222a; padding:12px;
+      display:none;">
+      <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+        <label style="color:#cfd3e9;"><input type="checkbox" id="pol-allow-writes"> Allow writes in Chat</label>
+        <label style="color:#cfd3e9;"><input type="checkbox" id="pol-require-confirm" checked> Require confirmation</label>
+        <button type="button" id="policy-save">Save Policy</button>
+        <button type="button" id="policy-close">Close</button>
+      </div>
+      <div style="margin-top:6px;">
+        <strong style="color:#cfd3e9;">Allowed write paths</strong>
+        <div style="margin-top:6px;">
+          <textarea id="pol-allowed-write-paths" rows="3" style="width:100%; background:#101014; color:#ececf1; border:1px solid #2a2a33; border-radius:6px; padding:8px;" placeholder="One absolute path per line, e.g. /home/henry/pythonprojects/pandaai/panda_system_docs"></textarea>
+          <div style="font-size:0.9em;color:#9aa3c2;margin-top:4px;">One absolute path per line. Server enforces these for Chat writes.</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <strong style="color:#cfd3e9;">Tools</strong>
+        <div id="policy-tools" style="display:flex; gap:12px; flex-wrap:wrap; margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <!-- Thinking Visualization Panel (collapsible) -->
+    <div id="thinking-panel" style="display:none; background:#1a1a22; border-top:2px solid #3a3a43; border-bottom:1px solid #2a2a33; max-height:250px; overflow:hidden;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#22222a; cursor:pointer;" id="thinking-panel-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span id="thinking-spinner" style="display:inline-block; width:12px; height:12px; border:2px solid #68a8ef; border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite;"></span>
+          <strong style="color:#cfd3e9; font-size:0.9em;">THINKING</strong>
+          <span id="thinking-status" style="color:#9aa3c2; font-size:0.85em;">Starting...</span>
+        </div>
+        <button id="thinking-toggle" style="background:transparent; border:none; color:#68a8ef; cursor:pointer; font-size:1.2em;" title="Collapse thinking panel">−</button>
+      </div>
+      <div id="thinking-content" style="height:calc(100% - 40px); overflow-y:auto; padding:12px;">
+        <!-- Phase 0: Query Analyzer -->
+        <div class="thinking-stage" data-stage="phase_0" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #68a8ef; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">📩</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Query Analyzer</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting query...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#68a8ef; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#68a8ef; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#68a8ef; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+        </div>
+
+        <!-- Phase 1: Reflection -->
+        <div class="thinking-stage" data-stage="phase_1" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #9b6bef; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">🤔</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Reflection</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting reflection...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#9b6bef; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#9b6bef; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#9b6bef; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+        </div>
+
+        <!-- Phase 2: Context Gatherer -->
+        <div class="thinking-stage" data-stage="phase_2" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #6bef9b; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">📚</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Context Gatherer</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting context...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#6bef9b; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#6bef9b; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#6bef9b; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+        </div>
+
+        <!-- Phase 3: Planner -->
+        <div class="thinking-stage" data-stage="phase_3" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #ffa500; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">📋</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Planner</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting plan...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#ffa500; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#ffa500; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#ffa500; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+        </div>
+
+        <!-- Phase 4: Executor -->
+        <div class="thinking-stage" data-stage="phase_4" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #ef6b9b; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">⚙️</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Executor</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting execution...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#ef6b9b; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#ef6b9b; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#ef6b9b; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+        </div>
+
+        <!-- Phase 5: Coordinator (with tool-calls container) -->
+        <div class="thinking-stage" data-stage="phase_5" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #ef9b6b; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">🔧</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Coordinator</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting coordination...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#ef9b6b; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#ef9b6b; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#ef9b6b; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+          <div class="tool-calls" style="margin-top:8px;"></div>
+        </div>
+
+        <!-- Phase 6: Synthesis -->
+        <div class="thinking-stage" data-stage="phase_6" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #6befa8; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">✨</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Synthesis</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting synthesis...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#6befa8; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#6befa8; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#6befa8; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+        </div>
+
+        <!-- Phase 7: Validation -->
+        <div class="thinking-stage" data-stage="phase_7" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #a8ef6b; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">✓</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Validation</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting validation...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#a8ef6b; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#a8ef6b; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#a8ef6b; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+        </div>
+
+        <!-- Phase 8: Complete -->
+        <div class="thinking-stage" data-stage="phase_8" style="display:none; margin-bottom:12px; padding:10px; background:#101014; border-left:3px solid #7fd288; border-radius:4px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="stage-icon" style="font-size:1.2em;">✅</span>
+              <strong style="color:#cfd3e9; font-size:0.9em;">Complete</strong>
+              <span class="stage-status" style="font-size:0.75em; padding:2px 6px; background:#2a2a33; border-radius:3px; color:#9aa3c2;">pending</span>
+            </div>
+            <span class="stage-duration" style="color:#9aa3c2; font-size:0.8em;">—</span>
+          </div>
+          <div class="stage-reasoning" style="color:#9aa3c2; font-size:0.85em; margin-bottom:6px;">Awaiting completion...</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:#7fd288; font-size:0.8em;">Confidence:</span>
+            <div class="confidence-track" style="flex:1; min-width:0; height:6px; background:#2a2a33; border-radius:3px; overflow:hidden; position:relative;">
+              <div class="confidence-bar" style="position:absolute; top:0; left:0; height:100%; background:#7fd288; width:0%; transition:width 0.3s;"></div>
+            </div>
+            <span class="confidence-value" style="color:#7fd288; font-size:0.8em; min-width:35px; text-align:right;">0%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-window"></div>
+
+    <!-- Terminal Panel (collapsible) -->
+    <div id="terminal-panel" style="display:none; background:#0d0d11; border-top:2px solid #2a2a33; height:200px; overflow:hidden;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 12px; background:#1a1a22; border-bottom:1px solid #2a2a33;">
+        <strong style="color:#cfd3e9; font-size:0.9em;">TERMINAL</strong>
+        <div>
+          <button id="terminal-clear" style="background:transparent; border:none; color:#68a8ef; cursor:pointer; margin-right:8px;" title="Clear terminal">Clear</button>
+          <button id="terminal-toggle" style="background:transparent; border:none; color:#68a8ef; cursor:pointer;" title="Collapse terminal">−</button>
+        </div>
+      </div>
+      <div id="terminal-content" style="height:calc(100% - 32px); overflow-y:auto; padding:8px; font-family:monospace; font-size:0.85em; color:#cfd3e9; background:#0d0d11;"></div>
+    </div>
+
+    <div id="chat-form">
+      <input
+        type="text"
+        id="user-input"
+        placeholder="Type your message…"
+        autofocus
+        autocomplete="off"
+        data-lpignore="true"
+        data-form-type="other"
+      />
+      <button type="button" id="send-btn">Send</button>
+      <button type="button" id="cancel-btn" style="display:none; background:#dc3545;" title="Cancel current query">❌ Cancel</button>
+      <button type="button" id="advanced-toggle">⚙️</button>
+      <button type="button" id="clear-chat" title="Start a new conversation (clears messages)">🗑️ New</button>
+      <button type="button" id="copy-last" title="Copy last exchange (User + Chat)">📋 Copy</button>
+      <button type="button" id="log-turn" title="Log last turn (request/context/response)">📝 Log</button>
+    </div>
+  </div>
+  <!-- jsTree - MUST load BEFORE Monaco to avoid AMD conflict! -->
+  <script src="/static/vendor/jquery.min.js"></script>
+  <script src="/static/vendor/jstree.min.js"></script>
+  <!-- Monaco Editor Loader (defines AMD, so load AFTER jsTree) -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+  <script>
+    // Verify libraries loaded
+    console.log('[Pandora] jQuery:', typeof jQuery !== 'undefined' ? 'v' + jQuery.fn.jquery : 'NOT LOADED');
+    console.log('[Pandora] jsTree:', typeof jQuery !== 'undefined' && jQuery.fn.jstree ? 'loaded' : 'NOT LOADED');
+    if (typeof jQuery === 'undefined' || !jQuery.fn.jstree) {
+      console.error('[Pandora] CRITICAL: jsTree libraries failed to load!');
+    }
+  </script>
+  <!-- Main App (load after libraries are ready) -->
+  <script src="/static/app_v2.js?v=12"></script>
+  <!-- Human-Assisted Web Crawling (Research Panel handles all interventions) -->
+  <script src="/static/intervention_handler.js?v=3"></script>
+  <!-- Research Progress Events -->
+  <script src="/static/browser_stream_viewer.js?v=1"></script>
+  <script src="/static/research_progress.js?v=6"></script>
+  <!-- Permission Prompts (code mode external repo approval) -->
+  <script src="/static/permission_prompt.js?v=1"></script>
+</body>
+</html>

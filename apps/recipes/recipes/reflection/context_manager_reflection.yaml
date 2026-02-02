@@ -1,0 +1,50 @@
+# Context Manager Meta-Reflection Recipe
+# Part of the fractal meta-reflection pattern
+# Context Manager asks: "Is the evidence sufficient and high-quality?"
+
+name: context_manager_reflection
+category: reflection
+role: REFLEX
+temperature: 0.1
+
+prompt_fragments:
+  - "apps/prompts/reflection/context_manager_reflection.md"
+
+input_docs:
+  - path: "evidence_summary"
+    path_type: "inline"
+    optional: false
+    description: "Summary of collected evidence (claims, sources)"
+
+token_budget:
+  total: 1200
+  prompt: 500
+  input_docs: 500
+  output: 120
+  buffer: 80
+
+llm_params:
+  temperature: 0.1
+  max_tokens: 80
+
+output_schema: META_REFLECTION
+
+description: |
+  Context Manager Meta-Reflection Gate
+
+  Uses REFLEX role (temp=0.1) for fast evaluation.
+  Evaluates evidence quality to determine if a response capsule can be created.
+
+  **Confidence Scale:**
+  - 1.0: Excellent evidence, directly answers query
+  - 0.8: Good evidence, sufficient for helpful answer
+  - 0.6: Mediocre evidence, acceptable but not ideal
+  - 0.4: Weak evidence, might need more info
+  - 0.2: Poor evidence, need more sources
+
+  **Output Format:**
+  ```
+  CONFIDENCE: [0.0-1.0]
+  REASON: [one sentence]
+  CAN_PROCEED: [YES|NO|UNSURE]
+  ```

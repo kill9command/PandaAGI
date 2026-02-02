@@ -1,0 +1,180 @@
+# Viability Evaluator Recipe
+# Evaluates products against user requirements and filters results
+#
+# Used during research to filter extracted products, keeping only
+# those that match the user's fundamental requirements.
+
+name: tools_viability_evaluator
+category: tools
+role: viability_evaluator
+model_layer: REFLEX  # Classification tasks use REFLEX (temp 0.3)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/tools/viability_evaluator.md"
+
+# Input documents
+input_docs:
+  - path: "original_query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 150
+    description: "User's original query for priority interpretation"
+
+  - path: "requirements"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 400
+    description: "Structured requirements (must_be, must_have, nice_to_have, disqualifiers, price_max)"
+
+  - path: "products"
+    path_type: "temp"
+    optional: false
+    max_tokens: 2000
+    description: "Array of products to evaluate (from product_extractor)"
+
+# Output document
+output_doc:
+  path: "viability_results.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 4000
+  prompt: 900       # viability_evaluator.md prompt
+  input_docs: 2550  # query + requirements + products
+  output: 1200      # JSON evaluations
+  buffer: 150
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: original_query  # Always keep query for priority reading
+    - keep: requirements    # Always keep requirements
+    - truncate: products    # Limit number of products if needed
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - evaluations
+    - summary
+  properties:
+    evaluations:
+      type: array
+      items:
+        type: object
+        required:
+          - index
+          - product_name
+          - decision
+          - viability_score
+          - reasoning
+          - meets_requirements
+        properties:
+          index:
+            type: integer
+          product_name:
+            type: string
+          decision:
+            type: string
+            enum: ["ACCEPT", "REJECT", "UNCERTAIN"]
+          viability_score:
+            type: number
+            minimum: 0
+            maximum: 1
+          reasoning:
+            type: object
+            required:
+              - fundamental_check
+              - requirements_check
+              - user_satisfaction
+            properties:
+              fundamental_check:
+                type: string
+              requirements_check:
+                type: string
+              user_satisfaction:
+                type: string
+          meets_requirements:
+            type: object
+          strengths:
+            type: array
+            items:
+              type: string
+          weaknesses:
+            type: array
+            items:
+              type: string
+          rejection_reason:
+            type: string
+            description: "REQUIRED when decision is REJECT"
+    summary:
+      type: object
+      required:
+        - total_evaluated
+        - accepted
+        - rejected
+        - viable_indices
+      properties:
+        total_evaluated:
+          type: integer
+        accepted:
+          type: integer
+        rejected:
+          type: integer
+        viable_indices:
+          type: array
+          items:
+            type: integer
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 1
+
+# Description
+description: |
+  Viability Evaluator filters products based on user requirements.
+
+  **Decision Rules:**
+
+  **REJECT only if:**
+  - Wrong product TYPE (fails must_be criterion)
+  - Has explicit disqualifier
+  - Fails hard requirement (must_have)
+  - Price exceeds maximum (if specified)
+
+  **ACCEPT if:**
+  - Matches must_be criterion
+  - Has must_have characteristics
+  - No disqualifiers present
+  - Price within range (if specified)
+
+  **UNCERTAIN if:**
+  - Cannot determine product type
+  - Missing critical information
+
+  **Viability Scoring:**
+  - 0.90-1.0: Excellent match (all must_have + most nice_to_have)
+  - 0.70-0.89: Good match (all must_have + some nice_to_have)
+  - 0.50-0.69: Acceptable (meets must_have, few nice_to_have)
+  - 0.30-0.49: Marginal (meets minimum, concerns)
+  - 0.0-0.29: Reject (fails must_be OR must_have)
+
+  **Critical Rules:**
+  - Do NOT reject for unfamiliar model numbers
+  - Nice-to-have failures reduce score, NOT viability
+  - Read user priorities from original query
+  - Fundamental type check is non-negotiable
+
+  Input: original_query + requirements + products
+  Output: viability_results.json with evaluations and viable_indices
+
+# Integration
+integration:
+  invoked_by:
+    - research_orchestrator.filter_products
+    - goal_directed_navigator.validate_extraction
+  invocation_point: after_product_extraction

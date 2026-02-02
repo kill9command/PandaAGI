@@ -1,0 +1,93 @@
+# Browser Element Selector Recipe
+# Maps natural language navigation intents to specific UI elements
+# Used by WebAgent to translate high-level actions to element interactions
+
+name: browser_element_selector
+category: browser
+role: browser_agent
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/browser/element_selector.md  # ~750 tokens
+
+# Input documents
+input_docs:
+  - path: intent.json
+    description: Navigation intent (e.g., "sort by price low to high", "search for laptops")
+    max_tokens: 200
+    required: true
+    path_type: temp
+
+  - path: interactive_elements.json
+    description: List of elements with id, type, text, aria_label, placeholder, bounding_box
+    max_tokens: 1500
+    required: true
+    path_type: temp
+
+  - path: page_context.json
+    description: URL, page type, visible content zones
+    max_tokens: 300
+    required: false
+    path_type: temp
+
+# Output documents
+output_docs:
+  - selected_element.json  # {selected_element, alternatives, reasoning, action_type, input_text}
+
+# Token budget
+token_budget:
+  total: 3200
+  prompt: 750         # Fixed cost: element_selector.md
+  input_docs: 2000    # intent (200) + interactive_elements (1500) + page_context (300)
+  output: 300         # JSON selection output
+  buffer: 150         # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: interactive_elements  # Truncate element list first
+    - truncate: page_context          # Then page context
+
+# Output schema
+output_schema: BROWSER_ELEMENT_SELECTION
+
+# Description
+description: |
+  Browser Element Selector maps natural language navigation intents to specific
+  UI elements on a webpage.
+
+  **Input Documents:**
+  - intent.json: What the system wants to do (e.g., "sort by price", "search for laptops")
+  - interactive_elements.json: List of elements with id, type, text, aria_label
+  - page_context.json: URL, page type, content zones for position context
+
+  **Selection Criteria:**
+  - Search intents: Find inputs with "Search", "Find" placeholder
+  - Sort intents: Find dropdowns/buttons with "Sort", "Order by" text
+  - Filter intents: Find checkboxes, sliders, or clickable filter options
+  - Navigation intents: Find "Next", ">", numbered links
+  - Action intents: Find "Add to cart", "View details" buttons
+
+  **Output:**
+  {
+    "selected_element": {
+      "id": "c12",
+      "type": "select",
+      "text": "Sort by: Price Low to High",
+      "confidence": 0.95
+    },
+    "alternatives": [
+      {"id": "c15", "type": "button", "text": "Sort", "confidence": 0.6}
+    ],
+    "reasoning": "Brief explanation of selection",
+    "action_type": "click|type|select",
+    "input_text": "search query if action_type is type"
+  }
+
+  **Key Behavior:**
+  - No hardcoded selectors: Match by text/semantics, not CSS selectors
+  - Handle variations: "Sort by Price" = "Price: Low to High" = "Cheapest First"
+  - Report missing elements: Return null if no match found (don't guess)
+  - Zone awareness: Search boxes in footer less likely to be main search

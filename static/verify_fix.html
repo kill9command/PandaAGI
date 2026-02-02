@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>jsTree Fix Verification</title>
+  <link rel="stylesheet" href="/static/vendor/jstree-themes/style.min.css" />
+</head>
+<body>
+  <h1>Verification: Load Order Fix</h1>
+  <h2>Correct Order: jQuery → jsTree → Monaco</h2>
+  <div id="test-tree">
+    <ul>
+      <li>Root Node
+        <ul>
+          <li>Child 1</li>
+          <li>Child 2</li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <div id="results" style="margin-top: 20px; padding: 15px; background: #e8f5e9; font-family: monospace; white-space: pre-wrap;"></div>
+
+  <script>
+    const results = [];
+    function check(name, condition) {
+      const status = condition ? '✓ PASS' : '✗ FAIL';
+      const line = `${status}: ${name}`;
+      results.push(line);
+      console.log(line);
+      return condition;
+    }
+  </script>
+
+  <!-- CORRECT ORDER: jsTree BEFORE Monaco -->
+  <script src="/static/vendor/jquery.min.js"></script>
+
+  <script>
+    check('jQuery loaded', typeof jQuery !== 'undefined');
+    check('jQuery version is 3.7.1', jQuery && jQuery.fn.jquery === '3.7.1');
+  </script>
+
+  <script src="/static/vendor/jstree.min.js"></script>
+
+  <script>
+    const jsTreeOK = check('jsTree plugin registered', typeof jQuery !== 'undefined' && typeof jQuery.fn.jstree === 'function');
+    check('jQuery.jstree namespace exists', typeof jQuery.jstree === 'object');
+    check('jsTree version is 3.3.16', jQuery.jstree && jQuery.jstree.version === '3.3.16');
+  </script>
+
+  <!-- Monaco AFTER jsTree -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+
+  <script>
+    check('AMD define is now present', typeof define !== 'undefined' && typeof define.amd !== 'undefined');
+    check('jsTree still works after Monaco', typeof jQuery.fn.jstree === 'function');
+    
+    // Try to initialize jsTree
+    if (jsTreeOK) {
+      try {
+        jQuery('#test-tree').jstree({
+          core: {
+            themes: { name: 'default', dots: true, icons: true }
+          }
+        });
+        check('jsTree initialized successfully', true);
+        results.push('\n' + '='.repeat(50));
+        results.push('SUCCESS: jsTree loads correctly with this order!');
+        results.push('='.repeat(50));
+        document.getElementById('results').style.background = '#c8e6c9';
+      } catch(e) {
+        check('jsTree initialization failed: ' + e.message, false);
+        document.getElementById('results').style.background = '#ffcdd2';
+      }
+    } else {
+      results.push('\nFAILURE: jsTree did not load correctly');
+      document.getElementById('results').style.background = '#ffcdd2';
+    }
+    
+    document.getElementById('results').textContent = results.join('\n');
+  </script>
+</body>
+</html>

@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAPTCHA Solver - Pandora</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .captcha-info {
+            margin-bottom: 20px;
+        }
+
+        .captcha-info h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .info-value {
+            color: #333;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-all;
+        }
+
+        .screenshot {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .screenshot img {
+            max-width: 100%;
+            border-radius: 8px;
+            border: 2px solid #eee;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .open-captcha-btn {
+            width: 100%;
+            padding: 15px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 15px 0;
+            transition: all 0.3s;
+        }
+
+        .open-captcha-btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .no-captcha {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .no-captcha svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+        }
+
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔓 CAPTCHA Solver</h1>
+            <p>Solve CAPTCHAs to continue your searches</p>
+        </div>
+
+        <div id="message-container"></div>
+        <div id="captcha-container">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading pending CAPTCHAs...</p>
+            </div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="loadCaptchas()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+    </button>
+
+    <script>
+        let interventions = [];
+
+        async function loadCaptchas() {
+            try {
+                const response = await fetch('/api/captchas/pending');
+                const data = await response.json();
+                interventions = data.interventions || [];
+                renderCaptchas();
+            } catch (error) {
+                console.error('Error loading CAPTCHAs:', error);
+                showError('Failed to load CAPTCHAs. Make sure the server is running.');
+            }
+        }
+
+        function renderCaptchas() {
+            const container = document.getElementById('captcha-container');
+
+            if (interventions.length === 0) {
+                container.innerHTML = `
+                    <div class="card no-captcha">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h3>All Clear!</h3>
+                        <p>No pending CAPTCHAs at the moment.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = interventions.map((captcha, index) => `
+                <div class="card">
+                    <span class="status-badge status-pending">⏳ Pending</span>
+
+                    <div class="captcha-info">
+                        <h3>CAPTCHA #${index + 1}</h3>
+
+                        <div class="info-row">
+                            <span class="info-label">Type:</span>
+                            <span class="info-value">${captcha.type}</span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="info-label">Domain:</span>
+                            <span class="info-value">${captcha.domain}</span>
+                        </div>
+
+                        <div class="info-row">
+                            <span class="info-label">Created:</span>
+                            <span class="info-value">${new Date(captcha.created_at).toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    ${captcha.screenshot_path ? `
+                        <div class="screenshot">
+                            <h4>Screenshot:</h4>
+                            <img src="/screenshots/${captcha.screenshot_path.split('/').pop()}" alt="CAPTCHA Screenshot"
+                                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22200%22><rect fill=%22%23f3f4f6%22 width=%22400%22 height=%22200%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23666%22>Screenshot not available</text></svg>'">
+                        </div>
+                    ` : ''}
+
+                    <button class="open-captcha-btn" onclick="openBrowserControl('${captcha.session_id}', '${captcha.intervention_id}')">
+                        🎮 View & Control Browser
+                    </button>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="resolveCaptcha('${captcha.intervention_id}', 'solved')">
+                            ✓ I Solved It
+                        </button>
+                        <button class="btn btn-secondary" onclick="resolveCaptcha('${captcha.intervention_id}', 'skipped')">
+                            ⏭ Skip
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function resolveCaptcha(id, action) {
+            try {
+                const response = await fetch(`/api/captchas/${id}/resolve`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action })
+                });
+
+                if (response.ok) {
+                    showSuccess(action === 'solved' ? '✓ CAPTCHA marked as solved!' : '⏭ CAPTCHA skipped');
+                    setTimeout(loadCaptchas, 1500);
+                } else {
+                    showError('Failed to resolve CAPTCHA');
+                }
+            } catch (error) {
+                console.error('Error resolving CAPTCHA:', error);
+                showError('Network error. Please try again.');
+            }
+        }
+
+        function showSuccess(message) {
+            const container = document.getElementById('message-container');
+            container.innerHTML = `<div class="success-message">${message}</div>`;
+            setTimeout(() => container.innerHTML = '', 3000);
+        }
+
+        function showError(message) {
+            const container = document.getElementById('message-container');
+            container.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        function openBrowserControl(sessionId, interventionId) {
+            const width = 1200;
+            const height = 800;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+
+            const url = `/static/browser_viewer.html?session_id=${sessionId}&intervention_id=${interventionId}`;
+
+            window.open(
+                url,
+                'browser_control',
+                `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+            );
+        }
+
+        // Load CAPTCHAs on page load
+        loadCaptchas();
+
+        // Auto-refresh every 10 seconds
+        setInterval(loadCaptchas, 10000);
+    </script>
+</body>
+</html>

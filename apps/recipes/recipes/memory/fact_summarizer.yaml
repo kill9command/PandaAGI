@@ -1,0 +1,120 @@
+# Fact Summarizer Recipe
+# Extracts reusable facts from research for knowledge base storage
+#
+# Used by memory system to extract stable, reusable facts from research
+# findings. Excludes time-sensitive data like prices and stock levels.
+
+name: memory_fact_summarizer
+category: memory
+role: fact_summarizer
+model_layer: NERVES  # Compression/extraction tasks use NERVES (temp 0.1)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/memory/fact_summarizer.md"
+
+# Input documents
+input_docs:
+  - path: "research_content"
+    path_type: "temp"
+    optional: false
+    max_tokens: 1500
+    description: "Research content to extract facts from"
+
+  - path: "topic"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 50
+    description: "Topic context for the research content"
+
+# Output document
+output_doc:
+  path: "extracted_facts.json"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 600       # fact_summarizer.md prompt
+  input_docs: 1550  # research content + topic
+  output: 300       # JSON facts output
+  buffer: 50
+
+# Trimming strategy
+trimming_strategy:
+  method: intelligent_truncate
+  priority:
+    - keep: topic             # Always keep topic context
+    - truncate: research_content  # Truncate if too long
+
+# Output schema
+output_schema:
+  type: object
+  required:
+    - summary
+    - facts
+  properties:
+    summary:
+      type: string
+      description: "2-3 sentence overview of key knowledge"
+    facts:
+      type: array
+      items:
+        type: object
+        required:
+          - fact
+          - topic
+          - confidence
+          - source_type
+        properties:
+          fact:
+            type: string
+          topic:
+            type: string
+            description: "Dotted topic path (e.g., electronics.laptop.gaming)"
+          confidence:
+            type: number
+            minimum: 0
+            maximum: 1
+          source_type:
+            type: string
+            enum: ["expert", "community", "vendor", "spec"]
+    dropped:
+      type: array
+      items:
+        type: string
+      description: "Reasons for excluding specific content"
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  confidence_threshold: 0.5
+  max_retries: 1
+
+# Description
+description: |
+  Fact Summarizer extracts reusable facts from research findings for permanent
+  knowledge base storage.
+
+  **Include:**
+  - Product specifications (unchanging technical details)
+  - Vendor characteristics (policies, return windows)
+  - Category knowledge (what specs matter for X)
+  - Expert consensus (widely agreed recommendations)
+  - Comparative information (X vs Y for Z use case)
+
+  **Exclude:**
+  - Time-sensitive prices
+  - Stock availability
+  - Sales and promotions
+  - Unverified single-source claims
+
+  **Confidence Guidelines:**
+  - Official specs: 0.95
+  - Expert reviews: 0.85
+  - Community consensus: 0.75
+  - Single user report: 0.50
+  - Unverified claim: 0.30
+
+  Input: research_content + topic
+  Output: extracted_facts.json with facts array and dropped reasons

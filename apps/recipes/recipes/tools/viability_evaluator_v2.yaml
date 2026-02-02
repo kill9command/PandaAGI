@@ -1,0 +1,122 @@
+# Viability Evaluator V2 Recipe
+# Reasoning-based product viability evaluation
+#
+# Uses LLM reasoning to evaluate products against requirements,
+# with emphasis on avoiding false rejections due to outdated training data.
+
+name: tools_viability_evaluator_v2
+category: tools
+role: viability_evaluator
+model_layer: MIND  # Reasoning tasks use MIND (temp 0.5)
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/tools/viability_evaluator_v2.md"
+
+# Input documents
+input_docs:
+  - path: "user_query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "Original user search query"
+
+  - path: "requirements_reasoning"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 800
+    description: "Requirements reasoning document from Phase 1"
+
+  - path: "products"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3000
+    description: "List of products to evaluate (formatted text)"
+
+# Output document
+output_doc:
+  path: "viability_evaluations.yaml"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 1000      # viability_evaluator_v2.md prompt
+  input_docs: 4000  # query + requirements + products
+  output: 2000      # YAML evaluations for each product
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - keep: user_query
+    - keep: requirements_reasoning
+    - truncate: products
+
+# Output schema
+output_schema:
+  type: array
+  items:
+    type: object
+    required:
+      - product_index
+      - decision
+      - score
+    properties:
+      product_index:
+        type: integer
+        description: "1-based index of the product"
+      product_name:
+        type: string
+      reasoning:
+        type: object
+        properties:
+          fundamental_check:
+            type: string
+          user_satisfaction:
+            type: string
+          requirements_check:
+            type: string
+      decision:
+        type: string
+        enum: ["ACCEPT", "REJECT", "UNCERTAIN"]
+      score:
+        type: number
+        minimum: 0
+        maximum: 1
+      rejection_reason:
+        type: string
+        description: "Required if decision is REJECT"
+
+# Quality gates
+quality_gates:
+  schema_validation: true
+  max_retries: 2
+
+# Description
+description: |
+  Viability Evaluator V2 uses reasoning to evaluate product viability.
+
+  **Key Principle:** Do NOT reject products due to unrecognized specs.
+  Retailers have current databases; your training may be outdated.
+
+  **Evaluation Criteria:**
+  1. Fundamental Check: Is this the right TYPE of product?
+  2. User Satisfaction: Would user be happy with this?
+  3. Requirements Check: Does it meet stated requirements?
+
+  **Decision Rules:**
+  - REJECT: Wrong product type, fails must_be, has disqualifiers
+  - ACCEPT: Right type, meets requirements, no disqualifiers
+  - UNCERTAIN: Not enough info to determine
+
+  Input: user_query + requirements_reasoning + products
+  Output: YAML array of evaluations with reasoning
+
+# Integration
+integration:
+  invoked_by:
+    - product_viability.filter_viable_products_with_reasoning
+    - product_viability._get_inline_viability_prompt
+  invocation_point: phase2_product_filtering

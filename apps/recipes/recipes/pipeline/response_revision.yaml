@@ -1,0 +1,59 @@
+# Response Revision Recipe
+# Revises synthesis based on validation feedback
+#
+# Used in Phase 7 (Validation) when validator returns REVISE verdict
+# to fix issues in the generated response.
+
+name: response_revision
+category: pipeline
+role: guide
+model_layer: VOICE  # Response generation temperature
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/pipeline/response_revision.md"
+
+# Input documents (not used - this is a simple prompt with runtime placeholders)
+input_docs: []
+
+# Output document (inline response, not written to file)
+output_doc:
+  path: "revised_response.md"
+  path_type: "temp"
+
+# Token budget
+token_budget:
+  total: 4000
+  prompt: 400       # response_revision.md prompt
+  input_docs: 1500  # original response + revision hints
+  output: 2000      # revised response
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+
+# Quality gates
+quality_gates:
+  schema_validation: false  # Output is markdown text
+  max_retries: 1
+
+# Description
+description: |
+  Response Revision takes validator feedback and revises the synthesis output
+  to address identified issues.
+
+  **Revision Types:**
+  - Remove unsupported claims
+  - Fix inaccurate information
+  - Update stale prices/data
+  - Remove references to invalid URLs
+
+  **Behavior:**
+  - Conservative changes: only modify flagged content
+  - Preserve good content from original
+  - Maintain response style and tone
+  - Higher temperature (0.5) for natural revision
+
+  Input: original_response + revision_hints (via placeholders)
+  Output: revised response markdown

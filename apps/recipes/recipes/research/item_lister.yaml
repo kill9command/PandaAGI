@@ -1,0 +1,63 @@
+# Research Item Lister Recipe
+# Extracts and lists specific items from pages (threads, topics, products)
+# Part of the Research Loop - MIND role for content extraction
+
+name: research_item_lister
+category: research
+role: item_lister
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/item_lister.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    sections: ["0", "3"]
+    optional: false
+    max_tokens: 400
+    path_type: "turn"
+    description: "Section 0: Original query. Section 3: Research goals"
+
+# Note: Page content is passed directly in the prompt
+
+# Output document
+output_doc:
+  path: "research.md"
+  section: "extracted_items"
+
+# Token budget
+token_budget:
+  total: 4000
+  prompt: 600
+  input_docs: 2400      # Page content can be large
+  output: 1000          # Need space for many items
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 3800
+
+# Output schema
+output_schema: ITEM_LIST
+
+# Description
+description: |
+  Item Lister extracts enumerable items from web pages when the goal asks for lists.
+
+  **When Used:**
+  - Goals with keywords: topic, thread, title, post, discussion, article, item, list
+  - Finding what's being discussed on a forum
+  - Listing products from a catalog page
+
+  **Principles:**
+  - Preserve EXACT titles and names (no summarizing or paraphrasing)
+  - Include all visible metadata (dates, replies, views, votes)
+  - Always end with "Page info:" containing structural metadata
+  - Quantity matters - capture all visible items
+
+  **Output Format:**
+  Plain text with bullet points, ending with page metadata
+
+  This is a MIND role (temperature 0.5) for content extraction.
