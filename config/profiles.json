@@ -9,14 +9,14 @@
     "conversation_id": "default",
     "allowed_tools": []
   },
-  "henry": {
-    "id": "henry",
+  "user1": {
+    "id": "user1",
     "prompts": {
       "chat": "solver_system_chat.md",
       "continue": "solver_system_code.md"
     },
-    "memory_user": "henry",
-    "conversation_id": "henry",
+    "memory_user": "user1",
+    "conversation_id": "user1",
     "shared_user": "family",
     "allowed_tools": ["code.apply_patch", "git.commit", "tasks.run"]
   },

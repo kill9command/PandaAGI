@@ -142,7 +142,7 @@ User satisfaction is tracked **implicitly** through conversation analysis - no U
 ```json
 {
   "turn_id": "turn_001233",
-  "session_id": "henry",
+  "session_id": "user1",
   "timestamp": "2026-01-04T10:30:00Z",
 
   "validation_outcome": "APPROVE",

@@ -90,7 +90,7 @@ class ContextDocument:
     - §1-6: Phase outputs (appended sequentially)
 
     Usage:
-        doc = ContextDocument(turn_number=743, session_id="henry", query="...")
+        doc = ContextDocument(turn_number=743, session_id="user1", query="...")
         doc.append_section(1, "Gathered Context", content)
         doc.append_section(2, "Reflection Decision", content)
         ...

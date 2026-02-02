@@ -7,7 +7,7 @@ All user-specific data is stored under panda_system_docs/obsidian_memory/Users/{
 Structure:
     panda_system_docs/obsidian_memory/
     ├── Users/                          # Per-user data
-    │   ├── henry/
+    │   ├── user1/
     │   │   ├── turns/                  # Conversation history
     │   │   ├── sessions/               # Session state
     │   │   ├── transcripts/            # Chat transcripts
@@ -26,9 +26,9 @@ Structure:
 Usage:
     from libs.gateway.user_paths import UserPathResolver
 
-    resolver = UserPathResolver(user_id="henry")
-    turns_dir = resolver.turns_dir      # panda_system_docs/obsidian_memory/Users/henry/turns
-    sessions_dir = resolver.sessions_dir  # panda_system_docs/obsidian_memory/Users/henry/sessions
+    resolver = UserPathResolver(user_id="user1")
+    turns_dir = resolver.turns_dir      # panda_system_docs/obsidian_memory/Users/user1/turns
+    sessions_dir = resolver.sessions_dir  # panda_system_docs/obsidian_memory/Users/user1/sessions
 """
 
 from pathlib import Path

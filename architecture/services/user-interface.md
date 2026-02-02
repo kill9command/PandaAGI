@@ -549,7 +549,7 @@ panda-vault/
 ```markdown
 ---
 turn_id: 42
-session: henry
+session: user1
 created: 2026-01-05T14:30:00Z
 query_type: commerce
 intent: buy

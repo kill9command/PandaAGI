@@ -39,7 +39,7 @@ class ContextGathererRole:
     Searches and retrieves relevant context for the current query.
 
     Usage:
-        gatherer = ContextGathererRole(session_id="henry")
+        gatherer = ContextGathererRole(session_id="user1")
         context_doc = gatherer.gather(query="What's my favorite hamster?", turn_number=743)
         # context_doc now has §0 (query) and §1 (gathered context)
     """

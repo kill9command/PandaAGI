@@ -177,7 +177,7 @@ memory.search(
     topic_filter="electronics.laptop",  # Optional topic filter
     content_types=["vendor_info"],      # Optional content filter
     scope="user",                       # Optional scope filter
-    session_id="henry",                 # Optional session filter
+    session_id="user1",                 # Optional session filter
     min_quality=0.5,                    # Optional quality threshold
     include_expired=False               # Whether to include stale docs
 )
@@ -277,7 +277,7 @@ memory.search(
 │  │                                                              │  │
 │  │ → Coordinator: memory.save(                                  │  │
 │  │     type="preference",                                       │  │
-│  │     content="henry prefers gaming laptops with RTX GPUs"    │  │
+│  │     content="user prefers gaming laptops with RTX GPUs"     │  │
 │  │   )                                                          │  │
 │  └─────────────────────────────────────────────────────────────┘  │
 │                          │                                        │
@@ -443,7 +443,7 @@ All runtime data stored under `panda-system-docs/`:
 panda-system-docs/                    # Runtime data root
 │
 ├── users/                            # Per-user persistent data
-│   └── {user_id}/                    # e.g., "henry", "bob"
+│   └── {user_id}/                    # e.g., "alice", "bob"
 │       ├── preferences.md            # User preferences
 │       ├── facts.md                  # Learned facts about user
 │       └── turns/                    # User's turn history
@@ -546,12 +546,12 @@ The system is **stateless per-turn** with **persistent document storage**. There
 
 ```python
 # session_id is a USER IDENTITY, not a temporary session
-session_id = "henry"  # Persistent user namespace
+session_id = "user1"  # Persistent user namespace
 ```
 
 **session_id** is used for:
 - Namespace for user-specific data (preferences, research)
-- Filter for Context Gatherer ("get henry's history")
+- Filter for Context Gatherer ("get user's history")
 - Scope boundary (user scope vs. global scope)
 
 ### Why No Session Lifecycle?

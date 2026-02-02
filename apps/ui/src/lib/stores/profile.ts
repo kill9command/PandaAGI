@@ -4,7 +4,7 @@ import { browser } from '$app/environment';
 const PROFILE_KEY = 'pandora.profile';
 const PROFILES_KEY = 'pandora.profileList';
 const REMEMBER_KEY = 'pandora.profileRemember';
-const DEFAULT_PROFILES = ['henry', 'wife', 'daughter'];
+const DEFAULT_PROFILES = ['default', 'user1', 'user2'];
 
 function getStored<T>(key: string, fallback: T): T {
   if (!browser) return fallback;
@@ -33,8 +33,8 @@ remember.subscribe(v => setStored(REMEMBER_KEY, v));
 
 // Current profile
 const initialProfile = browser && getStored(REMEMBER_KEY, true)
-  ? getStored(PROFILE_KEY, 'henry')
-  : 'henry';
+  ? getStored(PROFILE_KEY, 'default')
+  : 'default';
 export const profile = writable<string>(initialProfile);
 profile.subscribe(v => {
   if (get(remember)) setStored(PROFILE_KEY, v);

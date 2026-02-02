@@ -909,7 +909,7 @@ panda-system-docs/users/{user_id}/turns/turn_001211/
 ```json
 {
   "turn_number": 1211,
-  "session_id": "henry",
+  "session_id": "user1",
   "timestamp": "2026-01-04T21:06:10Z",
 
   "timing": {

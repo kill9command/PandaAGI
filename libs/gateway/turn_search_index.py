@@ -51,7 +51,7 @@ class TurnSearchIndex:
     Provides session-scoped search with recency weighting.
 
     Usage:
-        index = TurnSearchIndex(session_id="henry")
+        index = TurnSearchIndex(session_id="user1")
         results = index.search("What's my favorite hamster?", limit=10)
 
         # Results are scoped to the session and sorted by relevance

@@ -34,7 +34,7 @@ class BrowserSession:
     This enables users to view and control the browser from their
     laptop/phone via the web UI.
     """
-    session_id: str                                  # e.g., "henry_research:web_vision"
+    session_id: str                                  # e.g., "user1_research:web_vision"
     cdp_url: Optional[str] = None                    # CDP WebSocket URL
     cdp_http_url: Optional[str] = None               # CDP HTTP endpoint for DevTools
     status: SessionStatus = SessionStatus.ACTIVE

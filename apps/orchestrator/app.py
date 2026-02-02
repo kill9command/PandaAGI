@@ -946,7 +946,7 @@ async def vendor_explore_catalog(inp: VendorCatalogIn):
             "vendor_name": "Poppy Bee Hamstery",
             "category": "available",
             "max_items": 20,
-            "session_id": "henry"
+            "session_id": "user1"
         }
 
     Returns:

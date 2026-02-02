@@ -96,7 +96,7 @@ class TurnStore:
         # Save a turn
         turn = Turn(
             turn_number=1,
-            session_id="henry",
+            session_id="user1",
             turn_dir=Path("..."),
             context_content="# Context Document...",
             topic="electronics.laptop",
@@ -105,10 +105,10 @@ class TurnStore:
         await store.save_turn(turn)
 
         # Load a turn
-        loaded = await store.load_turn("henry", 1)
+        loaded = await store.load_turn("user1", 1)
 
         # List turns
-        summaries = await store.list_turns("henry", limit=10)
+        summaries = await store.list_turns("user1", limit=10)
     """
 
     def __init__(self):

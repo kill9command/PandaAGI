@@ -110,12 +110,12 @@ def test_user_specific_memory_isolation(memory_tmp: Path, monkeypatch: pytest.Mo
     monkeypatch.setenv("MEMORY_ROOT", str(memory_tmp))
     reset_memory_store_cache()
 
-    henry_store = get_memory_store("henry")
+    user1_store = get_memory_store("user1")
     spouse_store = get_memory_store("spouse")
 
-    henry_store.save_memory(
-        title="Henry note",
-        body_md="Henry researched hamster cages.",
+    user1_store.save_memory(
+        title="User1 note",
+        body_md="User1 researched hamster cages.",
         scope="short_term",
         tags=["topic:hamster"],
     )
@@ -127,8 +127,8 @@ def test_user_specific_memory_isolation(memory_tmp: Path, monkeypatch: pytest.Mo
         tags=["topic:plants"],
     )
 
-    henry_items = henry_store.query("hamster", k=3)
+    user1_items = user1_store.query("hamster", k=3)
     spouse_items = spouse_store.query("hamster", k=3)
 
-    assert any("Henry" in (item.get("title", "")) for item in henry_items)
-    assert not any("Henry" in (item.get("title", "")) for item in spouse_items)
+    assert any("User1" in (item.get("title", "")) for item in user1_items)
+    assert not any("User1" in (item.get("title", "")) for item in spouse_items)

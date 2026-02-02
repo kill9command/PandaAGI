@@ -44,6 +44,7 @@ htmlcov/
 # Node (for UI)
 node_modules/
 .npm/
+.svelte-kit/
 
 # Temporary files
 tmp_repo*/

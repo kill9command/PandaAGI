@@ -645,7 +645,7 @@ Addressing GOAL_1 first. Will research laptops, then proceed to GOAL_2.
 # Research Document
 **ID:** research_759_abc123
 **Turn:** 759
-**Session:** henry
+**Session:** user1
 **Query:** Syrian hamsters for sale online
 
 ## Metadata
@@ -1284,7 +1284,7 @@ pandaaiv2/                              # Project root (can serve as Obsidian va
 └── panda-system-docs/                  # Runtime data root
     │
     ├── users/                          # Per-user persistent data
-    │   └── {user_id}/                  # e.g., "henry", "bob"
+    │   └── {user_id}/                  # e.g., "alice", "bob"
     │       ├── preferences.md          # User preferences
     │       ├── facts.md                # Learned facts about user
     │       └── turns/                  # User's turn history

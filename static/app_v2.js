@@ -209,8 +209,8 @@ const LS = {
 const PROFILE_LS_KEY = 'pandora.profile';
 const PROFILE_REMEMBER_KEY = 'pandora.profileRemember';
 const PROFILE_LIST_KEY = 'pandora.profileList';
-const DEFAULT_PROFILE = 'henry';
-const DEFAULT_PROFILES = ['henry', 'wife', 'daughter'];
+const DEFAULT_PROFILE = 'default';
+const DEFAULT_PROFILES = ['default', 'user1', 'user2'];
 const CHAT_KEY_PREFIX = 'pandora.chat.';
 let activeProfile = DEFAULT_PROFILE;
 let profileOptions = [];
@@ -438,7 +438,7 @@ const savedMode = LS.get('pandora.mode', 'chat');
   // Ensure apiBase reflects current LAN toggle
   try {
     const useLAN = !!(useLANTgl && useLANTgl.checked);
-    const lanBase = LS.get('pandora.lanBase', 'http://192.168.1.150:9000');
+    const lanBase = LS.get('pandora.lanBase', 'http://192.168.1.100:9000');
     LS.set('pandora.apiBase', useLAN ? (lanBase.replace(/\/$/, '') + '/v1') : '/v1');
   } catch {}
   // Kick off initial connection ping
@@ -714,7 +714,7 @@ function bindSettingHandlers() {
   // LAN controls
   if (useLANTgl) useLANTgl.addEventListener('change', () => {
     LS.set('pandora.useLAN', useLANTgl.checked ? '1' : '0');
-    const base = LS.get('pandora.lanBase', 'http://192.168.1.150:9000');
+    const base = LS.get('pandora.lanBase', 'http://192.168.1.100:9000');
     LS.set('pandora.apiBase', useLANTgl.checked ? (base.replace(/\/$/, '') + '/v1') : '/v1');
     addDebugMessage('Use LAN ' + (useLANTgl.checked ? 'enabled' : 'disabled'));
     scheduleHealthPing(true);
