@@ -5,7 +5,7 @@ Generates realistic browser fingerprints that remain consistent across
 a session to avoid detection. Uses deterministic randomization seeded
 by user_id + session_id for reproducibility.
 
-Part of Pandora's human-assisted web crawling system.
+Part of Panda's human-assisted web crawling system.
 """
 
 import random

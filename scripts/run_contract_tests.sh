@@ -24,7 +24,7 @@ cd "$PROJECT_ROOT"
 MODE="${1:-}"
 
 echo "============================================"
-echo "  Pandora Contract Test Gate"
+echo "  Panda Contract Test Gate"
 echo "============================================"
 echo ""
 

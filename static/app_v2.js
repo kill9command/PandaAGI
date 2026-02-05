@@ -1,7 +1,7 @@
 // =============================================================================
 // THINKING VISUALIZATION ENABLED - BUILD 2025-12-03T17:15:00Z
 // =============================================================================
-console.log('%c[Pandora] BUILD 2025-12-03 v171500 - FINAL POLL LOOP FIX', 'color: #68a8ef; font-size: 14px; font-weight: bold; background: #1a1a2e; padding: 4px 8px;');
+console.log('%c[Panda] BUILD 2025-12-03 v171500 - FINAL POLL LOOP FIX', 'color: #68a8ef; font-size: 14px; font-weight: bold; background: #1a1a2e; padding: 4px 8px;');
 
 const chatWindow    = document.getElementById('chat-window');
 const chatForm      = document.getElementById('chat-form');
@@ -77,7 +77,7 @@ Default points to the local Gateway OpenAI-compatible endpoint.
 */
 const API_BASE = (function() {
   try {
-    return localStorage.getItem('pandora.apiBase') || '/v1';
+    return localStorage.getItem('panda.apiBase') || '/v1';
   } catch {
     return '/v1';
   }
@@ -85,9 +85,9 @@ const API_BASE = (function() {
 
 // Preset defaults (sampling + model routed via LiteLLM)
 const PRESETS = {
-  creative: { temperature: 0.8, top_p: 0.95, model: 'pandora-plan' },
-  chat: { temperature: 0.2, top_p: 0.9, model: 'pandora-chat' },
-  code: { temperature: 0.0, top_p: 1.0, model: 'pandora-plan' },
+  creative: { temperature: 0.8, top_p: 0.95, model: 'panda-plan' },
+  chat: { temperature: 0.2, top_p: 0.9, model: 'panda-chat' },
+  code: { temperature: 0.0, top_p: 1.0, model: 'panda-plan' },
 };
 
 // UI elements for advanced controls
@@ -156,7 +156,7 @@ const workspaceConfig = document.getElementById('workspace-config');
 
 function getApiKey() {
   try {
-    return LS.get('pandora.apiKey', 'sk-local') || 'sk-local';
+    return LS.get('panda.apiKey', 'sk-local') || 'sk-local';
   } catch {
     return 'sk-local';
   }
@@ -193,7 +193,7 @@ async function persistServerRepoBase(path) {
     }
     await resp.json().catch(() => null);
   } catch (err) {
-    console.error('[Pandora] Failed to persist repo base:', err);
+    console.error('[Panda] Failed to persist repo base:', err);
     addDebugMessage('Failed to update repo base on server.');
     throw err;
   }
@@ -206,12 +206,12 @@ const LS = {
   remove(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } },
 };
 
-const PROFILE_LS_KEY = 'pandora.profile';
-const PROFILE_REMEMBER_KEY = 'pandora.profileRemember';
-const PROFILE_LIST_KEY = 'pandora.profileList';
+const PROFILE_LS_KEY = 'panda.profile';
+const PROFILE_REMEMBER_KEY = 'panda.profileRemember';
+const PROFILE_LIST_KEY = 'panda.profileList';
 const DEFAULT_PROFILE = 'default';
 const DEFAULT_PROFILES = ['default', 'user2', 'user3'];
-const CHAT_KEY_PREFIX = 'pandora.chat.';
+const CHAT_KEY_PREFIX = 'panda.chat.';
 let activeProfile = DEFAULT_PROFILE;
 let profileOptions = [];
 
@@ -351,7 +351,7 @@ function formatBotText(str) {
 
 function setAdvancedVisible(visible) {
   advPanel.style.display = visible ? 'block' : 'none';
-  LS.set('pandora.advOpen', visible ? '1' : '0');
+  LS.set('panda.advOpen', visible ? '1' : '0');
 }
 
 function applyPresetToSliders(key) {
@@ -364,7 +364,7 @@ function applyPresetToSliders(key) {
 
 function initSettingsFromStorage() {
   // Advanced visibility
-  const advOpen = LS.get('pandora.advOpen', '0') === '1';
+  const advOpen = LS.get('panda.advOpen', '0') === '1';
   setAdvancedVisible(advOpen);
 
   profileOptions = loadProfileOptionsFromStorage();
@@ -382,39 +382,39 @@ function initSettingsFromStorage() {
 
   // Persona selection
   // Preset and sliders
-  const preset = LS.get('pandora.preset', 'chat');
+  const preset = LS.get('panda.preset', 'chat');
   if (presetSel) presetSel.value = preset;
   applyPresetToSliders(preset);
   // If explicit custom values were saved, apply them
-  const tSaved = LS.get('pandora.temp', '');
-  const pSaved = LS.get('pandora.topp', '');
+  const tSaved = LS.get('panda.temp', '');
+  const pSaved = LS.get('panda.topp', '');
   if (tSaved !== '') { tempSlider.value = tSaved; tempVal.textContent = String(tSaved); }
   if (pSaved !== '') { topPSlider.value = pSaved; topPVal.textContent = String(pSaved); }
 
   // Style
-  if (styleSel) styleSel.value = LS.get('pandora.style', styleSel.value || 'concise');
+  if (styleSel) styleSel.value = LS.get('panda.style', styleSel.value || 'concise');
   // Keep input after send
-  if (keepInputTgl) keepInputTgl.checked = LS.get('pandora.keepInput', '0') === '1';
+  if (keepInputTgl) keepInputTgl.checked = LS.get('panda.keepInput', '0') === '1';
 
   // REMOVED: Teach toggle, Show context toggle, Show requests toggle
   // Fast mode toggle
-  if (fastModeTgl) fastModeTgl.checked = LS.get('pandora.fastMode', '0') === '1';
-  if (autoSummarizeTgl) autoSummarizeTgl.checked = LS.get('pandora.autoSummarize', '0') === '1';
-  if (autoSummarizeThr) autoSummarizeThr.value = String(LS.get('pandora.autoSummarizeThreshold', autoSummarizeThr.value || '700'));
+  if (fastModeTgl) fastModeTgl.checked = LS.get('panda.fastMode', '0') === '1';
+  if (autoSummarizeTgl) autoSummarizeTgl.checked = LS.get('panda.autoSummarize', '0') === '1';
+  if (autoSummarizeThr) autoSummarizeThr.value = String(LS.get('panda.autoSummarizeThreshold', autoSummarizeThr.value || '700'));
 
   // Mode radio
-const savedMode = LS.get('pandora.mode', 'chat');
+const savedMode = LS.get('panda.mode', 'chat');
   const mNode = document.querySelector(`input[name="mode"][value="${savedMode}"]`);
   if (mNode) mNode.checked = true;
   // Repo root input visibility (Continue mode)
   const mode = (document.querySelector('input[name="mode"]:checked')||{}).value || 'chat';
-  const repoSaved = LS.get('pandora.repoRoot', '');
+  const repoSaved = LS.get('panda.repoRoot', '');
   if (repoRootInput) repoRootInput.value = repoSaved;
   if (repoRootInput && !repoSaved) {
     fetchServerRepoBase().then((serverPath) => {
       if (serverPath && !repoRootInput.value) {
         repoRootInput.value = serverPath;
-        LS.set('pandora.repoRoot', serverPath);
+        LS.set('panda.repoRoot', serverPath);
         updateContextStatus();
       }
     }).catch(() => {});
@@ -426,37 +426,37 @@ const savedMode = LS.get('pandora.mode', 'chat');
   // Jobs toggle: default ON for non-localhost hosts
   if (useJobsTgl) {
     const defaultUse = (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1');
-    const saved = LS.get('pandora.useJobs', defaultUse ? '1' : '0') === '1';
+    const saved = LS.get('panda.useJobs', defaultUse ? '1' : '0') === '1';
     useJobsTgl.checked = saved;
   }
   // LAN toggle and base
   if (useLANTgl) {
-    const saved = LS.get('pandora.useLAN', '0') === '1';
+    const saved = LS.get('panda.useLAN', '0') === '1';
     useLANTgl.checked = saved;
   }
   // REMOVED: lanBaseInput UI element (still use localStorage value)
   // Ensure apiBase reflects current LAN toggle
   try {
     const useLAN = !!(useLANTgl && useLANTgl.checked);
-    const lanBase = LS.get('pandora.lanBase', 'http://192.168.1.100:9000');
-    LS.set('pandora.apiBase', useLAN ? (lanBase.replace(/\/$/, '') + '/v1') : '/v1');
+    const lanBase = LS.get('panda.lanBase', 'http://192.168.1.100:9000');
+    LS.set('panda.apiBase', useLAN ? (lanBase.replace(/\/$/, '') + '/v1') : '/v1');
   } catch {}
   // Kick off initial connection ping
   try { scheduleHealthPing(true); } catch {}
   // Continue relay controls
-  if (continueSendTgl) continueSendTgl.checked = LS.get('pandora.continueSend', '0') === '1';
-  if (continueWebhook) continueWebhook.value = LS.get('pandora.continueWebhook', '');
+  if (continueSendTgl) continueSendTgl.checked = LS.get('panda.continueSend', '0') === '1';
+  if (continueWebhook) continueWebhook.value = LS.get('panda.continueWebhook', '');
   if (continueWrap) continueWrap.style.display = (mode === 'code') ? 'inline-block' : 'none';
   // Auto-configure Continue relay defaults so user doesn't need to enter anything
   try {
     if (continueWebhook) {
       const defaultRelay = 'http://127.0.0.1:65432/relay';
-      let saved = LS.get('pandora.continueWebhook', '');
-      if (!saved) { saved = defaultRelay; LS.set('pandora.continueWebhook', saved); }
+      let saved = LS.get('panda.continueWebhook', '');
+      if (!saved) { saved = defaultRelay; LS.set('panda.continueWebhook', saved); }
       continueWebhook.value = saved;
     }
     if (continueSendTgl) {
-      if (LS.get('pandora.continueSend', '') === '') { LS.set('pandora.continueSend', '1'); }
+      if (LS.get('panda.continueSend', '') === '') { LS.set('panda.continueSend', '1'); }
       continueSendTgl.checked = true;
     }
   } catch {}
@@ -465,7 +465,7 @@ const savedMode = LS.get('pandora.mode', 'chat');
 // Update context status bar with current repo, mode, and working directory
 function updateContextStatus() {
   // Update repo path
-  const repoPath = LS.get('pandora.repoRoot', '') || '/path/to/project';
+  const repoPath = LS.get('panda.repoRoot', '') || '/path/to/project';
   if (activeRepoPath) {
     activeRepoPath.textContent = repoPath || '<not set>';
     activeRepoPath.title = repoPath;
@@ -510,27 +510,27 @@ function bindSettingHandlers() {
   }
   if (presetSel) {
     presetSel.addEventListener('change', () => {
-      LS.set('pandora.preset', presetSel.value);
+      LS.set('panda.preset', presetSel.value);
       applyPresetToSliders(presetSel.value);
     });
   }
   if (tempSlider) {
-    const update = () => { tempVal.textContent = String(tempSlider.value); LS.set('pandora.temp', tempSlider.value); };
+    const update = () => { tempVal.textContent = String(tempSlider.value); LS.set('panda.temp', tempSlider.value); };
     tempSlider.addEventListener('input', update);
     tempSlider.addEventListener('change', update);
   }
   if (topPSlider) {
-    const update = () => { topPVal.textContent = String(topPSlider.value); LS.set('pandora.topp', topPSlider.value); };
+    const update = () => { topPVal.textContent = String(topPSlider.value); LS.set('panda.topp', topPSlider.value); };
     topPSlider.addEventListener('input', update);
     topPSlider.addEventListener('change', update);
   }
-  if (styleSel) styleSel.addEventListener('change', () => LS.set('pandora.style', styleSel.value));
-  if (keepInputTgl) keepInputTgl.addEventListener('change', () => LS.set('pandora.keepInput', keepInputTgl.checked ? '1' : '0'));
-  if (useJobsTgl) useJobsTgl.addEventListener('change', () => LS.set('pandora.useJobs', useJobsTgl.checked ? '1' : '0'));
+  if (styleSel) styleSel.addEventListener('change', () => LS.set('panda.style', styleSel.value));
+  if (keepInputTgl) keepInputTgl.addEventListener('change', () => LS.set('panda.keepInput', keepInputTgl.checked ? '1' : '0'));
+  if (useJobsTgl) useJobsTgl.addEventListener('change', () => LS.set('panda.useJobs', useJobsTgl.checked ? '1' : '0'));
   // REMOVED: teach-toggle, showCtxTgl, showReqTgl event listeners
-  if (fastModeTgl) fastModeTgl.addEventListener('change', () => LS.set('pandora.fastMode', fastModeTgl.checked ? '1' : '0'));
-  if (autoSummarizeTgl) autoSummarizeTgl.addEventListener('change', () => LS.set('pandora.autoSummarize', autoSummarizeTgl.checked ? '1' : '0'));
-  if (autoSummarizeThr) autoSummarizeThr.addEventListener('change', () => LS.set('pandora.autoSummarizeThreshold', (autoSummarizeThr.value || '700')));
+  if (fastModeTgl) fastModeTgl.addEventListener('change', () => LS.set('panda.fastMode', fastModeTgl.checked ? '1' : '0'));
+  if (autoSummarizeTgl) autoSummarizeTgl.addEventListener('change', () => LS.set('panda.autoSummarize', autoSummarizeTgl.checked ? '1' : '0'));
+  if (autoSummarizeThr) autoSummarizeThr.addEventListener('change', () => LS.set('panda.autoSummarizeThreshold', (autoSummarizeThr.value || '700')));
   if (profileSelect) {
     profileSelect.addEventListener('change', () => {
       const updatedProfile = applyActiveProfile(profileSelect.value);
@@ -539,7 +539,7 @@ function bindSettingHandlers() {
       LAST_TURN = null;
       // Store active session for research monitor
       try {
-        localStorage.setItem('pandora_active_session', updatedProfile);
+        localStorage.setItem('panda_active_session', updatedProfile);
       } catch (e) {
         console.warn('Could not store active session:', e);
       }
@@ -547,7 +547,7 @@ function bindSettingHandlers() {
     // Store initial session on page load
     try {
       const currentProfile = profileSelect.value || 'default';
-      localStorage.setItem('pandora_active_session', currentProfile);
+      localStorage.setItem('panda_active_session', currentProfile);
     } catch (e) {
       console.warn('Could not store initial session:', e);
     }
@@ -595,7 +595,7 @@ function bindSettingHandlers() {
   // Persist mode changes
   document.querySelectorAll('input[name="mode"]').forEach(r => {
     r.addEventListener('change', () => {
-      LS.set('pandora.mode', r.value);
+      LS.set('panda.mode', r.value);
       if (repoRootWrap) repoRootWrap.style.display = (r.value === 'code') ? 'inline-block' : 'none';
       if (continueWrap) continueWrap.style.display = (r.value === 'code') ? 'inline-block' : 'none';
       updateContextStatus();
@@ -605,7 +605,7 @@ function bindSettingHandlers() {
   if (repoRootSave && repoRootInput) {
     repoRootSave.addEventListener('click', async () => {
       const v = (repoRootInput.value || '').trim();
-      LS.set('pandora.repoRoot', v);
+      LS.set('panda.repoRoot', v);
       addDebugMessage(v ? ('Repo root saved: ' + v) : 'Repo root cleared.');
       updateContextStatus();
 
@@ -627,7 +627,7 @@ function bindSettingHandlers() {
   if (apiKeySave && apiKeyInput) {
     apiKeySave.addEventListener('click', () => {
       const k = (apiKeyInput.value || '').trim();
-      LS.set('pandora.apiKey', k || 'sk-local');
+      LS.set('panda.apiKey', k || 'sk-local');
       addDebugMessage('API key saved.');
     });
   }
@@ -635,8 +635,8 @@ function bindSettingHandlers() {
     continueSave.addEventListener('click', () => {
       const on = !!(continueSendTgl && continueSendTgl.checked);
       const url = (continueWebhook && continueWebhook.value || '').trim();
-      LS.set('pandora.continueSend', on ? '1' : '0');
-      LS.set('pandora.continueWebhook', url);
+      LS.set('panda.continueSend', on ? '1' : '0');
+      LS.set('panda.continueWebhook', url);
       addDebugMessage(`Continue relay ${on ? 'enabled' : 'disabled'}${url ? ' → ' + url : ''}`);
     });
   }
@@ -713,9 +713,9 @@ function bindSettingHandlers() {
 
   // LAN controls
   if (useLANTgl) useLANTgl.addEventListener('change', () => {
-    LS.set('pandora.useLAN', useLANTgl.checked ? '1' : '0');
-    const base = LS.get('pandora.lanBase', 'http://192.168.1.150:9000');
-    LS.set('pandora.apiBase', useLANTgl.checked ? (base.replace(/\/$/, '') + '/v1') : '/v1');
+    LS.set('panda.useLAN', useLANTgl.checked ? '1' : '0');
+    const base = LS.get('panda.lanBase', 'http://192.168.1.150:9000');
+    LS.set('panda.apiBase', useLANTgl.checked ? (base.replace(/\/$/, '') + '/v1') : '/v1');
     addDebugMessage('Use LAN ' + (useLANTgl.checked ? 'enabled' : 'disabled'));
     scheduleHealthPing(true);
   });
@@ -755,12 +755,12 @@ async function scheduleHealthPing(immediate = false) {
   if (_connTimer) { clearTimeout(_connTimer); _connTimer = null; }
   const doPing = async () => {
     try {
-      const apiBase = LS.get('pandora.apiBase', '/v1');
+      const apiBase = LS.get('panda.apiBase', '/v1');
       let healthUrl = '/healthz';
       if (/^https?:\/\//i.test(apiBase)) {
         healthUrl = apiBase.replace(/\/?v1\/?$/i, '') + '/healthz';
       }
-      const useLAN = LS.get('pandora.useLAN', '0') === '1';
+      const useLAN = LS.get('panda.useLAN', '0') === '1';
       const ok = await fetchWithTimeout(healthUrl, { method: 'GET' }, 4000).then(r => r.ok).catch(()=>false);
       updateConnIndicator(ok, useLAN ? 'LAN' : 'Origin');
     } catch { updateConnIndicator(false, 'Origin'); }
@@ -1684,7 +1684,7 @@ async function handleSendMessage() {
           }
           // If intent is explicit, keep a short meta header to inform the model
           if (cmd) {
-            try { LS.set('pandora.lastMeta', JSON.stringify(bundle.meta || {})); } catch {}
+            try { LS.set('panda.lastMeta', JSON.stringify(bundle.meta || {})); } catch {}
           }
 
           // Auto‑summarize: map → reduce when Broker Context is large
@@ -1764,7 +1764,7 @@ async function handleSendMessage() {
       } else {
         // Fallback: check lastMeta for search needs
         try {
-          const m = JSON.parse(LS.get('pandora.lastMeta', '{}'));
+          const m = JSON.parse(LS.get('panda.lastMeta', '{}'));
           const needs = Array.isArray(m.needs) ? m.needs : [];
           if (needs.some(n => (n && n.type === 'search'))) {
             systemMsg = `${systemMsg} Cite source titles in parentheses when relevant (e.g., (Hamster — Introduction)).`;
@@ -1782,7 +1782,7 @@ async function handleSendMessage() {
     let metaHdr = '';
     if (cmd) {
       try {
-        const m = JSON.parse(LS.get('pandora.lastMeta', '{}'));
+        const m = JSON.parse(LS.get('panda.lastMeta', '{}'));
         const which = cmd.provider === 'wiki' ? 'wiki' : (cmd.provider === 'docs' ? 'docs' : '');
         metaHdr = buildIntentHeader(m, which === 'wiki' ? question : null, which === 'docs' ? question : null, null);
       } catch {
@@ -1791,7 +1791,7 @@ async function handleSendMessage() {
       }
     } else {
       // Clear any stale broker meta so headers like 'broker v1' are not carried over
-      try { LS.set('pandora.lastMeta', '{}'); } catch {}
+      try { LS.set('panda.lastMeta', '{}'); } catch {}
     }
 
     // Assemble final user content
@@ -1801,7 +1801,7 @@ async function handleSendMessage() {
     const userContent = head + ctx + 'Question: ' + question;
     if (showReqTgl && showReqTgl.checked) {
       const preview = userContent.slice(0, 500) + (userContent.length > 500 ? '…' : '');
-      const chatReq = { model: (preset && preset.model) || 'pandora-act', temperature, top_p, system: systemMsg, user_preview: preview };
+      const chatReq = { model: (preset && preset.model) || 'panda-act', temperature, top_p, system: systemMsg, user_preview: preview };
       chatWindow.appendChild(renderDetailsBlock('Chat request (preview)', chatReq));
     }
     LAST_TURN.system_message = systemMsg;
@@ -1814,7 +1814,7 @@ async function handleSendMessage() {
       if (!fast && (packedText || summarized)) maxTokens = 512;
     } catch {}
     const stopTokens = ["<think>", "</think>", "Thought:", "Chain-of-thought:", "<think", "</think>"];
-    const repoSaved = (repoRootInput && repoRootInput.value) || LS.get('pandora.repoRoot', '');
+    const repoSaved = (repoRootInput && repoRootInput.value) || LS.get('panda.repoRoot', '');
     const profileId = getActiveProfile();
     const requestPayload = {
       model: preset.model,
@@ -1943,7 +1943,7 @@ async function handleSendMessage() {
       }
       dataRaw = got;
     } else {
-      const apiBase = LS.get('pandora.apiBase', '/v1');
+      const apiBase = LS.get('panda.apiBase', '/v1');
       try {
         res = await fetch(`${apiBase}/chat/completions`, fetchOptions);
         clearTimeout(timeoutId); // Clear timeout on successful response
@@ -2083,7 +2083,7 @@ async function handleSendMessage() {
           const _tc2_0 = (typeof performance !== 'undefined' ? performance.now() : Date.now());
           // show transient loading bubble for continuation
           addMessage('…', 'bot', true);
-          const apiBase2 = LS.get('pandora.apiBase', '/v1');
+          const apiBase2 = LS.get('panda.apiBase', '/v1');
           const res2 = await fetch(`${apiBase2}/chat/completions`, fetchOptions2);
           let raw2 = '';
           if (!res2.ok) {
@@ -2113,7 +2113,7 @@ async function handleSendMessage() {
       // Debug: show compact JSON for troubleshooting
       // try { addDebugMessage('Gateway JSON (truncated):\n' + JSON.stringify(data).slice(0, 1200)); } catch {}
 
-      // Continue relay REMOVED - Pandora is now standalone with built-in IDE
+      // Continue relay REMOVED - Panda is now standalone with built-in IDE
 
       // Update IDE components (task tracker, terminal)
       try {
@@ -2251,7 +2251,7 @@ function renderConfirmBar(items) {
       // Root selector (repo root + allowed paths)
       const rootSel = document.createElement('select');
       rootSel.className = 'root-select';
-      const repoSaved = (repoRootInput && repoRootInput.value) || LS.get('pandora.repoRoot', '');
+      const repoSaved = (repoRootInput && repoRootInput.value) || LS.get('panda.repoRoot', '');
       const roots = [];
       if (repoSaved) roots.push({ label: 'Repo Root (saved)', value: repoSaved });
       (POLICY.chat_allowed_write_paths || []).forEach(p => roots.push({ label: p, value: p }));
@@ -2291,7 +2291,7 @@ function describeAction(it) {
     const tool = it && it.tool;
     const args = (it && it.args) || {};
     if (tool === 'file.create') {
-      const repo = args.repo || LS.get('pandora.repoRoot', '') || '<repo?>';
+      const repo = args.repo || LS.get('panda.repoRoot', '') || '<repo?>';
       return `file.create → ${repo}/${args.path || '<path?>'} (${(args.content||'').length} chars)`;
     }
     return `${tool} ${JSON.stringify(args)}`;
@@ -2301,7 +2301,7 @@ function describeAction(it) {
 async function approveAction(it, row) {
   try {
     const mode = (document.querySelector('input[name="mode"]:checked')||{}).value || 'answer';
-    let repo = (repoRootInput && repoRootInput.value) || LS.get('pandora.repoRoot', '');
+    let repo = (repoRootInput && repoRootInput.value) || LS.get('panda.repoRoot', '');
     const payload = { tool: it.tool, args: Object.assign({}, it.args), mode, repo, confirmed: true };
     // For file.create allow overriding target root and path from UI controls
     if (payload.tool === 'file.create' && row) {
@@ -2409,7 +2409,7 @@ function updateIDEWorkspaceVisibility() {
 
   // Load file tree when switching to code mode
   if (isCodeMode && typeof loadFileTreeData === 'function') {
-    const repo = (repoRootInput && repoRootInput.value) || LS.get('pandora.repoRoot', '');
+    const repo = (repoRootInput && repoRootInput.value) || LS.get('panda.repoRoot', '');
     if (repo) {
       loadFileTreeData();
     }
@@ -2422,7 +2422,7 @@ async function loadFileInEditor(filePath) {
 
   try {
     const base = buildBaseUrl();
-    const repo = (repoRootInput && repoRootInput.value) || LS.get('pandora.repoRoot', '');
+    const repo = (repoRootInput && repoRootInput.value) || LS.get('panda.repoRoot', '');
 
     const response = await fetch(`${base}/tool/execute`, {
       method: 'POST',
@@ -2584,7 +2584,7 @@ function initFileTree() {
 async function loadFileTreeData() {
   try {
     const base = buildBaseUrl();
-    const repo = (repoRootInput && repoRootInput.value) || LS.get('pandora.repoRoot', '');
+    const repo = (repoRootInput && repoRootInput.value) || LS.get('panda.repoRoot', '');
 
     if (!repo) {
       console.log('No repo configured for file tree');
@@ -2654,16 +2654,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize file tree - libraries should already be loaded by now
   if (typeof jQuery !== 'undefined' && jQuery.fn.jstree) {
-    console.log('[Pandora] File tree ready - jQuery', jQuery.fn.jquery, '+ jsTree');
+    console.log('[Panda] File tree ready - jQuery', jQuery.fn.jquery, '+ jsTree');
     // Check if we're in code mode and have a repo configured
     const mode = (document.querySelector('input[name="mode"]:checked')||{}).value || 'chat';
-    const repo = (repoRootInput && repoRootInput.value) || LS.get('pandora.repoRoot', '');
+    const repo = (repoRootInput && repoRootInput.value) || LS.get('panda.repoRoot', '');
     if (mode === 'code' && repo) {
       initFileTree();
     }
   } else {
-    console.error('[Pandora] CRITICAL: jQuery or jsTree not loaded! This should not happen.');
-    console.error('[Pandora] jQuery:', typeof jQuery, 'jsTree:', typeof jQuery !== 'undefined' ? (jQuery.fn.jstree ? 'loaded' : 'missing') : 'N/A');
+    console.error('[Panda] CRITICAL: jQuery or jsTree not loaded! This should not happen.');
+    console.error('[Panda] jQuery:', typeof jQuery, 'jsTree:', typeof jQuery !== 'undefined' ? (jQuery.fn.jstree ? 'loaded' : 'missing') : 'N/A');
   }
 });
 
@@ -2968,12 +2968,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (execModeSelect) {
     execModeSelect.addEventListener('change', () => {
       const mode = execModeSelect.value;
-      LS.set('pandora.executionMode', mode);
+      LS.set('panda.executionMode', mode);
       console.log('Execution mode changed to:', mode);
     });
 
     // Restore saved execution mode
-    const saved = LS.get('pandora.executionMode', 'autonomous');
+    const saved = LS.get('panda.executionMode', 'autonomous');
     execModeSelect.value = saved;
   }
 
@@ -2998,7 +2998,7 @@ async function undoLastChange() {
 
   try {
     const base = buildBaseUrl();
-    const repo = (repoRootInput && repoRootInput.value) || LS.get('pandora.repoRoot', '');
+    const repo = (repoRootInput && repoRootInput.value) || LS.get('panda.repoRoot', '');
 
     const response = await fetch(`${base}/tool/execute`, {
       method: 'POST',

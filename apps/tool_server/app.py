@@ -54,7 +54,7 @@ from apps.services.tool_server.shared.llm_utils import load_prompt_via_recipe as
 from apps.services.tool_server.phase_api import router as phase_router
 
 app = FastAPI(
-    title="Pandora Tool Server",
+    title="Panda Tool Server",
     description="Tool execution service - 8-Phase Pipeline support",
 )
 # Design Note: "Orchestrator" is legacy naming. Current architecture uses "Tool Server".
@@ -126,7 +126,7 @@ class PermissionMiddleware(BaseHTTPMiddleware):
     This provides defense-in-depth for direct orchestrator calls
     that bypass the gateway. Gateway validation is the primary gate.
 
-    Checks X-Pandora-Mode header to ensure code-mode tools are only
+    Checks X-Panda-Mode header to ensure code-mode tools are only
     called with appropriate mode.
     """
 
@@ -148,7 +148,7 @@ class PermissionMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Check for mode header (gateway sets this when calling orchestrator)
-        mode = request.headers.get("X-Pandora-Mode", "")
+        mode = request.headers.get("X-Panda-Mode", "")
 
         # If no mode header, this might be a direct call - check env for enforcement
         enforce = os.getenv("ENFORCE_MODE_GATES", "1") == "1"

@@ -7,7 +7,7 @@
 
 ## 1. Overview
 
-Pandora must be able to **create and evolve its own tools and workflows**. Workflows are the container; tools live inside workflows. The system can:
+Panda must be able to **create and evolve its own tools and workflows**. Workflows are the container; tools live inside workflows. The system can:
 
 - Create new workflows
 - Create new tools (with code + schema)

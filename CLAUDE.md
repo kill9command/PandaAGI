@@ -1,4 +1,4 @@
-# CLAUDE.md - Pandora
+# CLAUDE.md - Panda
 
 <mandatory_behavior>
 ## BEFORE EVERY RESPONSE, I MUST:
@@ -85,7 +85,7 @@ If you cannot fill this, stop and ask for clarification.
 
 ## Design Philosophy
 
-**Quality over speed.** Pandora prioritizes correct answers over response time.
+**Quality over speed.** Panda prioritizes correct answers over response time.
 
 Do NOT suggest:
 - Time budgets that cut off research early
@@ -121,7 +121,7 @@ RIGHT: LLM picked wrong vendors -> Is it seeing the original query?
 
 ## Project Overview
 
-**Pandora** is a context-orchestrated LLM stack implementing a **single-model multi-role reflection system**. One LLM (Qwen3-Coder-30B-AWQ) plays multiple roles through an 8-phase document pipeline.
+**Panda** is a context-orchestrated LLM stack implementing a **single-model multi-role reflection system**. One LLM (Qwen3-Coder-30B-AWQ) plays multiple roles through an 8-phase document pipeline.
 
 **Hardware:** RTX 3090 (24GB VRAM)
 **Model:** Qwen3-Coder-30B-AWQ via vLLM

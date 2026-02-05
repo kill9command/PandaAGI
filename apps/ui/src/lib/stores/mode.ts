@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
-const MODE_KEY = 'pandora.mode';
+const MODE_KEY = 'panda.mode';
 
 type Mode = 'chat' | 'code';
 
@@ -18,7 +18,7 @@ mode.subscribe(v => {
 });
 
 // Repo root (for code mode)
-const REPO_KEY = 'pandora.repoRoot';
+const REPO_KEY = 'panda.repoRoot';
 
 export const repoRoot = writable<string>(
   browser ? localStorage.getItem(REPO_KEY) || '' : ''

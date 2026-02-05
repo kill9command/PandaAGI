@@ -658,7 +658,7 @@ python scripts/test_llm_research.py --vendors 5 "find RTX 4060 laptops"
 
 ## 6. Document IO Compliance
 
-The research subsystem follows Pandora's Document IO architecture for LLM role management.
+The research subsystem follows Panda's Document IO architecture for LLM role management.
 
 ### Turn Directory Threading
 

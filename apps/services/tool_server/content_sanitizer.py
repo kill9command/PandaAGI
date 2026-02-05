@@ -1,5 +1,5 @@
 """
-Budget-Aware Content Sanitizer for Pandora
+Budget-Aware Content Sanitizer for Panda
 
 Removes objective noise from HTML while preserving ALL potentially relevant content.
 Enforces hard token budgets via smart chunking.

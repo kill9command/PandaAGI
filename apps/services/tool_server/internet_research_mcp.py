@@ -106,7 +106,7 @@ async def adaptive_research(
     """
     Research Role delegation with proven Google search.
 
-    Research phases (following Pandora architecture):
+    Research phases (following Panda architecture):
     - Phase 1: Intelligence gathering (Google SERP + forum discovery)
     - Phase 2: Product extraction (visit and extract from URLs)
 

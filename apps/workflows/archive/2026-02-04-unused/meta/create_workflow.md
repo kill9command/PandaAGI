@@ -186,7 +186,7 @@ fallback:
 
 ## Create Workflow Meta-Workflow
 
-This is a self-extension workflow that allows Pandora to create new workflows
+This is a self-extension workflow that allows Panda to create new workflows
 from natural language descriptions.
 
 ### How It Works

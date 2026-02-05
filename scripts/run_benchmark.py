@@ -66,7 +66,7 @@ def main():
     args = parser.parse_args()
 
     print("=" * 60)
-    print("Pandora Benchmark Suite")
+    print("Panda Benchmark Suite")
     print("=" * 60)
     print()
 

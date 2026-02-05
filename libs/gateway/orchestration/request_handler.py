@@ -49,7 +49,7 @@ class RequestHandler:
 
     This class orchestrates the entire request lifecycle:
     1. Query analysis and path setup
-    2. Multi-task detection and Pandora Loop routing
+    2. Multi-task detection and Panda Loop routing
     3. Context gathering and validation
     4. Planning-Validation loop with retries
     5. Best-seen tracking for response quality
@@ -146,7 +146,7 @@ class RequestHandler:
         query_analysis: Any,
         start_time: float,
         request_turn_saver: Any,
-        pandora_loop_handler: Optional[Callable] = None,
+        panda_loop_handler: Optional[Callable] = None,
     ) -> Dict[str, Any]:
         """
         Execute the full request handling flow.
@@ -162,7 +162,7 @@ class RequestHandler:
             query_analysis: Result from Phase 0
             start_time: Request start timestamp
             request_turn_saver: TurnSaver for this request
-            pandora_loop_handler: Optional handler for multi-task requests
+            panda_loop_handler: Optional handler for multi-task requests
 
         Returns:
             Dict with response, context_doc, and metadata
@@ -182,8 +182,8 @@ class RequestHandler:
         best_seen_attempt: int = 0
 
         # === Check for multi-task routing ===
-        if query_analysis.is_multi_task and query_analysis.task_breakdown and pandora_loop_handler:
-            return await pandora_loop_handler(
+        if query_analysis.is_multi_task and query_analysis.task_breakdown and panda_loop_handler:
+            return await panda_loop_handler(
                 query_analysis, context_doc, turn_number, session_id, mode, trace_id
             )
 

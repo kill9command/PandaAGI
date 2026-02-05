@@ -5,7 +5,7 @@ Handles two responsibilities:
 1. Turn-level: Compress current turn -> turn_summary.json
 2. Long-term: Write important facts to persistent memory storage
 
-Author: Pandora System Architecture
+Author: Panda System Architecture
 Date: 2025-11-27
 """
 

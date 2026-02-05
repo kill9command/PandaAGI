@@ -1,5 +1,5 @@
 """
-Pandora LLM Client for Gateway Integration.
+Panda LLM Client for Gateway Integration.
 
 Simple wrapper around httpx for OpenAI-compatible LLM calls.
 

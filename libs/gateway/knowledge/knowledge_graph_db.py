@@ -1,7 +1,7 @@
 """
 Knowledge Graph Database: SQLite-based entity, relationship, and backlink storage.
 
-Implements the Knowledge Graph layer for Pandora's memory system with:
+Implements the Knowledge Graph layer for Panda's memory system with:
 - Entity storage with canonical names and aliases
 - Entity mentions in documents (entity -> document mapping)
 - Relationships between entities (entity -> entity graph)
@@ -131,7 +131,7 @@ class KnowledgeGraphDB:
     """
     Manages entity extraction, relationships, and backlinks.
 
-    This is the central storage for Pandora's knowledge graph, enabling:
+    This is the central storage for Panda's knowledge graph, enabling:
     - Entity-centric memory (what do we know about "Poppybee Hamstery"?)
     - Relationship queries (who sells "Syrian Hamsters"?)
     - Backlink navigation (what documents link to this one?)

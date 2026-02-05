@@ -12,7 +12,7 @@ const API_BASE = '/v1';
 
 function getApiKey(): string {
   try {
-    return localStorage.getItem('pandora.apiKey') || 'qwen-local';
+    return localStorage.getItem('panda.apiKey') || 'qwen-local';
   } catch {
     return 'qwen-local';
   }

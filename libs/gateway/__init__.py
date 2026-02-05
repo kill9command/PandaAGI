@@ -1,5 +1,5 @@
 """
-Gateway - Orchestration layer for Pandora (8-phase pipeline).
+Gateway - Orchestration layer for Panda (8-phase pipeline).
 
 This module is organized into subpackages:
 - context/: Context documents, gathering, query analysis (Phase 1-2)
@@ -91,7 +91,7 @@ from libs.gateway.research.smart_summarization import SmartSummarizer, get_summa
 # Util (from libs.gateway.util)
 from libs.gateway.util.error_compactor import ErrorCompactor, CompactedError, get_error_compactor
 from libs.gateway.util.principle_extractor import PrincipleExtractor, ImprovementPrinciple
-from libs.gateway.util.pandora_loop import PandoraLoop, LoopResult, format_loop_summary
+from libs.gateway.util.panda_loop import PandaLoop, LoopResult, format_loop_summary
 
 # LLM (from libs.gateway.llm)
 from libs.gateway.llm.recipe_loader import load_recipe, select_recipe
@@ -165,7 +165,7 @@ __all__ = [
     "get_error_compactor",
     "PrincipleExtractor",
     "ImprovementPrinciple",
-    "PandoraLoop",
+    "PandaLoop",
     "LoopResult",
     "format_loop_summary",
     # LLM

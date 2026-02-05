@@ -1,4 +1,4 @@
-# Pandora Prompt System
+# Panda Prompt System
 
 **Last Updated:** 2026-01-27
 **Architecture Version:** V6 Recipe-Based

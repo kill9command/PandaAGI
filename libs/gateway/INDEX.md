@@ -1,6 +1,6 @@
 # Gateway Module Index
 
-The Gateway is the orchestration layer for the Pandora AI system. It implements a 9-phase document pipeline where a single LLM plays multiple roles through structured prompts.
+The Gateway is the orchestration layer for the Panda AI system. It implements a 9-phase document pipeline where a single LLM plays multiple roles through structured prompts.
 
 ## Architecture Overview
 
@@ -78,7 +78,7 @@ flowchart TB
     end
 
     subgraph Util["util/"]
-        PLoop[PandoraLoop<br/>Multi-task orchestration]
+        PLoop[PandaLoop<br/>Multi-task orchestration]
         EC[ErrorCompactor<br/>Error deduplication]
         PE[PrincipleExtractor<br/>Learning from failures]
     end
@@ -277,7 +277,7 @@ Shared utilities.
 
 | File | Description |
 |------|-------------|
-| `pandora_loop.py` | `PandoraLoop` for multi-task orchestration |
+| `panda_loop.py` | `PandaLoop` for multi-task orchestration |
 | `error_compactor.py` | Deduplicates and compacts error messages |
 | `principle_extractor.py` | Extracts learning principles from failures |
 | `cache_manager.py` | General-purpose caching utilities |

@@ -1,10 +1,10 @@
-# Prompting Manual for Pandora's Single-Model System
+# Prompting Manual for Panda's Single-Model System
 
-This document details prompt design for the Pandora single-model multi-role system.
+This document details prompt design for the Panda single-model multi-role system.
 
 ## Overview: Single-Model Architecture
 
-Pandora uses a single-model system running on RTX 3090 (24GB VRAM):
+Panda uses a single-model system running on RTX 3090 (24GB VRAM):
 
 | Model | Server | Roles | When Used |
 |-------|--------|-------|-----------|
@@ -116,9 +116,9 @@ Qwen recommends these settings for Qwen3-Coder-30B:
 
 **Important:** Do NOT use greedy decoding (temperature=0) as it can cause endless repetitions.
 
-### Pandora Role-Based Temperature Strategy
+### Panda Role-Based Temperature Strategy
 
-While Qwen recommends a single temperature (0.7), Pandora uses **role-based temperatures** to
+While Qwen recommends a single temperature (0.7), Panda uses **role-based temperatures** to
 control output characteristics for different pipeline phases:
 
 | Role | Temperature | Rationale |

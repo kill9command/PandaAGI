@@ -1,5 +1,5 @@
 """
-Pandora Gateway Archive - Legacy modules preserved for reference.
+Panda Gateway Archive - Legacy modules preserved for reference.
 
 WARNING: This code is archived and should NOT be used in production.
 

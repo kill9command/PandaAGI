@@ -5,7 +5,7 @@ This module implements the unified document IO architecture where context.md
 is the only document that accumulates through the pipeline. Each phase reads
 the current state and appends its output section.
 
-Pandora 8-Phase Pipeline context.md sections:
+Panda 8-Phase Pipeline context.md sections:
     §0: Original Query (Phase 1 input)
     §1: Query Analysis (Phase 1 output)
     §2: Gathered Context (Phase 2.1/2.2 output)
@@ -89,7 +89,7 @@ class ContextDocument:
     """
     Manages the accumulating context.md document.
 
-    Pandora 8-Phase Pipeline section mapping:
+    Panda 8-Phase Pipeline section mapping:
     - Header: Turn number, session ID, mode, repo (if code mode)
     - §0: Original Query (Phase 1 input - immutable)
     - §1: Query Analysis (Phase 1 output)

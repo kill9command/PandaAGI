@@ -2,7 +2,7 @@
 Document schemas for the Context Gatherer phases.
 
 Each phase reads input documents and produces output documents,
-following Pandora's document IO pattern.
+following Panda's document IO pattern.
 """
 
 from dataclasses import dataclass, field

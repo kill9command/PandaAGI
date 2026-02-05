@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Test script for thinking visualization fix
-# Run this after starting the Pandora stack
+# Run this after starting the Panda stack
 
 echo "Testing Thinking Visualization Fix"
 echo "=================================="
@@ -22,7 +22,7 @@ echo "2. Testing API response..."
 RESPONSE=$(curl -s -X POST http://127.0.0.1:9000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "pandora-chat",
+    "model": "panda-chat",
     "messages": [{"role": "user", "content": "What is 2+2?"}],
     "mode": "chat"
   }')
@@ -53,7 +53,7 @@ echo "4. Browser Testing Instructions:"
 echo "   a. Open http://127.0.0.1:9000/ in your browser"
 echo "   b. Open browser DevTools Console (F12)"
 echo "   c. Look for these messages:"
-echo "      - '[Pandora] Thinking Visualization BUILD ... LOADED'"
+echo "      - '[Panda] Thinking Visualization BUILD ... LOADED'"
 echo "      - '[Thinking] ThinkingVisualizer initialized: ...'"
 echo "      - Check that 'panel: true' appears in the initialization"
 echo "   d. Send a test message like 'What is 2+2?'"

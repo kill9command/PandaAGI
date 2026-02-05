@@ -1,5 +1,5 @@
 """
-Pandora Query Analyzer - Phase 1 of the 8-phase pipeline.
+Panda Query Analyzer - Phase 1 of the 8-phase pipeline.
 
 Understands the user's query, resolves references to previous context,
 and produces structured analysis that flows through the entire pipeline.
@@ -100,7 +100,7 @@ class QueryAnalysis:
     validation: Dict[str, Any] = None
 
     # =========================================================================
-    # Multi-task detection (Pandora Loop)
+    # Multi-task detection (Panda Loop)
     # =========================================================================
 
     # When True, the query requires multiple distinct tasks executed sequentially

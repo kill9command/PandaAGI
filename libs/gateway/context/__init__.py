@@ -1,5 +1,5 @@
 """
-Pandora Context Module - Context building and document management.
+Panda Context Module - Context building and document management.
 
 Implements Phase 1 (Query Analysis) and Phase 2 (Context Gathering) of the
 8-phase pipeline.

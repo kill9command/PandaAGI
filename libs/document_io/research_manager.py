@@ -1,4 +1,4 @@
-"""Pandora research document management.
+"""Panda research document management.
 
 Architecture Reference:
     architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md#4-researchmd-specification

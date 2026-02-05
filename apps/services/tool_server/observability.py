@@ -1,5 +1,5 @@
 """
-Observability System for Pandora
+Observability System for Panda
 
 Lightweight in-memory metrics collection with reflection-specific tracking.
 

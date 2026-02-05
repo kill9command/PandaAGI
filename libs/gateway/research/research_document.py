@@ -1,5 +1,5 @@
 """
-Pandora Research Document: Schema and writer for research.md files.
+Panda Research Document: Schema and writer for research.md files.
 
 Research documents store the results of internet.research tool calls in a
 structured, searchable format. They contain:

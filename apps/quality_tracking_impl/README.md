@@ -6,9 +6,9 @@
 
 ## Executive Summary
 
-This system prevents toxic feedback loops in Pandora by tracking quality at every layer of the architecture, from tool execution through user satisfaction. It implements a fractal pattern where each role (Orchestrator, Context Manager, Coordinator, Guide, Gateway) maintains quality scores at its abstraction level, with bidirectional feedback propagation.
+This system prevents toxic feedback loops in Panda by tracking quality at every layer of the architecture, from tool execution through user satisfaction. It implements a fractal pattern where each role (Orchestrator, Context Manager, Coordinator, Guide, Gateway) maintains quality scores at its abstraction level, with bidirectional feedback propagation.
 
-**Architecture:** Pandora uses a **single-model multi-role reflection system** - one LLM reflects through different roles (Guide → Coordinator → Context Manager) with quality tracking enabling learning across all reflection cycles.
+**Architecture:** Panda uses a **single-model multi-role reflection system** - one LLM reflects through different roles (Guide → Coordinator → Context Manager) with quality tracking enabling learning across all reflection cycles.
 
 ## The Problem
 
@@ -167,7 +167,7 @@ See `INTEGRATION_GUIDE.md` for detailed steps.
 
 ## Architecture Alignment
 
-This design respects Pandora's core principles:
+This design respects Panda's core principles:
 
 1. **Multi-Role Reflection**: One model reflects through Guide → Coordinator → Context Manager roles, with quality tracking enabling learning across all reflection cycles
 2. **Token Budget**: Quality scores used to filter context, saving tokens

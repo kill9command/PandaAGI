@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Pandora stack health check (vLLM, Gateway, Tool Server)
+# Panda stack health check (vLLM, Gateway, Tool Server)
 # Usage: bash ./server_health.sh
 
 set -u
@@ -67,7 +67,7 @@ check_gateway_policy() {
 
 check_gateway_chat() {
   local url="${GATEWAY_BASE}/v1/chat/completions"
-  local payload='{"model":"pandora-chat","messages":[{"role":"user","content":"ping"}]}'
+  local payload='{"model":"panda-chat","messages":[{"role":"user","content":"ping"}]}'
   local out; out=$(curl -sS -m 30 "${GATEWAY_HEADERS[@]}" -d "$payload" "$url" || true)
   if echo "$out" | grep -q '"choices"'; then ok "Gateway chat completions"; GATEWAY_CHAT_OK=1; else bad "Gateway chat completions ($out)"; GATEWAY_CHAT_OK=0; fi
 }
@@ -103,7 +103,7 @@ check_vllm_chat() {
   bad "vLLM chat failed (${out:-timeout})"
 }
 
-echo "Pandora Health Check"
+echo "Panda Health Check"
 echo "Gateway      : ${GATEWAY_BASE}"
 echo "Orchestrator : ${TOOL_SERVER_URL}"
 echo "vLLM         : ${VLLM_BASE}"

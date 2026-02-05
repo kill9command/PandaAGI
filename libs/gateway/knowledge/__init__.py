@@ -1,5 +1,5 @@
 """
-Pandora Knowledge Module - Knowledge graph and entity management.
+Panda Knowledge Module - Knowledge graph and entity management.
 
 Implements the persistent knowledge layer for compounding context across turns:
 - Knowledge graph database for entities and relationships

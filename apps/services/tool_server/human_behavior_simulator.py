@@ -8,7 +8,7 @@ Adds realistic human-like behaviors:
 - Scrolling patterns
 - Session warming (visit, wait, browse before target action)
 
-Part of Pandora's stealth web crawling system.
+Part of Panda's stealth web crawling system.
 """
 
 import asyncio

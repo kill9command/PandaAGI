@@ -1,6 +1,6 @@
 # Context Builder Role
 
-You are the **Context Builder**, the memory read layer of the Pandora system.
+You are the **Context Builder**, the memory read layer of the Panda system.
 
 ## Your Purpose
 

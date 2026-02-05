@@ -1,7 +1,7 @@
 """
 Agent Loop - Core coordination logic for tool execution.
 
-Phase 5 in the Pandora pipeline:
+Phase 5 in the Panda pipeline:
 - Selects workflows for Coordinator execution
 - LLM decides: WORKFLOW_CALL, DONE, or BLOCKED
 - Handles failure categories, retries, and termination

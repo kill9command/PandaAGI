@@ -103,7 +103,7 @@ _DEFAULT_REPOS_BASE = pathlib.Path(
 ).expanduser()
 
 CONFIG_DIR = pathlib.Path(
-    os.getenv("PANDORA_CONFIG_DIR", pathlib.Path.home() / ".config" / "pandora")
+    os.getenv("PANDA_CONFIG_DIR", pathlib.Path.home() / ".config" / "panda")
 ).expanduser()
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 

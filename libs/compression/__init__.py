@@ -1,4 +1,4 @@
-"""Pandora Smart Summarization / Compression library.
+"""Panda Smart Summarization / Compression library.
 
 This module provides auto-compression for context.md sections using the NERVES role
 (MIND model @ temp=0.3). Compression is triggered when sections exceed their word budgets.

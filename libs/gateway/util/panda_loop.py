@@ -1,5 +1,5 @@
 """
-Pandora Loop - Multi-Task Autonomous Execution Loop
+Panda Loop - Multi-Task Autonomous Execution Loop
 
 Implements the outer loop that wraps handle_request() to execute multiple tasks
 sequentially. Each task runs through the full phase pipeline (0-7) with its own
@@ -9,7 +9,7 @@ Architecture Reference:
     architecture/main-system-patterns/RALPH_LOOP.md
 
 Loop Hierarchy:
-    Level 0: Pandora Loop (this) - max 10 tasks
+    Level 0: Panda Loop (this) - max 10 tasks
         └── For each task:
             └── handle_request() - runs full pipeline
                 └── Level 1: Planner-Coordinator Loop - max 5 iterations
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class LoopResult:
-    """Result of Pandora Loop execution."""
+    """Result of Panda Loop execution."""
     status: str  # "complete", "max_iterations", "blocked"
     tasks: list[dict]
     passed: int = 0
@@ -52,7 +52,7 @@ class TaskResult:
     response: str = ""
 
 
-class PandoraLoop:
+class PandaLoop:
     """
     Outer loop for multi-task execution.
 
@@ -60,7 +60,7 @@ class PandoraLoop:
     using validation results to determine pass/fail.
 
     Usage:
-        loop = PandoraLoop(
+        loop = PandaLoop(
             tasks=[
                 {"id": "TASK-001", "title": "...", "status": "pending", ...},
                 {"id": "TASK-002", "title": "...", "status": "pending", ...},
@@ -86,7 +86,7 @@ class PandoraLoop:
         trace_id: str = "",
     ):
         """
-        Initialize Pandora Loop.
+        Initialize Panda Loop.
 
         Args:
             tasks: List of task dicts with id, title, description, status, etc.
@@ -122,12 +122,12 @@ class PandoraLoop:
             LoopResult with status, task outcomes, and summary
         """
         self.start_time = time.time()
-        logger.info(f"[PandoraLoop] Starting with {len(self.tasks)} tasks (trace={self.trace_id})")
+        logger.info(f"[PandaLoop] Starting with {len(self.tasks)} tasks (trace={self.trace_id})")
 
         # Log task overview
         for task in self.tasks:
             deps = task.get("depends_on", [])
-            logger.info(f"[PandoraLoop]   {task['id']}: {task['title']} (deps: {deps or 'none'})")
+            logger.info(f"[PandaLoop]   {task['id']}: {task['title']} (deps: {deps or 'none'})")
 
         iteration = 0
         while iteration < self.MAX_ITERATIONS:
@@ -139,8 +139,8 @@ class PandoraLoop:
 
             iteration += 1
             task_num = next(i + 1 for i, t in enumerate(self.tasks) if t["id"] == task["id"])
-            logger.info(f"[PandoraLoop] === Iteration {iteration}: Task {task_num}/{len(self.tasks)} ===")
-            logger.info(f"[PandoraLoop] {task['id']}: {task['title']}")
+            logger.info(f"[PandaLoop] === Iteration {iteration}: Task {task_num}/{len(self.tasks)} ===")
+            logger.info(f"[PandaLoop] {task['id']}: {task['title']}")
 
             # Mark in progress
             task["status"] = "in_progress"
@@ -151,7 +151,7 @@ class PandoraLoop:
             # Update status based on validation
             if result.validation == "APPROVE":
                 task["status"] = "passed"
-                logger.info(f"[PandoraLoop] {task['id']} -> PASSED")
+                logger.info(f"[PandaLoop] {task['id']} -> PASSED")
 
                 # Save learnings if any
                 if result.learnings:
@@ -159,7 +159,7 @@ class PandoraLoop:
             else:
                 task["status"] = "failed"
                 task["notes"] = result.failure_reason or "Validation failed"
-                logger.warning(f"[PandoraLoop] {task['id']} -> FAILED: {task['notes']}")
+                logger.warning(f"[PandaLoop] {task['id']} -> FAILED: {task['notes']}")
 
         return self._build_result("max_iterations")
 
@@ -189,14 +189,14 @@ class PandoraLoop:
                 # A dependency failed - this task is blocked
                 task["status"] = "blocked"
                 task["notes"] = f"Blocked by failed dependency: {[d for d in deps if d in failed_ids]}"
-                logger.warning(f"[PandoraLoop] {task['id']} blocked by failed dependencies")
+                logger.warning(f"[PandaLoop] {task['id']} blocked by failed dependencies")
             # else: still waiting on pending dependencies
 
         if not eligible:
             # Check if we're deadlocked (remaining tasks have unmet deps)
             pending = [t for t in self.tasks if t["status"] == "pending"]
             if pending:
-                logger.warning(f"[PandoraLoop] {len(pending)} tasks still pending but not eligible")
+                logger.warning(f"[PandaLoop] {len(pending)} tasks still pending but not eligible")
             return None
 
         # Return highest priority (lowest number)
@@ -259,7 +259,7 @@ class PandoraLoop:
             )
 
         except Exception as e:
-            logger.error(f"[PandoraLoop] Task {task['id']} exception: {e}", exc_info=True)
+            logger.error(f"[PandaLoop] Task {task['id']} exception: {e}", exc_info=True)
             return TaskResult(
                 validation="FAIL",
                 failure_reason=f"Exception: {str(e)}",
@@ -286,7 +286,7 @@ class PandoraLoop:
         criteria_text = self._format_criteria(criteria)
 
         # Build the augmented query
-        return f"""**PANDORA LOOP - Task {task_index + 1} of {len(self.tasks)}**
+        return f"""**PANDA LOOP - Task {task_index + 1} of {len(self.tasks)}**
 
 | Field | Value |
 |-------|-------|
@@ -364,7 +364,7 @@ class PandoraLoop:
                 "task_id": task["id"],
                 "text": learning,
             })
-            logger.info(f"[PandoraLoop] Learning from {task['id']}: {learning[:80]}...")
+            logger.info(f"[PandaLoop] Learning from {task['id']}: {learning[:80]}...")
 
         # Try to persist to obsidian_memory
         try:
@@ -372,21 +372,21 @@ class PandoraLoop:
 
             await write_memory(
                 artifact_type="research",
-                topic=f"pandora-loop-learnings-{task['id']}",
+                topic=f"panda-loop-learnings-{task['id']}",
                 content={
                     "summary": f"Patterns learned from: {task['title']}",
                     "findings": learnings,
                     "task_id": task["id"],
                     "original_query": self.original_query[:200],
                 },
-                tags=["pandora-loop", "code-patterns", task["id"]],
-                source="pandora_loop",
+                tags=["panda-loop", "code-patterns", task["id"]],
+                source="panda_loop",
                 confidence=0.9,
             )
         except ImportError:
-            logger.debug("[PandoraLoop] obsidian_memory not available, skipping persistence")
+            logger.debug("[PandaLoop] obsidian_memory not available, skipping persistence")
         except Exception as e:
-            logger.warning(f"[PandoraLoop] Failed to save learnings to memory: {e}")
+            logger.warning(f"[PandaLoop] Failed to save learnings to memory: {e}")
 
     def _build_result(self, status: str) -> LoopResult:
         """Build final loop result with summary statistics."""
@@ -407,7 +407,7 @@ class PandoraLoop:
             parts.append(f"{pending} pending")
         summary = ", ".join(parts)
 
-        logger.info(f"[PandoraLoop] Complete: {summary} in {duration:.1f}s")
+        logger.info(f"[PandaLoop] Complete: {summary} in {duration:.1f}s")
 
         return LoopResult(
             status=status,
@@ -427,7 +427,7 @@ def format_loop_summary(result: LoopResult) -> str:
     Used by UnifiedFlow to generate the final response.
     """
     lines = [
-        "## Pandora Loop Complete",
+        "## Panda Loop Complete",
         "",
         f"**Status:** {result.status.upper()}",
         f"**Summary:** {result.summary}",

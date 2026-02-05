@@ -5,7 +5,7 @@
   import UserMessage from './Messages/UserMessage.svelte';
   import ResponseMessage from './Messages/ResponseMessage.svelte';
   import MessageInput from './MessageInput.svelte';
-  import ThinkingPanel from '$lib/components/pandora/ThinkingPanel.svelte';
+  import ThinkingPanel from '$lib/components/panda/ThinkingPanel.svelte';
 
   let chatWindowEl: HTMLElement;
 

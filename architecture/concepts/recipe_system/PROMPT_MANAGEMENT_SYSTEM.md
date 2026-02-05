@@ -7,7 +7,7 @@
 
 ## 1. Core Idea
 
-Pandora is a **prompt-managed system**. The LLM is responsible for all complex decisions — routing, planning, tool selection, extraction, validation. Code supplies structured evidence, executes actions, and verifies outcomes.
+Panda is a **prompt-managed system**. The LLM is responsible for all complex decisions — routing, planning, tool selection, extraction, validation. Code supplies structured evidence, executes actions, and verifies outcomes.
 
 - **LLM decides:** routing, planning, selection, navigation, extraction intent, validation judgment
 - **Code provides:** evidence packs, tool execution, logging, verification, persistence

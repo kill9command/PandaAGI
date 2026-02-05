@@ -1,4 +1,4 @@
-"""Pandora Document IO System.
+"""Panda Document IO System.
 
 This module implements the document-centric IO model:
 - context.md management (sections §0-§6, 8-phase pipeline)

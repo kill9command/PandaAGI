@@ -11,7 +11,7 @@
 
 ## 1. Overview
 
-A **recipe** is a YAML configuration file that defines how to invoke an LLM for a specific task. Every LLM call in Pandora is executed via a recipe — there are no ad-hoc LLM invocations.
+A **recipe** is a YAML configuration file that defines how to invoke an LLM for a specific task. Every LLM call in Panda is executed via a recipe — there are no ad-hoc LLM invocations.
 
 Each recipe has a paired prompt markdown file. Recipes and prompts are organized by category and share the same naming convention.
 

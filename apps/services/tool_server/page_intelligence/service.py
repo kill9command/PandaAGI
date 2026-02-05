@@ -3,7 +3,7 @@ orchestrator/page_intelligence/service.py
 
 Page Intelligence Service - Main Entry Point
 
-THE CANONICAL EXTRACTION SYSTEM for Pandora.
+THE CANONICAL EXTRACTION SYSTEM for Panda.
 
 Replaces previous calibration systems (UnifiedCalibrator, LLMCalibrator).
 Orchestrates the 3-phase page understanding pipeline:
@@ -64,7 +64,7 @@ class PageIntelligenceService:
     """
     Main service for page understanding and extraction.
 
-    This is the CANONICAL extraction system for Pandora, replacing
+    This is the CANONICAL extraction system for Panda, replacing
     the older UnifiedCalibrator and LLMCalibrator.
 
     Flow:

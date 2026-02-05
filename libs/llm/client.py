@@ -1,4 +1,4 @@
-"""Pandora vLLM HTTP client."""
+"""Panda vLLM HTTP client."""
 
 import asyncio
 from dataclasses import dataclass

@@ -4,7 +4,7 @@ CAPTCHA and auth blocker detection + intervention request system.
 Detects when web pages are blocked by CAPTCHAs, login walls, or anti-bot
 systems, and coordinates human intervention through async/await pattern.
 
-Part of Pandora's human-in-the-loop research architecture.
+Part of Panda's human-in-the-loop research architecture.
 """
 
 import asyncio

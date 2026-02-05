@@ -1,5 +1,5 @@
 """
-Pandora Gateway LLM Module - Gateway-specific LLM utilities.
+Panda Gateway LLM Module - Gateway-specific LLM utilities.
 
 Provides gateway-local LLM utilities for the 8-phase pipeline:
 - Recipe loader and selector for prompt IO contracts

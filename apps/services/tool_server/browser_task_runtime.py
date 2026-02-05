@@ -18,7 +18,7 @@ Architecture:
                           ↓
                    Human Intervention (when needed)
 
-Part of Pandora's human-assisted automation system.
+Part of Panda's human-assisted automation system.
 """
 
 import asyncio

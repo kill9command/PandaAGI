@@ -1,5 +1,5 @@
 """
-Pandora Persistence Module - Turn management and storage.
+Panda Persistence Module - Turn management and storage.
 
 Implements Phase 8 (Save) persistence and turn artifact storage:
 - Turn directory creation and path resolution

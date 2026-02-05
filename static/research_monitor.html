@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Research Monitor - Pandora</title>
+    <title>Research Monitor - Panda</title>
     <style>
         * {
             margin: 0;
@@ -756,7 +756,7 @@
 
             // Try to detect from localStorage (main chat UI stores active session)
             try {
-                const storedSession = localStorage.getItem('pandora_active_session');
+                const storedSession = localStorage.getItem('panda_active_session');
                 if (storedSession) {
                     sessionInput.value = storedSession;
                     addLogEntry(`Auto-connecting to session from chat: ${storedSession}`, 'system');
@@ -778,7 +778,7 @@
 
         // Also listen for storage events (when main chat UI updates session)
         window.addEventListener('storage', (e) => {
-            if (e.key === 'pandora_active_session' && e.newValue && !ws) {
+            if (e.key === 'panda_active_session' && e.newValue && !ws) {
                 sessionInput.value = e.newValue;
                 addLogEntry(`Session changed in main chat: ${e.newValue}`, 'system');
             }

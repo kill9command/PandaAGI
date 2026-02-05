@@ -4,7 +4,7 @@ Cross-Session Learning - Aggregate insights across all sessions
 Tracks patterns across all users to improve extraction quality and adapt
 to real-world usage patterns over time.
 
-Author: Pandora Team
+Author: Panda Team
 Created: 2025-11-10
 """
 

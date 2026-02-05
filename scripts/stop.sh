@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Pandora Stop Script
+# Panda Stop Script
 # Stops all services and clears caches
 #
 
@@ -27,7 +27,7 @@ VLLM_PORT="${VLLM_PORT:-8000}"
 TOOL_SERVER_PORT="${TOOL_SERVER_PORT:-8090}"
 GATEWAY_PORT="${GATEWAY_PORT:-9000}"
 
-echo -e "${BLUE}=== Stopping Pandora Services ===${NC}"
+echo -e "${BLUE}=== Stopping Panda Services ===${NC}"
 echo ""
 
 # Create directories if needed

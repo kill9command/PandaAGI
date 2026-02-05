@@ -10,7 +10,7 @@
 
 ## 1. Purpose
 
-Pandora produces files — not just text responses. When a user needs a report, a comparison table, a summary document, or a presentation, the system generates actual files the user can open, edit, and share.
+Panda produces files — not just text responses. When a user needs a report, a comparison table, a summary document, or a presentation, the system generates actual files the user can open, edit, and share.
 
 A useful agent doesn't describe documents. It makes them.
 

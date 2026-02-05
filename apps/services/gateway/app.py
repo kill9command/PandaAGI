@@ -65,7 +65,7 @@ config = get_config()
 # =============================================================================
 
 app = FastAPI(
-    title="Pandora Gateway",
+    title="Panda Gateway",
     description="Pipeline Orchestration Service - 8-Phase Document Pipeline",
     version="5.0.0",
     lifespan=lifespan,
@@ -257,7 +257,7 @@ async def api_info():
     from apps.services.gateway.dependencies import is_unified_flow_enabled
 
     return {
-        "service": "Pandora Gateway",
+        "service": "Panda Gateway",
         "version": "5.0.0",
         "unified_flow_enabled": is_unified_flow_enabled(),
         "docs": "/docs",

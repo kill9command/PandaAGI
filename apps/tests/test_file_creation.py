@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script to verify file creation via Pandora Gateway.
+Test script to verify file creation via Panda Gateway.
 This tests that file creation requests are properly handled
 and not misrouted to cached commerce results.
 """

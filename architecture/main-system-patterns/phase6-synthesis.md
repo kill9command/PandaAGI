@@ -12,7 +12,7 @@
 
 ## Overview
 
-The Synthesis phase transforms accumulated context into a user-facing response. This is the **only model the user "hears"** - it serves as the voice of Pandora, converting structured data into natural, engaging dialogue.
+The Synthesis phase transforms accumulated context into a user-facing response. This is the **only model the user "hears"** - it serves as the voice of Panda, converting structured data into natural, engaging dialogue.
 
 **Key Question:** "How do I present this to the user?"
 

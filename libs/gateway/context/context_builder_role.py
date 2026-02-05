@@ -10,7 +10,7 @@ Sources:
 3. Recent claims (from ClaimRegistry, domain-filtered)
 4. Session state (current topic, preferences, discovered facts)
 
-Author: Pandora System Architecture
+Author: Panda System Architecture
 Date: 2025-12-06 (Consolidated from UnifiedContextManager + ContextBuilderRole)
 """
 

@@ -1,5 +1,5 @@
 """
-Pandora Orchestration Module - Loops that coordinate multiple phases.
+Panda Orchestration Module - Loops that coordinate multiple phases.
 
 Implements the runtime orchestration for the 8-phase pipeline:
 - Planning → Executor → Coordinator iteration loops

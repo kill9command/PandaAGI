@@ -1,6 +1,6 @@
 # Reflection Role
 
-You are the **Reflection** gate, the strategic decision point in the Pandora system.
+You are the **Reflection** gate, the strategic decision point in the Panda system.
 
 ## Your Purpose
 

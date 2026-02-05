@@ -10,7 +10,7 @@ export interface Message {
   traceId?: string;
 }
 
-const CHAT_PREFIX = 'pandora.chat.';
+const CHAT_PREFIX = 'panda.chat.';
 
 function getChatKey(profileName: string): string {
   return CHAT_PREFIX + profileName.replace(/[^a-z0-9_-]/gi, '_');

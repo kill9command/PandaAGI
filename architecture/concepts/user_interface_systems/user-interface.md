@@ -77,7 +77,7 @@ apps/ui/
 │           │   ├── Modal.svelte
 │           │   ├── Spinner.svelte
 │           │   └── Dropdown.svelte
-│           └── pandora/
+│           └── panda/
 │               ├── ModeSelector.svelte
 │               ├── ProfileManager.svelte
 │               ├── ThinkingPanel.svelte
@@ -147,7 +147,7 @@ The `app.html` template includes an inline loading screen that displays while Sv
 ```html
 <div id="app-loading">
   <div class="spinner"></div>
-  <p>Loading Pandora AI...</p>
+  <p>Loading Panda AI...</p>
 </div>
 ```
 

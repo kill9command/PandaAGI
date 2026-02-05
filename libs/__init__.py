@@ -1,1 +1,1 @@
-"""Pandora shared libraries."""
+"""Panda shared libraries."""

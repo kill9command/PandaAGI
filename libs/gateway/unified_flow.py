@@ -102,7 +102,7 @@ from libs.gateway.validation.validation_handler import (
 )
 
 # Utility module
-from libs.gateway.util.pandora_loop import PandoraLoop, LoopResult, format_loop_summary
+from libs.gateway.util.panda_loop import PandaLoop, LoopResult, format_loop_summary
 from libs.gateway.util.principle_extractor import PrincipleExtractor, ImprovementPrinciple
 from libs.gateway.util.error_compactor import ErrorCompactor, CompactedError, get_error_compactor
 
@@ -548,12 +548,12 @@ class UnifiedFlow:
 
             # Mode is UI-provided; Phase 1 does not override it
 
-            # === PANDORA LOOP: Multi-task detection and routing ===
+            # === PANDA LOOP: Multi-task detection and routing ===
             if query_analysis.is_multi_task and query_analysis.task_breakdown:
                 logger.info(f"[UnifiedFlow] Multi-task detected: {len(query_analysis.task_breakdown)} tasks")
-                logger.info(f"[UnifiedFlow] Routing to Pandora Loop")
+                logger.info(f"[UnifiedFlow] Routing to Panda Loop")
 
-                loop = PandoraLoop(
+                loop = PandaLoop(
                     tasks=query_analysis.task_breakdown,
                     original_query=context_doc.query,
                     session_id=session_id,
@@ -580,7 +580,7 @@ class UnifiedFlow:
                     "turn_number": turn_number,
                     "trace_id": trace_id,
                     "unified_flow": True,
-                    "is_pandora_loop": True,
+                    "is_panda_loop": True,
                 }
 
             # === DELEGATE TO REQUEST HANDLER for Phases 1-7 ===

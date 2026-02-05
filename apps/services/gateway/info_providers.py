@@ -6,7 +6,7 @@ Provides various information sources that meta-reflection can request:
 - Quick Search: Fast web search for current facts
 - Claims: Previously verified claims from claim registry
 
-Author: Pandora Team
+Author: Panda Team
 Created: 2025-11-10
 """
 

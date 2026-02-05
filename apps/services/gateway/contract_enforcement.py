@@ -1,5 +1,5 @@
 """
-Contract enforcement and repair for Pandora Gateway.
+Contract enforcement and repair for Panda Gateway.
 
 This module enforces contracts between components and automatically repairs
 malformed responses when possible. The goal is to NEVER crash due to unexpected

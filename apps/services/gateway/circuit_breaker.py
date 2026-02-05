@@ -1,5 +1,5 @@
 """
-Circuit Breaker pattern for Pandora Gateway.
+Circuit Breaker pattern for Panda Gateway.
 
 Prevents cascading failures by "opening" circuits after repeated failures.
 When a circuit is open, calls fail fast with a clear error instead of

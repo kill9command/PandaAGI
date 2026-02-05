@@ -5,7 +5,7 @@
   import TaskTracker from './TaskTracker.svelte';
   import Terminal from './Terminal.svelte';
   import MessageInput from '$lib/components/chat/MessageInput.svelte';
-  import ThinkingPanel from '$lib/components/pandora/ThinkingPanel.svelte';
+  import ThinkingPanel from '$lib/components/panda/ThinkingPanel.svelte';
   import ResponseMessage from '$lib/components/chat/Messages/ResponseMessage.svelte';
   import { terminalVisible } from '$lib/stores/terminal';
   import { messages, isLoading } from '$lib/stores/chat';

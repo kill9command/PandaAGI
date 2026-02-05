@@ -3,7 +3,7 @@ lib/gateway/context_pipeline.py
 
 LEGACY MODULE - See ContextGatherer2Phase for the current implementation.
 
-This module implements an older unified context pipeline. The current Pandora
+This module implements an older unified context pipeline. The current Panda
 architecture uses ContextGatherer2Phase (context_gatherer_2phase.py) which
 implements the two-phase retrieval + synthesis pattern aligned with Phase 2.1/2.2.
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Pandora Start Script
+# Panda Start Script
 # Starts vLLM, Tool Server, Gateway, and optional Cloudflare tunnel
 #
 
@@ -43,7 +43,7 @@ GATEWAY_HOST="${GATEWAY_HOST:-127.0.0.1}"
 
 VLLM_START="${VLLM_START:-1}"
 TUNNEL_ENABLE="${TUNNEL_ENABLE:-0}"
-TUNNEL_NAME="${TUNNEL_NAME:-pandora}"
+TUNNEL_NAME="${TUNNEL_NAME:-panda}"
 TUNNEL_CONFIG="${TUNNEL_CONFIG:-$HOME/.cloudflared/config.yml}"
 TUNNEL_BIN="${TUNNEL_BIN:-cloudflared}"
 
@@ -62,7 +62,7 @@ export THINK_API_KEY="${THINK_API_KEY:-$SOLVER_API_KEY}"
 print_banner() {
     echo -e "${BLUE}"
     echo "=================================================="
-    echo "  Pandora - Context-Orchestrated LLM Stack"
+    echo "  Panda - Context-Orchestrated LLM Stack"
     echo "  9-Phase Pipeline with Workflow Execution"
     echo "=================================================="
     echo -e "${NC}"
@@ -322,7 +322,7 @@ build_ui() {
 
 # ========== Status ==========
 show_status() {
-    echo -e "${BLUE}=== Pandora Status ===${NC}"
+    echo -e "${BLUE}=== Panda Status ===${NC}"
     echo ""
 
     # vLLM
@@ -401,7 +401,7 @@ case "${1:-start}" in
         echo ""
         start_tunnel
         echo ""
-        echo -e "${GREEN}Pandora is running!${NC}"
+        echo -e "${GREEN}Panda is running!${NC}"
         echo "  vLLM:         http://127.0.0.1:$VLLM_PORT"
         echo "  Tool Server:  http://127.0.0.1:$TOOL_SERVER_PORT"
         echo "  Gateway:      http://$GATEWAY_HOST:$GATEWAY_PORT"

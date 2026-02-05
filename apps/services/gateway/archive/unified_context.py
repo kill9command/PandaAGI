@@ -1,5 +1,5 @@
 """
-Unified Context Manager for Pandora Gateway
+Unified Context Manager for Panda Gateway
 
 Consolidates scattered context gathering/injection into a single, LLM-assisted system.
 Serves both meta-reflection (lightweight) and Guide (comprehensive) with role-specific views.

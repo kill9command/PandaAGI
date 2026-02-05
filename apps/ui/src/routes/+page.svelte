@@ -1,23 +1,23 @@
 <script lang="ts">
   import Chat from '$lib/components/chat/Chat.svelte';
   import { IDEWorkspace } from '$lib/components/ide';
-  import ModeSelector from '$lib/components/pandora/ModeSelector.svelte';
-  import ProfileManager from '$lib/components/pandora/ProfileManager.svelte';
-  import RepoConfig from '$lib/components/pandora/RepoConfig.svelte';
-  import InterventionModal from '$lib/components/pandora/InterventionModal.svelte';
-  import ContextStatusBar from '$lib/components/pandora/ContextStatusBar.svelte';
+  import ModeSelector from '$lib/components/panda/ModeSelector.svelte';
+  import ProfileManager from '$lib/components/panda/ProfileManager.svelte';
+  import RepoConfig from '$lib/components/panda/RepoConfig.svelte';
+  import InterventionModal from '$lib/components/panda/InterventionModal.svelte';
+  import ContextStatusBar from '$lib/components/panda/ContextStatusBar.svelte';
   import { mode } from '$lib/stores/mode';
 </script>
 
 <svelte:head>
-  <title>Pandora AI</title>
+  <title>Panda AI</title>
 </svelte:head>
 
 <div class="container" class:ide-mode={$mode === 'code'}>
   <header class="app-header">
     <div class="brand">
-      <img src="/icons/panda-hamster.svg" alt="Pandora" class="logo" />
-      <h1>Pandora AI</h1>
+      <img src="/icons/panda-hamster.svg" alt="Panda" class="logo" />
+      <h1>Panda AI</h1>
     </div>
     <nav>
       <a href="/transcripts">Transcripts</a>

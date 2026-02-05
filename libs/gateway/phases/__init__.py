@@ -1,5 +1,5 @@
 """
-Pandora Phase Utilities - Shared base classes and artifact generation.
+Panda Phase Utilities - Shared base classes and artifact generation.
 
 Provides shared infrastructure for the 8-phase pipeline:
 - BasePhase: Abstract base class with metrics and error handling

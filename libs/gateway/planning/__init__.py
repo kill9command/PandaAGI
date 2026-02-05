@@ -1,5 +1,5 @@
 """
-Pandora Planning Module - Plan state, goal management, and backtracking.
+Panda Planning Module - Plan state, goal management, and backtracking.
 
 Implements Phase 3 (Planner) support infrastructure:
 - Plan state persistence (plan_state.json)

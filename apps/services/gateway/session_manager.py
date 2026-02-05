@@ -1,5 +1,5 @@
 """
-Session Management for Pandora Gateway
+Session Management for Panda Gateway
 
 Implements session-focused architecture with:
 - 3 focus slots max

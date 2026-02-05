@@ -1,4 +1,4 @@
-# Pandora
+# Panda
 
 Version: 7.0 | Updated: 2026-02-03 | Hardware: RTX 3090 (24GB VRAM)
 
@@ -9,7 +9,7 @@ Version: 7.0 | Updated: 2026-02-03 | Hardware: RTX 3090 (24GB VRAM)
 
 ## Goal
 
-Pandora is a self-adapting agent that interfaces with all digital systems on behalf of its user. It reads documents, writes files, searches the web, manages email, navigates calendars, builds tools it doesn't have yet, and improves itself by learning from every interaction. It runs locally on consumer hardware.
+Panda is a self-adapting agent that interfaces with all digital systems on behalf of its user. It reads documents, writes files, searches the web, manages email, navigates calendars, builds tools it doesn't have yet, and improves itself by learning from every interaction. It runs locally on consumer hardware.
 
 The end state is an agent that can handle any task a human does at a computer — not by having every tool pre-built, but by understanding what's needed and building or adapting to get it done.
 
@@ -17,7 +17,7 @@ The end state is an agent that can handle any task a human does at a computer �
 
 ## How It Gets There
 
-Pandora reaches that goal through three capabilities, built in order:
+Panda reaches that goal through three capabilities, built in order:
 
 1. **Reliable pipeline** — A multi-phase document pipeline that takes a user query, gathers context, plans an approach, executes tools, synthesizes a response, validates it, and saves state. Every phase has a defined contract. If the pipeline produces incorrect output, the architecture is wrong and gets fixed before the code.
 
@@ -98,7 +98,7 @@ If missing, the system must create the family spec as part of self‑extension.
 
 ### Self-Extension
 
-Pandora can create new tools and workflows at runtime:
+Panda can create new tools and workflows at runtime:
 - Generate a tool spec (inputs, outputs, constraints)
 - Generate implementation code
 - Validate in a sandbox

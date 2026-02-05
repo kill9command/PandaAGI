@@ -3,7 +3,7 @@ orchestrator/web_agent.py
 
 WebAgent - Unified Web Navigation and Extraction System
 
-THE CANONICAL SYSTEM for all web navigation and extraction in Pandora.
+THE CANONICAL SYSTEM for all web navigation and extraction in Panda.
 Replaces: UniversalAgent, SmartExtractor, AdaptiveExtractor, UnifiedWebExtractor.
 
 Architecture: PERCEIVE → DECIDE → ACT → VERIFY loop

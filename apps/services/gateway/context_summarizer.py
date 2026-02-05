@@ -5,7 +5,7 @@ Intelligently compresses accumulated facts, actions, and context data
 when approaching token limits. Uses LLM to create natural language summaries
 that preserve essential information while dramatically reducing token count.
 
-Author: Pandora Team
+Author: Panda Team
 Created: 2025-11-10
 """
 

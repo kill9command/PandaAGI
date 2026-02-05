@@ -1,9 +1,9 @@
 import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
 
-const PROFILE_KEY = 'pandora.profile';
-const PROFILES_KEY = 'pandora.profileList';
-const REMEMBER_KEY = 'pandora.profileRemember';
+const PROFILE_KEY = 'panda.profile';
+const PROFILES_KEY = 'panda.profileList';
+const REMEMBER_KEY = 'panda.profileRemember';
 const DEFAULT_PROFILES = ['default', 'user2', 'user3'];
 
 function getStored<T>(key: string, fallback: T): T {

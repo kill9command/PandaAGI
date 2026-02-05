@@ -14,9 +14,9 @@ class DatabaseSettings(BaseSettings):
 
     host: str = Field(default="localhost", alias="POSTGRES_HOST")
     port: int = Field(default=5432, alias="POSTGRES_PORT")
-    database: str = Field(default="pandora", alias="POSTGRES_DB")
-    user: str = Field(default="pandora", alias="POSTGRES_USER")
-    password: str = Field(default="pandora", alias="POSTGRES_PASSWORD")
+    database: str = Field(default="panda", alias="POSTGRES_DB")
+    user: str = Field(default="panda", alias="POSTGRES_USER")
+    password: str = Field(default="panda", alias="POSTGRES_PASSWORD")
 
     @property
     def url(self) -> str:

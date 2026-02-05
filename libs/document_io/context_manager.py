@@ -1,4 +1,4 @@
-"""Pandora context document manager.
+"""Panda context document manager.
 
 Manages context.md - the single working document that accumulates
 state across all phases of the 8-phase pipeline.

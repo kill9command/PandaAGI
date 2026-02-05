@@ -9,7 +9,7 @@ decision points to determine:
 - When to stop searching (early stopping)
 - How to relax requirements if no matches found
 
-Author: Pandora System
+Author: Panda System
 Date: 2025-12-09
 """
 

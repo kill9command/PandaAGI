@@ -143,7 +143,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
                 f"{config.tool_server_url}/chat",
                 json=request.model_dump(),
                 headers={
-                    "X-Pandora-Mode": request.mode,
+                    "X-Panda-Mode": request.mode,
                     "X-Session-Id": request.session_id,
                 },
             )

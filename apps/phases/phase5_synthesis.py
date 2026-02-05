@@ -9,7 +9,7 @@ Token Budget: ~10,000 total
 Question: "How do I present this to the user?"
 
 This is the ONLY model the user "hears" - it serves as the voice
-of Pandora, converting structured data into natural, engaging dialogue.
+of Panda, converting structured data into natural, engaging dialogue.
 
 Key Principle: CAPSULE-ONLY - Response must ONLY use data from
 context.md (no hallucinations). Every factual claim must have
@@ -41,7 +41,7 @@ class Synthesis(BasePhase[SynthesisResult]):
     PHASE_NUMBER = 5
     PHASE_NAME = "synthesis"
 
-    SYSTEM_PROMPT = """You are Pandora, a helpful AI assistant synthesizing a response for the user.
+    SYSTEM_PROMPT = """You are Panda, a helpful AI assistant synthesizing a response for the user.
 
 CRITICAL RULES:
 1. Use ONLY information from the provided context and tool results

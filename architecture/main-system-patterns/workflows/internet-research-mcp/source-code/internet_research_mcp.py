@@ -106,7 +106,7 @@ async def adaptive_research(
     """
     Research Role delegation with proven Google search.
 
-    Research phases (following Pandora architecture):
+    Research phases (following Panda architecture):
     - Phase 1: Intelligence gathering (Google SERP + forum discovery)
     - Phase 2: Product extraction (visit and extract from URLs)
 
@@ -201,7 +201,7 @@ async def adaptive_research(
         })
 
     try:
-        # Delegate to Research Role (proper Pandora architecture)
+        # Delegate to Research Role (proper Panda architecture)
         from orchestrator.research_role import research_orchestrate
 
         research_result = await research_orchestrate(
@@ -468,7 +468,7 @@ async def adaptive_research(
 # - CAPTCHA detection and human intervention
 # - Pagination support
 # - No reliance on LLM returning valid JSON
-# - Follows Pandora's single-model multi-role reflection architecture
+# - Follows Panda's single-model multi-role reflection architecture
 # ============================================================================
 
 # ============================================================================

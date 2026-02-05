@@ -1,4 +1,4 @@
-"""Pandora turn lifecycle management.
+"""Panda turn lifecycle management.
 
 Architecture Reference:
     architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md#13-file-structure

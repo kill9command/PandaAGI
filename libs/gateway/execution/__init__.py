@@ -1,5 +1,5 @@
 """
-Pandora Execution Module - Tool execution, workflows, and safety.
+Panda Execution Module - Tool execution, workflows, and safety.
 
 Implements Phase 4 (Executor) and Phase 5 (Coordinator) tool dispatch with
 permission gates and workflow enforcement.

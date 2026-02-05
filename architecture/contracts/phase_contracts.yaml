@@ -4,7 +4,7 @@
 # Used by contract tests to verify pipeline correctness.
 
 version: "1.0"
-description: "Per-phase I/O contracts for Pandora pipeline"
+description: "Per-phase I/O contracts for Panda pipeline"
 
 schemas:
   constraints:

@@ -14,7 +14,7 @@ Schema History:
 - v6: Added code operations state (current_repo, code_state) [2025-11-13]
 - v7: Added LLM turn summarizer support (last_turn_summary) [2025-11-26]
 
-Author: Pandora Team
+Author: Panda Team
 Created: 2025-11-10
 """
 

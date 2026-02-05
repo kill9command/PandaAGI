@@ -4,7 +4,7 @@ LLM-Assisted Context Extraction
 Uses LLM to extract implicit preferences, topics, and entities from user messages.
 Supplements regex patterns with semantic understanding for 95%+ capture rate.
 
-Author: Pandora Team
+Author: Panda Team
 Created: 2025-11-10
 """
 

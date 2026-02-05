@@ -12,7 +12,7 @@ Architecture:
 3. Automation uses user's real sessions, cookies, profiles
 4. Sites see normal human fingerprints
 
-Part of Pandora's human-assisted automation system.
+Part of Panda's human-assisted automation system.
 """
 
 import asyncio

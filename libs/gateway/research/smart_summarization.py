@@ -1,5 +1,5 @@
 """
-Pandora Smart Summarization System
+Panda Smart Summarization System
 
 Automatic context compression to ensure documents fit within per-call LLM context windows.
 

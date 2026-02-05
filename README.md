@@ -1,12 +1,12 @@
-# Pandora AGI
+# Panda AGI
 
 > Context-orchestrated LLM stack implementing single-model multi-role reflection
 
-Pandora is an experimental AI system that uses a single LLM to play multiple roles through an 8-phase document pipeline. Rather than routing to specialized models, one model (Qwen3-Coder-30B-AWQ) adopts different "roles" with distinct temperatures and prompting strategies.
+Panda is an experimental AI system that uses a single LLM to play multiple roles through an 8-phase document pipeline. Rather than routing to specialized models, one model (Qwen3-Coder-30B-AWQ) adopts different "roles" with distinct temperatures and prompting strategies.
 
 ## Goal
 
-Pandora is a self-adapting agent that interfaces with digital systems on behalf of its user. It reads documents, writes files, searches the web, manages tasks, navigates browsers, and can build tools it doesn't have yet. It runs locally on consumer hardware.
+Panda is a self-adapting agent that interfaces with digital systems on behalf of its user. It reads documents, writes files, searches the web, manages tasks, navigates browsers, and can build tools it doesn't have yet. It runs locally on consumer hardware.
 
 The end state is an agent that can handle any task a human does at a computer—not by having every tool pre-built, but by understanding what's needed and building or adapting to get it done.
 
@@ -192,7 +192,7 @@ See `.env.example` for full configuration options.
 ## Design Philosophy
 
 ### Quality Over Speed
-Pandora prioritizes correct, high-quality answers over response time. There are no arbitrary timeouts that return partial results.
+Panda prioritizes correct, high-quality answers over response time. There are no arbitrary timeouts that return partial results.
 
 ### LLM Context Discipline
 When an LLM makes a bad decision, the fix is always better context—not programmatic workarounds. Pass the original query to any LLM that makes decisions. No hardcoded rules that bypass LLM judgment.
@@ -224,7 +224,7 @@ The Gateway exposes an OpenAI-compatible API:
 curl http://localhost:9000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "pandora",
+    "model": "panda",
     "messages": [{"role": "user", "content": "Hello"}]
   }'
 ```

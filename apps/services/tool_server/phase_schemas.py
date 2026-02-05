@@ -10,7 +10,7 @@ n8n to control the pipeline flow.
 
 Design Principles:
     - Each phase has explicit input/output schemas
-    - State can be passed via turn_id (Pandora manages context.md) or inline
+    - State can be passed via turn_id (Panda manages context.md) or inline
     - Phases are stateless - all state comes from request or is loaded by turn_id
     - Responses include phase output plus execution metadata
 """

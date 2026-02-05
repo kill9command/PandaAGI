@@ -1,5 +1,5 @@
 """
-Pandora Context Gatherer 2-Phase Implementation
+Panda Context Gatherer 2-Phase Implementation
 
 Implements Phase 2.1 (Retrieval) and Phase 2.2 (Synthesis) of the 8-phase pipeline.
 

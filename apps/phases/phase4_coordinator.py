@@ -223,7 +223,7 @@ class Coordinator(BasePhase[ToolExecutionResult]):
                 endpoint,
                 json=args,
                 headers={
-                    "X-Pandora-Mode": self.mode,
+                    "X-Panda-Mode": self.mode,
                     "Content-Type": "application/json",
                 },
             )

@@ -4,7 +4,7 @@ Preference Update Policy - Context Manager Authority
 This module implements the preference update policy for the Context Manager.
 It classifies user statements into 5 types and determines if preferences should be updated.
 
-Author: Pandora Team
+Author: Panda Team
 Created: 2025-11-13
 Quality Agent Reviewed: ✅ Approved
 """

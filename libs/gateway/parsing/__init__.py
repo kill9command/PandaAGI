@@ -1,5 +1,5 @@
 """
-Pandora Parsing Module - Response parsing and claims extraction.
+Panda Parsing Module - Response parsing and claims extraction.
 
 Provides parsing and extraction utilities for LLM outputs:
 - JSON repair and defensive parsing of LLM responses

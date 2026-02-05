@@ -1,7 +1,7 @@
 """
 orchestrator/research_role.py
 
-Research Role orchestrator - 4th reflection cycle in Pandora's architecture.
+Research Role orchestrator - 4th reflection cycle in Panda's architecture.
 
 Responsibilities:
 - Analyze session context and prior research

@@ -9,7 +9,7 @@
 
 ## Overview
 
-WebAgent is the **single, unified system** for all web navigation and extraction in Pandora. It replaces the previous architecture of 5+ overlapping systems with fallback chains.
+WebAgent is the **single, unified system** for all web navigation and extraction in Panda. It replaces the previous architecture of 5+ overlapping systems with fallback chains.
 
 **Core principle:** Navigate websites like a person would - perceive the page, decide what to do, act, and verify the result.
 

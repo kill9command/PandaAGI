@@ -2,9 +2,9 @@
 
 ## Quick Start
 
-This guide walks you through integrating the quality tracking system into Pandora to prevent toxic feedback loops and cache pollution.
+This guide walks you through integrating the quality tracking system into Panda to prevent toxic feedback loops and cache pollution.
 
-**Architecture Note:** Pandora uses a **single-model multi-role reflection system**. One LLM plays multiple roles (Guide → Coordinator → Context Manager) through reflection cycles. Quality tracking enables the model to learn across all roles and improve over time.
+**Architecture Note:** Panda uses a **single-model multi-role reflection system**. One LLM plays multiple roles (Guide → Coordinator → Context Manager) through reflection cycles. Quality tracking enables the model to learn across all roles and improve over time.
 
 ## Files Created
 

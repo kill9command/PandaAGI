@@ -7,7 +7,7 @@ Manages long-lived Playwright browser contexts with persistent state:
 - TTL-based cleanup
 - Session isolation per user
 
-Part of Pandora's human-in-the-loop research architecture.
+Part of Panda's human-in-the-loop research architecture.
 """
 
 from playwright.async_api import async_playwright, BrowserContext, Browser, Playwright

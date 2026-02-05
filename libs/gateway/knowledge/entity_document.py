@@ -1,5 +1,5 @@
 """
-Pandora EntityDocument: Entity-centric markdown documents that accumulate information.
+Panda EntityDocument: Entity-centric markdown documents that accumulate information.
 
 This module implements compounding context where entity documents grow over time
 as new information is discovered. Each entity gets its own markdown file that

@@ -1,5 +1,5 @@
 """
-Pandora Research Module - Research document management and summarization.
+Panda Research Module - Research document management and summarization.
 
 Implements research artifact generation and indexing for Phase 8 (Save)
 and context retrieval for Phase 2.

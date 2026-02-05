@@ -1,5 +1,5 @@
 """
-Pandora Constraints Package - Constraint extraction, enforcement, and validation.
+Panda Constraints Package - Constraint extraction, enforcement, and validation.
 
 This package implements constraint handling across the pipeline:
 1. Extraction: Extract constraints from natural language queries

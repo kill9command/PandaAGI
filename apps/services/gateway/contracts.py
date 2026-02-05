@@ -1,5 +1,5 @@
 """
-Component contracts for Pandora Gateway.
+Component contracts for Panda Gateway.
 
 Defines explicit interfaces between components using Pydantic models.
 Each component MUST conform to its contract, or the ContractEnforcer

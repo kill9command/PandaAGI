@@ -119,7 +119,7 @@ Research workflows define declarative tool sequences for the Executor:
 
 | Document | Purpose | Status |
 |----------|---------|--------|
-| `plans/next-phase-pandora.md` | Roadmap and next-phase goals | Active |
+| `plans/next-phase-panda.md` | Roadmap and next-phase goals | Active |
 | `plans/N8N_INTEGRATION.md` | n8n workflow orchestration | Planned |
 
 ---
