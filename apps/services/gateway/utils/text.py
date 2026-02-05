@@ -3,6 +3,22 @@ Text Processing Utilities
 
 Provides subject extraction, keyword matching, and text analysis functions
 for the Gateway service.
+
+Architecture Reference:
+    architecture/README.md (Context Discipline + Workflow System)
+
+Design Notes:
+- WARNING: This module contains hardcoded heuristics and domain-specific patterns
+  (species lists, subject patterns, skip keywords) that conflict with the
+  "no hardcoding for relevance decisions" architecture principle.
+- Per architecture, LLM-driven interpretation should be preferred over regex matching.
+- These utilities should be used ONLY for:
+  - UI display formatting (not routing decisions)
+  - Legacy compatibility (migrating away from heuristics)
+  - Fallback extraction when LLM methods are unavailable
+- Do NOT use these patterns to gate pipeline routing or tool selection.
+- Relevance decisions should be made by passing the original query to an LLM.
+- This module is a candidate for deprecation as LLM-based methods mature.
 """
 
 import re

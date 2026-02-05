@@ -10,7 +10,7 @@ from libs.gateway.app import (
     RUNTIME_POLICY,
     SOLVER_URL,
     COORDINATOR_URL,
-    ORCH_URL,
+    TOOL_SERVER_URL,
     REPOS_BASE,
 )
 
@@ -81,10 +81,10 @@ def test_chat_tool_intent_deferred_requires_confirm(monkeypatch, tmp_path):
                     "suggest_memory_save": None,
                 }
             ))
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory"] += 1
             return DummyResp({"items": []})
-        if url == f"{ORCH_URL}/file.create":
+        if url == f"{TOOL_SERVER_URL}/file.create":
             call_state["file_create"] += 1
             return DummyResp({"ok": True})
         raise AssertionError(f"Unexpected POST {url}")
@@ -150,10 +150,10 @@ def test_chat_tool_intent_handles_create_action(monkeypatch, tmp_path):
                     "suggest_memory_save": None,
                 }
             ))
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory"] += 1
             return DummyResp({"items": []})
-        if url == f"{ORCH_URL}/file.create":
+        if url == f"{TOOL_SERVER_URL}/file.create":
             call_state["file_create"] += 1
             return DummyResp({"ok": True})
         raise AssertionError(f"Unexpected POST {url}")
@@ -219,10 +219,10 @@ def test_chat_tool_intent_uses_single_allowed_root(monkeypatch, tmp_path):
                     "suggest_memory_save": None,
                 }
             ))
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory"] += 1
             return DummyResp({"items": []})
-        if url == f"{ORCH_URL}/file.create":
+        if url == f"{TOOL_SERVER_URL}/file.create":
             call_state["file_create"] += 1
             call_state["repo_used"] = json.get("repo") if json else None
             return DummyResp({"ok": True})
@@ -283,10 +283,10 @@ def test_chat_tool_intent_defaults_to_repos_base(monkeypatch):
                     "suggest_memory_save": None,
                 }
             ))
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory"] += 1
             return DummyResp({"items": []})
-        if url == f"{ORCH_URL}/file.create":
+        if url == f"{TOOL_SERVER_URL}/file.create":
             call_state["file_create"] += 1
             call_state["repo_used"] = json.get("repo") if json else None
             return DummyResp({"ok": True})
@@ -355,7 +355,7 @@ def test_tool_execute_confirm_without_session(monkeypatch, tmp_path):
         RUNTIME_POLICY.update(prev_policy)
 
     assert resp.status_code == 200
-    assert captured.get("url") == f"{ORCH_URL}/file.create"
+    assert captured.get("url") == f"{TOOL_SERVER_URL}/file.create"
 
 
 def test_tool_execute_requires_session_when_not_confirmed(monkeypatch, tmp_path):
@@ -428,10 +428,10 @@ def test_continue_tool_intent_executes_immediately(monkeypatch, tmp_path):
                     "suggest_memory_save": None,
                 }
             ))
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory"] += 1
             return DummyResp({"items": []})
-        if url == f"{ORCH_URL}/file.create":
+        if url == f"{TOOL_SERVER_URL}/file.create":
             call_state["file_create"] += 1
             path = Path(json["repo"]) / json["path"] if json else repo / "notes.txt"
             return DummyResp({"ok": True, "path": str(path)})
@@ -471,11 +471,11 @@ def test_chat_tool_intent_ticket_cycle_defers_writes(monkeypatch, tmp_path):
     call_state = {"guide": 0, "coordinator": 0, "file_create": 0, "memory": 0}
 
     async def mock_post(self, url, json=None, headers=None):
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory"] += 1
             return DummyResp({"items": []})
 
-        if url.startswith(f"{ORCH_URL}/"):
+        if url.startswith(f"{TOOL_SERVER_URL}/"):
             if url.endswith("/file.create"):
                 call_state["file_create"] += 1
             return DummyResp({"ok": True})
@@ -609,10 +609,10 @@ def test_chat_pricing_lookup_flow(monkeypatch, tmp_path):
                     }
                 )
             )
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory"] += 1
             return DummyResp({"items": []})
-        if url == f"{ORCH_URL}/purchasing.lookup":
+        if url == f"{TOOL_SERVER_URL}/purchasing.lookup":
             call_state["purchasing"] += 1
             return DummyResp(
                 {

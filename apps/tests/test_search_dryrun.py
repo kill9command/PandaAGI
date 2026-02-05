@@ -10,9 +10,9 @@ It creates local HTML fixtures under the test tmp_path and uses fetch_mode 'file
 from pathlib import Path
 import json
 try:
-    from apps.orchestrator.context_builder import perform_search_request
+    from apps.tool_server.context_builder import perform_search_request
 except Exception:
-    from apps.services.orchestrator.context_builder import perform_search_request
+    from apps.services.tool_server.context_builder import perform_search_request
 
 
 def make_fixture(dirpath: Path, name: str, title: str, body_html: str) -> Path:

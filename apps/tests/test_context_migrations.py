@@ -8,7 +8,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from libs.gateway.context_migrations import (
+from apps.services.gateway.context_migrations import (
     ContextMigration,
     CURRENT_SCHEMA_VERSION,
     migrate_context,
@@ -236,7 +236,7 @@ def test_session_context_integration():
     print("TEST: LiveSessionContext integration")
     print("="*60)
 
-    from libs.gateway.session_context import (
+    from apps.services.gateway.session_context import (
         LiveSessionContext,
         SessionContextManager
     )

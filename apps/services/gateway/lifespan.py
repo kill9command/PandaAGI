@@ -64,18 +64,9 @@ async def lifespan(app: FastAPI):
     from apps.services.gateway.dependencies import is_unified_flow_enabled
 
     if is_unified_flow_enabled():
-        gateway_logger.info("Unified 7-phase flow is ENABLED")
+        gateway_logger.info("Unified 8-phase flow is ENABLED")
     else:
         gateway_logger.warning("Unified flow is DISABLED - requests will fail")
-
-    # Initialize skill registry - discover available skills
-    try:
-        from libs.gateway.skill_registry import init_skill_registry
-        skill_registry = await init_skill_registry()
-        skill_count = len(skill_registry.skills)
-        gateway_logger.info(f"Skill registry initialized: {skill_count} skills discovered")
-    except Exception as e:
-        gateway_logger.warning(f"Skill registry initialization failed (non-fatal): {e}")
 
     gateway_logger.info("Gateway ready to accept requests on port 9000")
 

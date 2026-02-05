@@ -15,7 +15,7 @@ import json
 import re
 import logging
 
-from libs.gateway.recipe_loader import load_recipe, RecipeNotFoundError
+from libs.gateway.llm.recipe_loader import load_recipe, RecipeNotFoundError
 
 logger = logging.getLogger(__name__)
 

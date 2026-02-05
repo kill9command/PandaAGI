@@ -1,9 +1,10 @@
+# STATUS: Prototype - not wired into pipeline. Integration pending.
 """
 User Satisfaction Detector
 
 Detects user satisfaction/frustration from conversation flow patterns.
 
-Location: project_build_instructions/gateway/response_quality.py (to be created)
+Location: apps/services/gateway/satisfaction_detector.py
 """
 
 import re

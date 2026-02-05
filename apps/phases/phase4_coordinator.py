@@ -1,9 +1,9 @@
 """Phase 4: Coordinator - Executes tools.
 
 Architecture Reference:
-    architecture/main-system-patterns/phase4-coordinator.md
+    architecture/main-system-patterns/phase5-coordinator.md
 
-Role: MIND (MIND model @ temp=0.5) - but mostly just executes
+Role: MIND (MIND model @ temp=0.6) - but mostly just executes
 This is a THIN execution layer, not a strategic component.
 
 Question: "Which tools are available and how do I execute them?"
@@ -100,7 +100,7 @@ class Coordinator(BasePhase[ToolExecutionResult]):
         """Get HTTP client (lazy initialization)."""
         if self._client is None:
             self._client = httpx.AsyncClient(
-                base_url=self.settings.orchestrator.base_url,
+                base_url=self.settings.tool_server.base_url,
                 timeout=120.0,  # Long timeout for research operations
             )
         return self._client

@@ -1,0 +1,53 @@
+# Phase 2.5: Context Gathering Validator
+# Aligns with architecture/main-system-patterns/phase2.5-context-gathering-validator.md
+
+name: phase2_5_context_gathering_validator
+category: pipeline
+phase: 2
+role: REFLEX
+temperature: 0.4
+
+token_budget:
+  total: 1000
+  prompt: 250
+  input_docs: 600
+  output: 120
+  buffer: 30
+
+input_docs:
+  - path: "query_analysis"
+    path_type: "input"
+    max_tokens: 150
+    description: "Phase 1 narrative and hints"
+  - path: "gathered_context"
+    path_type: "input"
+    max_tokens: 500
+    description: "Draft §2 Gathered Context"
+
+output_doc:
+  path: "context_validation.json"
+  path_type: "turn"
+  description: "Phase 2.5 validation output"
+
+output_schema: CONTEXT_VALIDATION
+
+system_prompt: |
+  You are the Phase 2.5 Context Gathering Validator.
+
+  Validate whether the gathered context is sufficient to plan.
+  Return JSON only (no markdown).
+
+  Output schema:
+  {
+    "status": "pass | retry | clarify",
+    "issues": ["string"],
+    "missing_context": ["string"],
+    "retry_guidance": ["string"],
+    "clarification_question": "string | null"
+  }
+
+  Rules:
+  - Prefer `retry` when missing context can be derived from loaded sources.
+  - Use `clarify` only when user input is required.
+  - If a section uses memory nodes, `_meta` should be present with node_ids and provenance.
+  - Be concise and actionable.

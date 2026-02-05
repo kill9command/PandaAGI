@@ -6,7 +6,7 @@
 name: tools_vendor_selector
 category: tools
 role: vendor_selector
-model_layer: REFLEX  # Classification task (temp 0.1)
+model_layer: REFLEX  # Classification task (temp 0.4)
 
 # Prompt fragments
 prompt_fragments:
@@ -50,6 +50,10 @@ token_budget:
   input_docs: 3000
   output: 800
   buffer: 200
+
+llm_params:
+  temperature: 0.4
+  max_tokens: 800
 
 # Output schema
 output_schema:
@@ -97,7 +101,6 @@ output_schema:
 # Quality gates
 quality_gates:
   schema_validation: true
-  confidence_threshold: 0.5
   max_retries: 2
 
 description: |

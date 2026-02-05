@@ -94,7 +94,7 @@ async def store_memory(request: MemoryStoreRequest) -> MemoryStoreResponse:
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.post(
-                f"{config.orchestrator_url}/memory",
+                f"{config.tool_server_url}/memory",
                 json=request.model_dump(),
             )
 
@@ -110,10 +110,10 @@ async def store_memory(request: MemoryStoreRequest) -> MemoryStoreResponse:
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )
 
 
@@ -155,7 +155,7 @@ async def search_memories(
                 params["tags"] = tags
 
             response = await client.get(
-                f"{config.orchestrator_url}/memory/search",
+                f"{config.tool_server_url}/memory/search",
                 params=params,
             )
 
@@ -171,10 +171,10 @@ async def search_memories(
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )
 
 
@@ -199,7 +199,7 @@ async def delete_memory(
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.delete(
-                f"{config.orchestrator_url}/memory/{memory_id}",
+                f"{config.tool_server_url}/memory/{memory_id}",
                 params={"user_id": user_id},
             )
 
@@ -220,8 +220,8 @@ async def delete_memory(
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )

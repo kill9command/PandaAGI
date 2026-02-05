@@ -1,10 +1,12 @@
 # Phase 7: Validation
 
 **Status:** SPECIFICATION
-**Version:** 2.0
+**Version:** 2.2
 **Created:** 2026-01-04
-**Updated:** 2026-01-24
-**Layer:** MIND role (MIND model @ temp=0.5)
+**Updated:** 2026-02-04
+**Layer:** MIND role (Qwen3-Coder-30B-AWQ @ temp=0.6)
+
+**Related Concepts:** See §12 (Concept Alignment)
 
 ---
 
@@ -34,9 +36,9 @@ This phase acts as the final checkpoint in the pipeline, verifying that the Synt
 
 **Section Roles:**
 - **§0 (User Query):** Ground truth for "query addressed" check
-- **§1 (Reflection Decision):** Classification decision (PROCEED/CLARIFY)
+- **§1 (Query Analysis Validation):** Validation status and reasoning
 - **§2 (Gathered Context):** Valid evidence source for claims
-- **§4 (Execution Progress):** Primary evidence source for claims
+- **§4 (Execution Progress):** Primary evidence source for claims (workflow results)
 - **§6 (Synthesis):** The draft being validated
 
 ### Outputs
@@ -70,13 +72,13 @@ The validator performs four mandatory checks:
 
 **Pass Criteria:**
 - Each price, spec, or factual statement traces to a source
-- Claims from research link to §4 tool results
+- Claims from research link to §4 workflow results
 - Claims from memory link to §2 gathered context
 - No "floating" claims without source
 
 **Fail Examples:**
-- Response says "$599" but §4 shows "$699"
-- Response claims "fastest delivery" with no source
+- Response says "<$price>" but §4 shows a different price
+- Response claims "<superlative>" with no source
 - Response includes specs not found in any research
 
 ### 4.2 No Hallucinations
@@ -84,13 +86,13 @@ The validator performs four mandatory checks:
 **Question:** Is there any invented information not present in the context?
 
 **Pass Criteria:**
-- All product names exist in §4 research
-- All URLs were returned by tools
+- All item names exist in §4 workflow results
+- All URLs were returned by workflows
 - All features mentioned were found in sources
 - No "reasonable assumptions" added
 
 **Fail Examples:**
-- Response adds a product not found in research
+- Response adds an item not found in workflow results
 - Response invents a "usually" or "typically" claim
 - Response includes features not mentioned in sources
 
@@ -105,8 +107,8 @@ The validator performs four mandatory checks:
 - Follow-up questions (if any) relate to the topic
 
 **Fail Examples:**
-- §0 asks for laptops, response discusses desktops
-- §0 asks for "under $800," cheapest shown is $899
+- §0 asks for <item_type A>, response discusses <item_type B>
+- §0 asks for "under <$budget>," cheapest shown is above budget
 - Response answers a different interpretation of query
 
 ### 4.4 Coherent Format
@@ -125,17 +127,29 @@ The validator performs four mandatory checks:
 - Wall of text with no structure
 - Abruptly ends mid-sentence
 
+### 4.5 Source Metadata Present
+
+**Question:** Do claims that require sources include `url` or `source_ref`?
+
+**Pass Criteria:**
+- Each claim that should have a source includes `url` or `source_ref`
+- If a claim lacks source metadata, it is not presented as fact
+
+**Fail Examples:**
+- Response includes a price without a URL
+- Response cites a source but no corresponding `source_ref` exists
+
 ---
 
 ## 5. Decision Logic
 
 ### Decision Table
 
-**Canonical Source:** See `architecture/main-system-patterns/UNIVERSAL_CONFIDENCE_SYSTEM.md` for threshold definitions.
+**Canonical Source:** See `architecture/concepts/confidence_system/UNIVERSAL_CONFIDENCE_SYSTEM.md` for threshold definitions.
 
 | Decision | Confidence Range | Checks Status | Action |
 |----------|-----------------|---------------|--------|
-| **APPROVE** | >= 0.80 | All 4 pass | Send to user, proceed to Phase 8 (Save) |
+| **APPROVE** | >= 0.80 | All 5 pass | Send to user, proceed to Phase 8 (Save) |
 | **REVISE** | 0.50 - 0.79 | Minor issues in format or wording | Loop to Phase 6 (Synthesis) with hints |
 | **RETRY** | 0.30 - 0.49 | Wrong approach or missing data | Loop to Phase 3 (Planner) with fixes |
 | **FAIL** | < 0.30 | Unrecoverable error or loop limits exceeded | Send error message to user |
@@ -156,7 +170,7 @@ APPROACH problems (→ RETRY):
   - Wrong research was done
   - Missing critical data (not gathered)
   - Misunderstood the query
-  - Need different tools called
+  - Need different workflows called
   - Fundamental gap in evidence
 ```
 
@@ -173,7 +187,8 @@ APPROACH problems (→ RETRY):
     "claims_supported": true | false,
     "no_hallucinations": true | false,
     "query_addressed": true | false,
-    "coherent_format": true | false
+    "coherent_format": true | false,
+    "source_metadata_present": true | false
   },
   "revision_hints": "Specific guidance for Synthesis if REVISE",
   "suggested_fixes": "Specific guidance for Planner if RETRY"
@@ -224,8 +239,8 @@ Phase 7: Validation
 
 ```
 Phase 7: Validation ───► confidence < 0.5
-       │                  issues: ["researched wrong product category"]
-       │                  suggested_fixes: "Query asks for laptops, not desktops"
+       │                  issues: ["researched wrong item category"]
+       │                  suggested_fixes: "Query asks for <item_type A>, not <item_type B>"
        │
        ▼ RETRY
 ┌─────────────┐
@@ -302,6 +317,7 @@ When a query has multiple goals (detected by Phase 3 Planner), each goal is vali
 | No Hallucinations | PASS |
 | Query Addressed | PASS |
 | Coherent Format | PASS |
+| Source Metadata Present | PASS |
 
 ### Issues
 None
@@ -325,14 +341,15 @@ Response accurately reflects research findings with proper citations.
 | No Hallucinations | PASS |
 | Query Addressed | PASS |
 | Coherent Format | PASS |
+| Source Metadata Present | FAIL |
 
 ### Issues
-1. Price claim "$599 at Best Buy" has no source in §4
-2. "Free shipping" mentioned but not in research results
+1. Price claim "<$price>" has no `url` or `source_ref` in §4
+2. "<feature>" mentioned but not in workflow results
 
 ### Revision Hints
-Add source citations for price claims. Remove or verify the shipping claim
-against §4 tool results. The Lenovo price in §4 shows $697, not $599.
+Add source metadata for price claims. Remove or verify the missing feature
+against §4 workflow results. The recorded price in §4 differs from the response.
 ```
 
 ### 9.3 RETRY Output
@@ -350,15 +367,16 @@ against §4 tool results. The Lenovo price in §4 shows $697, not $599.
 | No Hallucinations | FAIL |
 | Query Addressed | FAIL |
 | Coherent Format | PASS |
+| Source Metadata Present | FAIL |
 
 ### Issues
-1. Query asked for "gaming laptops under $800"
-2. Research in §4 returned only desktop computers
-3. Cannot synthesize correct answer without laptop data
+1. Query asked for "<item_type A> under <$budget>"
+2. Research in §4 returned only <item_type B>
+3. Cannot synthesize correct answer without matching data
 
 ### Suggested Fixes
-Re-plan research with correct product type: "gaming laptops" not "gaming
-computers." The internet.research tool should search for laptops specifically.
+Re-plan research with correct item type. The workflow should target
+<item_type A> specifically.
 ```
 
 ---
@@ -392,21 +410,51 @@ If it is not explicitly in §4 or §2, it is a hallucination.
 
 Validation does not track state across attempts - it evaluates each response independently.
 
----
+### 10.4 Requirement Compliance
 
-## 11. Related Documents
+The validator MUST compare the response against the original query in §0:
+- Budget requests honored
+- Stated preferences reflected
+- Requested scope covered
+- Output format matches request
 
-- `architecture/LLM-ROLES/llm-roles-reference.md` - Model layer assignments
-- `architecture/main-system-patterns/phase3-planner.md` - Phase 3 (RETRY target)
-- `architecture/main-system-patterns/phase6-synthesis.md` - Phase 6 (REVISE target)
-- `architecture/main-system-patterns/phase8-save.md` - Phase 8 (on APPROVE)
-- `architecture/main-system-patterns/PLANNER_EXECUTOR_COORDINATOR_LOOP.md` - Loop control
-- `architecture/main-system-patterns/UNIVERSAL_CONFIDENCE_SYSTEM.md` - Quality thresholds
-- `architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md` - context.md format
+Any unmet requirement sets decision to `REVISE` or `RETRY` (based on severity).
 
 ---
 
-## 12. Changelog
+## 11. Concept Alignment
+
+This section maps Phase 7's responsibilities to the cross-cutting concept documents.
+
+| Concept | Document | Phase 7 Relevance |
+|---------|----------|--------------------|
+| **Confidence System** | `concepts/confidence_system/UNIVERSAL_CONFIDENCE_SYSTEM.md` | The PRIMARY concept relationship. Validation uses confidence thresholds to route decisions: APPROVE ≥ 0.80, REVISE 0.50–0.79, RETRY 0.30–0.49, FAIL < 0.30. Multi-goal validation uses per-goal scoring (§8). |
+| **Error Handling** | `concepts/error_and_improvement_system/ERROR_HANDLING.md` | RETRY and FAIL are the pipeline's error recovery mechanisms. FAIL is the terminal error state. Loop limits (max 2 REVISE, max 1 RETRY) are enforced by the Orchestrator, not by Validation itself. |
+| **Improvement Extraction** | `concepts/error_and_improvement_system/improvement-principle-extraction.md` | When a REVISE cycle succeeds (REVISE → re-Synthesis → APPROVE), the system extracts what went wrong and what fixed it. This turn-local learning improves future responses. |
+| **Execution System** | `concepts/system_loops/EXECUTION_SYSTEM.md` | Validation feeds the loop control system: RETRY → Phase 3 (Planner), REVISE → Phase 6 (Synthesis). The Orchestrator tracks attempt counts and converts to FAIL when limits are exceeded. |
+| **Backtracking Policy** | `concepts/self_building_system/BACKTRACKING_POLICY.md` | Validation decisions feed into the backtracking system. RETRY triggers replanning; the backtracking policy determines replan scope (local retry vs partial/full replan). Reason tags in §7 guide the Planner's backtracking level. |
+| **Memory Architecture** | `concepts/memory_system/MEMORY_ARCHITECTURE.md` | Memory staging gate: memory candidates are only committed to the store after Validation returns APPROVE. On REVISE, RETRY, or FAIL, candidates are discarded (§7 of Memory Architecture). |
+| **Document IO** | `concepts/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md` | Reads §0–§6 (full pipeline context) plus response.md. Writes §7 (Validation Result). §7 accumulates across attempts — each attempt adds a numbered block (Attempt 1, Attempt 2, etc.). |
+| **Recipe System** | `concepts/recipe_system/RECIPE_SYSTEM.md` | Executed as a MIND recipe with ~6,000 token budget. Intentionally small output (~500 tokens) because validation produces structured decisions, not verbose content. |
+| **LLM Roles** | `LLM-ROLES/llm-roles-reference.md` | Uses the MIND role (temp=0.6) for judgment reasoning. MIND temperature provides balanced evaluation — deterministic enough for consistent quality checks, flexible enough for nuanced judgment. |
+| **Prompt Management** | `concepts/recipe_system/PROMPT_MANAGEMENT_SYSTEM.md` | Validation prompt carries §0 (original query) for requirement compliance checking. The four mandatory checks (claims supported, no hallucinations, query addressed, coherent format) are embedded in the prompt. |
+
+---
+
+## 12. Related Documents
+
+- `architecture/LLM-ROLES/llm-roles-reference.md` — Model layer assignments
+- `architecture/main-system-patterns/phase3-planner.md` — Phase 3 (RETRY target)
+- `architecture/main-system-patterns/phase6-synthesis.md` — Phase 6 (REVISE target)
+- `architecture/main-system-patterns/phase8-save.md` — Phase 8 (on APPROVE)
+- `architecture/concepts/system_loops/EXECUTION_SYSTEM.md` — Loop control
+- `architecture/concepts/confidence_system/UNIVERSAL_CONFIDENCE_SYSTEM.md` — Quality thresholds
+- `architecture/concepts/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md` — context.md format
+- `architecture/concepts/self_building_system/BACKTRACKING_POLICY.md` — Replanning policy
+
+---
+
+## 13. Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
@@ -415,7 +463,9 @@ Validation does not track state across attempts - it evaluates each response ind
 | 1.2 | 2026-01-05 | Fixed Related Documents paths |
 | 1.3 | 2026-01-05 | Added Multi-Goal Validation Decision Matrix |
 | 2.0 | 2026-01-24 | **Renumbered from Phase 6 to Phase 7** due to new Executor phase. Updated section numbers (§6→§7). Updated loop targets (Synthesis now Phase 6, Save now Phase 8). |
+| 2.1 | 2026-02-03 | Added §11 Concept Alignment. Fixed wrong UNIVERSAL_CONFIDENCE_SYSTEM.md path in decision table and Related Documents. Removed stale Concept Implementation Touchpoints and Benchmark Gaps sections. |
+| 2.2 | 2026-02-04 | Updated to Phase 1.5 validation language, workflow terminology, source metadata check, and abstracted examples. |
 
 ---
 
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-02-04

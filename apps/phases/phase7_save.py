@@ -1,7 +1,7 @@
 """Phase 7: Save - Persist turn data.
 
 Architecture Reference:
-    architecture/main-system-patterns/phase7-save.md
+    architecture/main-system-patterns/phase8-save.md
 
 Role: None (procedural, no LLM)
 
@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Optional, Any
 
 from libs.core.config import get_settings
-from libs.core.models import Intent
+from libs.core.models import ActionNeeded
 from libs.core.exceptions import PhaseError, InterventionRequired
 from libs.document_io.context_manager import ContextManager
 from libs.document_io.turn_manager import TurnManager
@@ -57,7 +57,7 @@ class Save:
         turn_manager: TurnManager,
         turn_number: int,
         topic: Optional[str] = None,
-        intent: Optional[Intent] = None,
+        action_needed: Optional[str] = None,
         quality: Optional[float] = None,
         phase_timings: Optional[dict[str, Any]] = None,
         tools_used: Optional[list[str]] = None,
@@ -71,8 +71,8 @@ class Save:
             turn_manager: Turn manager for metadata updates
             turn_number: Turn number to finalize
             topic: Inferred topic (from Phase 3)
-            intent: Query intent (from Phase 3)
-            quality: Quality score (from Phase 6)
+            action_needed: Action classification (from Phase 0)
+            quality: Quality score (from Phase 7)
             phase_timings: Timing data for each phase
             tools_used: List of tools that were called
             claims_count: Number of claims extracted
@@ -94,7 +94,7 @@ class Save:
             turn_number=turn_number,
             session_id=turn_manager.session_id,
             topic=topic,
-            intent=intent,
+            action_needed=action_needed,
             quality=quality,
             tools_used=tools_used or [],
             claims_count=claims_count,
@@ -115,7 +115,7 @@ class Save:
         turn_manager.finalize_turn(
             turn_number=turn_number,
             topic=topic,
-            intent=intent,
+            action_needed=action_needed,
             quality=quality,
         )
 
@@ -134,7 +134,7 @@ class Save:
         turn_number: int,
         session_id: str,
         topic: Optional[str],
-        intent: Optional[Intent],
+        action_needed: Optional[str],
         quality: Optional[float],
         tools_used: list[str],
         claims_count: int,
@@ -145,7 +145,7 @@ class Save:
             "session_id": session_id,
             "timestamp": int(datetime.now().timestamp()),
             "topic": topic,
-            "intent": intent.value if intent else None,
+            "action_needed": action_needed,
             "tools_used": tools_used,
             "claims_count": claims_count,
             "quality_score": quality,

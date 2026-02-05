@@ -1,8 +1,8 @@
-"""Turn lifecycle management for PandaAI v2.
+"""Pandora turn lifecycle management.
 
 Architecture Reference:
     architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md#13-file-structure
-    architecture/main-system-patterns/phase7-save.md
+    architecture/main-system-patterns/phase8-save.md
 
 Key Design:
     - Turn directories use zero-padded 6-digit numbering
@@ -11,10 +11,10 @@ Key Design:
 
 Directory Structure:
     panda_system_docs/users/{user_id}/turns/{turn_number}/
-    ├── context.md      # Main turn document
+    ├── context.md      # Main turn document (8-phase pipeline)
     ├── research.md     # Research results (if applicable)
-    ├── ticket.md       # Task plan from Planner
-    ├── toolresults.md  # Tool execution outputs
+    ├── ticket.md       # Plan from Planner (Phase 3)
+    ├── toolresults.md  # Tool outputs (Phase 4/5)
     └── metadata.json   # Turn metadata
 """
 
@@ -24,7 +24,7 @@ from typing import Optional
 import json
 
 from libs.core.config import get_settings
-from libs.core.models import TurnMetadata, Intent
+from libs.core.models import TurnMetadata
 from libs.document_io.context_manager import ContextManager
 
 
@@ -184,7 +184,7 @@ class TurnManager:
             summaries.append({
                 "turn_number": metadata.turn_number,
                 "topic": metadata.topic,
-                "intent": metadata.intent.value if metadata.intent else None,
+                "action_needed": metadata.action_needed,
                 "query_preview": section_0[:200] if section_0 else "",
             })
 
@@ -194,7 +194,7 @@ class TurnManager:
         self,
         turn_number: int,
         topic: Optional[str] = None,
-        intent: Optional[Intent] = None,
+        action_needed: Optional[str] = None,
         quality: Optional[float] = None,
     ) -> None:
         """
@@ -206,7 +206,7 @@ class TurnManager:
         Args:
             turn_number: Turn to finalize
             topic: Inferred topic
-            intent: Query intent
+            action_needed: Action classification from Phase 0
             quality: Overall quality score
         """
         turn_dir = self.turns_dir / f"turn_{turn_number:06d}"
@@ -214,7 +214,7 @@ class TurnManager:
 
         if metadata:
             metadata.topic = topic or metadata.topic
-            metadata.intent = intent or metadata.intent
+            metadata.action_needed = action_needed or metadata.action_needed
             metadata.quality = quality or metadata.quality
             self._save_metadata(turn_dir, metadata)
 

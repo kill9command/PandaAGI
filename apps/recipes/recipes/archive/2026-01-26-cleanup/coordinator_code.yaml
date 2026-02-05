@@ -1,0 +1,88 @@
+# Coordinator (Code Mode) Recipe - Agent Loop
+# Iterative tool execution: plan next step, execute, see results, repeat
+# Updated for Agent Loop: Coordinator works like Claude Code - step by step
+
+name: coordinator_code
+role: coordinator
+mode: code
+
+# Agent loop configuration
+agent_loop:
+  enabled: true
+  max_steps: 10
+  tools_per_step: 3
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/coordinator/core.md (864 tokens)"
+  - "apps/prompts/coordinator/tools/intent_mapping.md (852 tokens)"
+  - "apps/prompts/coordinator/code_operations_enhanced.md (2143 tokens)"
+  - "apps/prompts/coordinator/agent_loop.md (800 tokens)"
+
+# Input documents (Unified Flow: context.md + ticket.md from Planner)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 3000
+    path_type: "turn"
+    description: "Unified context document with §0-§4 (§4 accumulates execution results)"
+
+  - path: "ticket.md"
+    optional: true   # Optional for new Executor flow (command is in context.md §4)
+    max_tokens: 500
+    path_type: "turn"
+    description: "Task ticket from Planner phase (optional if using Executor flow)"
+
+# Output documents (what this role creates)
+output_docs:
+  - "toolresults.md"   # Tool execution results (appended to context.md as §4)
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 12000
+  prompt: 4659          # Fixed cost: core (864) + intent (852) + code_ops (2143) + agent_loop (800)
+  input_docs: 3500      # Budget for context.md (grows with steps) + ticket.md
+  output: 3500          # Tool results and agent decisions
+  buffer: 341           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 11500
+
+# Output schema for agent loop
+output_schema: AGENT_DECISION
+
+# Description
+description: |
+  Coordinator operates as an AGENT LOOP - like Claude Code.
+
+  **How it works:**
+  1. Read context.md (includes §4 with previous step results)
+  2. Decide next action: TOOL_CALL, DONE, or BLOCKED
+  3. If TOOL_CALL: Execute tools, append results to §4, loop back to step 1
+  4. If DONE/BLOCKED: Exit loop, proceed to Synthesis
+
+  **Agent Loop Benefits:**
+  - Reacts to tool results (adjust approach based on what's learned)
+  - Handles failures gracefully (retry, work around, or report blocked)
+  - Efficient execution (only does what's needed)
+  - Natural task completion (knows when to stop)
+  - Tests can be run after edits to verify changes
+
+  **Tools available (Code mode - includes all Chat tools PLUS):**
+  - file.read, file.write, file.edit, file.glob, file.grep
+  - git.status, git.diff, git.log, git.add, git.commit_safe, git.push, git.pull
+  - bash.execute, bash.get_output, bash.kill
+  - code.validate, code.lint, code.diagnostics_summary
+  - test.run
+  - repo.scope_discover
+
+  **Safety Features:**
+  - Permission validation for write operations
+  - Operations outside SAVED_REPO require user approval
+  - Force-push protection
+  - Sandboxed bash execution
+
+  Phase: Execution (Phase 4 in unified flow)
+  Mode: Code (write operations with safety approvals)

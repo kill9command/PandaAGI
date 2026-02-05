@@ -28,18 +28,18 @@ For each product, reason through:
 
 ## Output Format
 
-For each product, output:
+Output a single YAML **list**. Each list item is one product evaluation:
 
 ```yaml
-product_index: 1
-product_name: "[name from the product list]"
-reasoning:
-  fundamental_check: "[Your reasoning about whether this is the right TYPE of product]"
-  user_satisfaction: "[Your reasoning about whether user would be happy with this]"
-  requirements_check: "[Your reasoning about whether it meets stated requirements]"
-decision: "ACCEPT" | "REJECT" | "UNCERTAIN"
-score: 0.0-1.0
-rejection_reason: "[Only required if decision is REJECT - explain why]"
+- product_index: 1
+  product_name: "[name from the product list]"
+  reasoning:
+    fundamental_check: "[Your reasoning about whether this is the right TYPE of product]"
+    user_satisfaction: "[Your reasoning about whether user would be happy with this]"
+    requirements_check: "[Your reasoning about whether it meets stated requirements]"
+  decision: "ACCEPT" | "REJECT" | "UNCERTAIN"
+  score: 0.0-1.0
+  rejection_reason: "[Only required if decision is REJECT - explain why]"
 ```
 
 ## Decision Criteria
@@ -75,27 +75,27 @@ rejection_reason: "[Only required if decision is REJECT - explain why]"
 
 **Good ACCEPT:**
 ```yaml
-product_index: 1
-product_name: "ASUS TUF Gaming Laptop RTX 4060"
-reasoning:
-  fundamental_check: "This is a laptop, user wants a laptop - correct product type"
-  user_satisfaction: "Gaming laptop with RTX GPU matches user's search for gaming laptop"
-  requirements_check: "Has RTX 4060 which meets GPU requirement, 16GB RAM mentioned"
-decision: "ACCEPT"
-score: 0.85
+- product_index: 1
+  product_name: "ASUS TUF Gaming Laptop RTX 4060"
+  reasoning:
+    fundamental_check: "This is a laptop, user wants a laptop - correct product type"
+    user_satisfaction: "Gaming laptop with RTX GPU matches user's search for gaming laptop"
+    requirements_check: "Has RTX 4060 which meets GPU requirement, 16GB RAM mentioned"
+  decision: "ACCEPT"
+  score: 0.85
 ```
 
 **Good REJECT:**
 ```yaml
-product_index: 2
-product_name: "Hamster Plush Toy - 12 inch Stuffed Animal"
-reasoning:
-  fundamental_check: "This is a toy, not a living animal - WRONG product type"
-  user_satisfaction: "User searching for live hamster would be very disappointed"
-  requirements_check: "Fails must_be criterion of 'living animal'"
-decision: "REJECT"
-score: 0.1
-rejection_reason: "Product is a plush toy, not a living hamster"
+- product_index: 2
+  product_name: "Hamster Plush Toy - 12 inch Stuffed Animal"
+  reasoning:
+    fundamental_check: "This is a toy, not a living animal - WRONG product type"
+    user_satisfaction: "User searching for live hamster would be very disappointed"
+    requirements_check: "Fails must_be criterion of 'living animal'"
+  decision: "REJECT"
+  score: 0.1
+  rejection_reason: "Product is a plush toy, not a living hamster"
 ```
 
 Now evaluate the products provided.

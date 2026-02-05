@@ -1,13 +1,22 @@
-"""Smart Summarization / Compression library for PandaAI v2.
+"""Pandora Smart Summarization / Compression library.
 
 This module provides auto-compression for context.md sections using the NERVES role
-(MIND model @ temp=0.1). Compression is triggered when sections exceed their word budgets.
+(MIND model @ temp=0.3). Compression is triggered when sections exceed their word budgets.
 
 Key Components:
 - SmartSummarizer: Main compression class with 3-stage verification
 - CompressionVerifier: Verifies critical information is preserved
 - ContentType: Enum for different content types with compression strategies
-- Section budgets: Word limits per context.md section (0-6)
+- Section budgets: Word limits per context.md section (§0-§6)
+
+Architecture context.md sections (8-phase pipeline):
+  §0: Original Query (Phase 1 input)
+  §1: Query Analysis (Phase 1 output)
+  §2: Gathered Context (Phase 2 output)
+  §3: Plan/Goals (Phase 3 output)
+  §4: Tool Results (Phase 4/5 output - accumulates, most likely to compress)
+  §5: Response (Phase 6 output)
+  §6: Validation (Phase 7 output)
 
 Usage:
     from libs.compression import SmartSummarizer, get_budget_status

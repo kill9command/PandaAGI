@@ -1,0 +1,57 @@
+# Phase 1 Intelligence Search Recipe
+# Gathers general intelligence from forums, reviews, and guides
+# Part of the Research Role Integration architecture
+
+name: phase1_intelligence
+role: phase1_intelligence_search
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/phase1_intelligence/core.md"
+  - "apps/prompts/phase1_intelligence/query_generation.md"
+  - "apps/prompts/phase1_intelligence/extraction.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 1000
+    path_type: "turn"
+    description: "User query + preferences"
+  - path: "research_plan.md"
+    optional: false
+    max_tokens: 500
+    path_type: "turn"
+    description: "Research plan with Phase 1 strategy"
+
+# Output documents
+output_docs:
+  - "phase1_intelligence.md"
+
+# Token budget
+token_budget:
+  total: 4000
+  prompt: 1200
+  input_docs: 1500
+  output: 1000
+  buffer: 300
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 3700
+
+# Output schema
+output_schema: INTELLIGENCE_DOC
+
+# Description
+description: |
+  Phase 1 Intelligence Search gathers general knowledge:
+  - Searches forums, reviews, guides, official docs
+  - Extracts key attributes/specs for the topic
+  - Identifies community recommendations
+  - Synthesizes key insights
+
+  Input: context.md + research_plan.md
+  Output: phase1_intelligence.md with full findings

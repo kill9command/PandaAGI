@@ -1,1 +1,1 @@
-"""PandaAI v2 shared libraries."""
+"""Pandora shared libraries."""

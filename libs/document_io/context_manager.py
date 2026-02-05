@@ -1,7 +1,7 @@
-"""Context document manager for PandaAI v2.
+"""Pandora context document manager.
 
 Manages context.md - the single working document that accumulates
-state across all phases of the pipeline.
+state across all phases of the 8-phase pipeline.
 
 Architecture Reference:
     architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md#3-contextmd-specification
@@ -9,8 +9,18 @@ Architecture Reference:
 Key Design Principles:
     - Single source of truth for the turn
     - Append-only during pipeline execution
-    - Sections numbered 0-6 mapping to phases
+    - Sections numbered §0-§6 mapping to pipeline phases
     - Original query always preserved in section 0
+
+8-Phase Pipeline context.md sections:
+    §0: Original Query (Phase 1 input)
+    §1: Query Analysis (Phase 1 output)
+    §2: Gathered Context (Phase 2 output)
+    §3: Plan/Goals (Phase 3 output)
+    §4: Tool Results (Phase 4/5 output - accumulates)
+    §5: Response (Phase 6 output)
+    §6: Validation (Phase 7 output)
+    Note: Phase 8 (Save) is procedural, doesn't add sections
 """
 
 from datetime import datetime
@@ -36,24 +46,27 @@ class ContextManager:
     state across all 8 phases of the pipeline. Each phase reads the document,
     performs its work, and appends a new section.
 
-    Section mapping:
-        - Section 0: User Query (Phase 0 - Query Analyzer)
-        - Section 1: Reflection Decision (Phase 1 - Reflection)
-        - Section 2: Gathered Context (Phase 2 - Context Gatherer)
-        - Section 3: Task Plan (Phase 3 - Planner)
-        - Section 4: Tool Execution (Phase 4 - Coordinator)
-        - Section 5: Synthesis (Phase 5 - Synthesis)
-        - Section 6: Validation (Phase 6 - Validation)
+    Section mapping (8-phase pipeline):
+        - §0: Original Query (Phase 1 input)
+        - §1: Query Analysis (Phase 1 output) [legacy: Reflection Decision]
+        - §2: Gathered Context (Phase 2 output)
+        - §3: Plan/Goals (Phase 3 output) [legacy: Task Plan]
+        - §4: Tool Results (Phase 4+5 output) [legacy: Tool Execution]
+        - §5: Response (Phase 6 output) [legacy: Synthesis]
+        - §6: Validation (Phase 7 output)
+        Note: §5 was UNUSED in legacy layout; now used for Response.
     """
 
+    # Section headers - updated names, same indices for code compatibility
+    # Note: Section 5 is skipped (§4 accumulates for Executor+Coordinator)
     SECTION_HEADERS = {
-        0: "## 0. User Query",
-        1: "## 1. Reflection Decision",
-        2: "## 2. Gathered Context",
-        3: "## 3. Task Plan",
-        4: "## 4. Tool Execution",
-        5: "## 5. Synthesis",
-        6: "## 6. Validation",
+        0: "## 0. Original Query",  # Phase 1 input
+        1: "## 1. Query Analysis",  # Phase 1 output (legacy: Reflection Decision)
+        2: "## 2. Gathered Context",  # Phase 2 output
+        3: "## 3. Plan",  # Phase 3 output (legacy: Task Plan)
+        4: "## 4. Tool Results",  # Phase 4/5 output (legacy: Tool Execution)
+        6: "## 6. Response",  # Phase 6 output (legacy: Synthesis)
+        7: "## 7. Validation",  # Phase 7 output
     }
 
     def __init__(self, turn_dir: Path):
@@ -148,14 +161,15 @@ created_at: {timestamp}
         ALWAYS preserves the original query for LLM context discipline.
 
         Args:
-            analysis: Query analysis from Phase 0
+            analysis: Query analysis from Phase 1
         """
-        section_content = f"""## 0. User Query
+        section_content = f"""## 0. Original Query
 
 **Original:** {analysis.original_query}
 
 **Resolved:** {analysis.resolved_query}
-**Query Type:** {analysis.query_type.value}
+**Action Needed:** {analysis.action_needed}
+**User Purpose:** {analysis.user_purpose}
 **Was Resolved:** {str(analysis.was_resolved).lower()}
 """
         if analysis.content_reference:
@@ -166,8 +180,8 @@ created_at: {timestamp}
 - Site: {ref.site}
 - Source Turn: {ref.source_turn}
 """
-            if ref.has_webpage_cache:
-                section_content += f"- Webpage Cache: {ref.webpage_cache_path}\n"
+            if ref.has_visit_record:
+                section_content += f"- Visit Record: {ref.visit_record_path}\n"
 
         section_content += f"""
 **Reasoning:** {analysis.reasoning}
@@ -176,8 +190,8 @@ created_at: {timestamp}
         self._replace_section(0, section_content)
 
     def write_section_1(self, result: ReflectionResult) -> None:
-        """Write Phase 1 reflection decision to section 1."""
-        section_content = f"""## 1. Reflection Decision
+        """Write Phase 1 query analysis/validation to section 1."""
+        section_content = f"""## 1. Query Analysis
 
 **Decision:** {result.decision.value}
 **Confidence:** {result.confidence:.2f}
@@ -230,10 +244,10 @@ created_at: {timestamp}
         self._append_section(2, section_content)
 
     def write_section_3(self, plan: TaskPlan, attempt: int = 1) -> None:
-        """Write Phase 3 task plan to section 3."""
+        """Write Phase 3 plan to section 3."""
         attempt_header = f" (Attempt {attempt})" if attempt > 1 else ""
 
-        section_content = f"""## 3. Task Plan{attempt_header}
+        section_content = f"""## 3. Plan{attempt_header}
 
 **Decision:** {plan.decision.value}
 **Reasoning:** {plan.reasoning}
@@ -306,19 +320,19 @@ created_at: {timestamp}
             section_content += f"**Progress:** {result.progress_summary}\n\n"
 
         # Check if section 4 exists, if not create header
-        if "## 4. Tool Execution" not in self.content:
-            full_section = f"## 4. Tool Execution\n\n{section_content}"
+        if "## 4. Tool Results" not in self.content and "## 4. Tool Execution" not in self.content:
+            full_section = f"## 4. Tool Results\n\n{section_content}"
             self._append_section(4, full_section)
         else:
             # Append to existing section 4
             self._content = self.content + section_content
             self._save()
 
-    def write_section_5(self, result: SynthesisResult, attempt: int = 1) -> None:
-        """Write Phase 5 synthesis to section 5."""
+    def write_section_6(self, result: SynthesisResult, attempt: int = 1) -> None:
+        """Write Phase 6 response to section 6."""
         attempt_header = f" (Attempt {attempt})" if attempt > 1 else ""
 
-        section_content = f"""## 5. Synthesis{attempt_header}
+        section_content = f"""## 6. Response{attempt_header}
 
 **Response Preview:**
 {result.response_preview}
@@ -332,13 +346,13 @@ created_at: {timestamp}
                 section_content += f"- [{mark}] {check}\n"
             section_content += "\n"
 
-        self._append_section(5, section_content)
+        self._append_section(6, section_content)
 
-    def write_section_6(self, result: ValidationResult, attempt: int = 1) -> None:
-        """Write Phase 6 validation to section 6."""
+    def write_section_7(self, result: ValidationResult, attempt: int = 1) -> None:
+        """Write Phase 7 validation to section 7."""
         attempt_header = f" (Attempt {attempt})" if attempt > 1 else ""
 
-        section_content = f"""## 6. Validation{attempt_header}
+        section_content = f"""## 7. Validation{attempt_header}
 
 **Decision:** {result.decision.value}
 **Confidence:** {result.confidence:.2f}
@@ -378,7 +392,7 @@ created_at: {timestamp}
         if result.overall_quality is not None:
             section_content += f"**Overall Quality:** {result.overall_quality:.2f}\n\n"
 
-        self._append_section(6, section_content)
+        self._append_section(7, section_content)
 
     def get_full_context(self) -> str:
         """Get complete context.md content."""

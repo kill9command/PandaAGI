@@ -90,7 +90,7 @@ async def get_last_diff(
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.get(
-                f"{config.orchestrator_url}/diff/last",
+                f"{config.tool_server_url}/diff/last",
                 params={
                     "session_id": session_id,
                     "status": status,
@@ -123,8 +123,8 @@ async def get_last_diff(
                 return DiffLastResponse(has_diff=False, diff=None)
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )

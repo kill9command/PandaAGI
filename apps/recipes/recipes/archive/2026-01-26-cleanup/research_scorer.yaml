@@ -1,0 +1,65 @@
+# Research Result Scorer Recipe
+# Scores search results for relevance and prioritizes which pages to visit
+# Part of the Research Loop - REFLEX role for quick scoring decisions
+
+name: research_scorer
+role: result_scorer
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/result_scorer.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+    description: "Query and intent from §0"
+
+  - path: "research_state.md"
+    optional: true
+    max_tokens: 500
+    path_type: "turn"
+    description: "Current research state (what we've found so far)"
+
+# Output documents
+output_docs:
+  - "scored_results.json"
+
+# Token budget
+token_budget:
+  total: 2000
+  prompt: 400       # result_scorer.md prompt
+  input_docs: 1100  # context.md (300) + research_state.md (500) + search results (300)
+  output: 400       # JSON array of scores
+  buffer: 100       # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 1800
+
+# Output schema
+output_schema: RESULT_SCORES
+
+# Description
+description: |
+  Result Scorer evaluates search results and decides which pages to visit.
+
+  This is a REFLEX role (temperature 0.3) for quick binary decisions.
+
+  **Input:**
+  - context.md §0: Query with user priority signals ("cheapest", "best")
+  - research_state.md: Current findings and intelligence
+  - Search results: Titles, URLs, snippets
+
+  **Output:**
+  JSON array of scored results:
+  [{"index": 1, "score": 0.9, "type": "forum", "priority": "must_visit"}, ...]
+
+  **Scoring Logic:**
+  - For commerce: prioritize forums/reviews over vendors
+  - For informational: prioritize official/authoritative sources
+  - Score based on title relevance and source trustworthiness

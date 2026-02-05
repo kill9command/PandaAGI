@@ -1,28 +1,25 @@
 """Phase 0: Query Analyzer - Resolves references and classifies queries.
 
 Architecture Reference:
-    architecture/main-system-patterns/phase0-query-analyzer.md
+    architecture/main-system-patterns/phase1-query-analyzer.md
 
-Role: REFLEX (MIND model @ temp=0.3)
+Role: REFLEX (temp=0.4)
 Token Budget: ~1,500 total
 
 Responsibilities:
     - Resolve pronouns/references ("the thread" -> specific content)
-    - Classify query type (specific_content, general_question, followup)
+    - Capture user purpose in natural language
     - Detect content references to prior turns
-    - Add minimal latency (~50-100ms) to the pipeline
 
-Key Design Decision:
-    This phase replaces hardcoded pattern matching with LLM understanding.
-    Instead of regex rules like `if "the thread" in query`, the LLM
-    interprets context naturally.
+NOTE: This is a LEGACY wrapper around the BasePhase interface.
+The active code path uses libs/gateway/context/query_analyzer.py directly
+via unified_flow.py. This file exists for the apps/phases/ interface.
 """
 
 from typing import Optional
 
 from libs.core.models import (
     QueryAnalysis,
-    QueryType,
     ContentReference,
 )
 from libs.core.exceptions import PhaseError
@@ -35,8 +32,7 @@ class QueryAnalyzer(BasePhase[QueryAnalysis]):
     """
     Phase 0: Analyze and resolve user queries.
 
-    Uses REFLEX role (MIND model with temp=0.3) for fast,
-    deterministic classification.
+    Uses REFLEX role (temp=0.4) for fast, deterministic classification.
     """
 
     PHASE_NUMBER = 0
@@ -46,7 +42,7 @@ class QueryAnalyzer(BasePhase[QueryAnalysis]):
 
 Given a user query and recent conversation summaries, you must:
 1. Resolve any pronouns or references to explicit entities
-2. Classify the query type
+2. Capture the user's purpose in natural language
 3. Identify if the user is referencing prior content
 
 RULES:
@@ -60,12 +56,20 @@ Output JSON only. No explanation outside the JSON.
 Output schema:
 {
   "resolved_query": "the query with references resolved",
+  "user_purpose": "Natural language statement of what the user wants (2-4 sentences)",
+  "data_requirements": {
+    "needs_current_prices": true | false,
+    "needs_product_urls": true | false,
+    "needs_live_data": true | false,
+    "freshness_required": "< 1 hour | < 24 hours | any | null"
+  },
   "reference_resolution": {
     "status": "not_needed | resolved | failed",
     "original_references": ["string"],
     "resolved_to": "string | null"
   },
-  "query_type": "specific_content | general_question | followup | new_topic",
+  "mode": "chat | code",
+  "was_resolved": true | false,
   "content_reference": {
     "title": "string | null",
     "content_type": "thread | article | product | video | null",
@@ -99,7 +103,7 @@ Output schema:
         response = await self.call_llm(
             system_prompt=self.SYSTEM_PROMPT,
             user_prompt=user_prompt,
-            max_tokens=300,
+            max_tokens=350,
         )
 
         # Parse response
@@ -114,7 +118,7 @@ Output schema:
         """Build user prompt with context."""
         turns_text = ""
         if turn_summaries:
-            for turn in turn_summaries[:5]:  # Include up to 5 recent turns
+            for turn in turn_summaries[:3]:  # Include up to 3 recent turns
                 turn_num = turn.get('turn') or turn.get('turn_number', '?')
                 # Use query or topic
                 turn_query = turn.get('query', '')
@@ -149,9 +153,7 @@ Analyze this query and output the QueryAnalysis JSON."""
             data = self.parse_json_response(response)
 
             # Parse reference resolution
-            ref_resolution = data.get("reference_resolution", {})
-            status = ref_resolution.get("status", "not_needed")
-            was_resolved = status == "resolved"
+            was_resolved = data.get("was_resolved", False)
 
             # Parse content reference
             content_ref = None
@@ -162,22 +164,18 @@ Analyze this query and output the QueryAnalysis JSON."""
                     content_ref = ContentReference(
                         title=ref.get("title", ""),
                         content_type=ref.get("content_type", ""),
-                        site=ref.get("site", ""),
-                        source_turn=ref.get("source_turn", 0),
+                        site=ref.get("site"),
+                        source_turn=ref.get("source_turn"),
                     )
-
-            # Parse query type
-            query_type_str = data.get("query_type", "general_question")
-            try:
-                query_type = QueryType(query_type_str)
-            except ValueError:
-                query_type = QueryType.GENERAL_QUESTION
 
             return QueryAnalysis(
                 original_query=original_query,
                 resolved_query=data.get("resolved_query", original_query),
+                user_purpose=data.get("user_purpose", ""),
+                data_requirements=data.get("data_requirements", {}),
+                reference_resolution=data.get("reference_resolution", {}),
+                mode=data.get("mode", "chat"),
                 was_resolved=was_resolved,
-                query_type=query_type,
                 content_reference=content_ref,
                 reasoning=data.get("reasoning", ""),
             )
@@ -185,14 +183,14 @@ Analyze this query and output the QueryAnalysis JSON."""
         except PhaseError:
             raise
         except Exception as e:
-            # Return minimal valid result on parse failure
-            # Note: In production, this would be an intervention
-            return QueryAnalysis(
-                original_query=original_query,
-                resolved_query=original_query,
-                was_resolved=False,
-                query_type=QueryType.GENERAL_QUESTION,
-                reasoning=f"Parse error: {e}",
+            raise PhaseError(
+                f"Failed to parse query analysis response in phase {self.PHASE_NUMBER}",
+                phase=self.PHASE_NUMBER,
+                context={
+                    "phase_name": self.PHASE_NAME,
+                    "error": str(e),
+                    "response_preview": response[:500],
+                },
             )
 
 

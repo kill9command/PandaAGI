@@ -1,15 +1,15 @@
 """Model swap manager for MIND/EYES on vLLM.
 
-EYES (vision model, Qwen3-VL-2B, ~5GB) swaps with MIND (Qwen3-4B-AWQ, ~3.3GB).
-Only one model can be loaded at a time within the 8GB VRAM budget.
+LEGACY MODULE: Written for 8GB VRAM systems with smaller models.
+Current architecture uses Qwen3-Coder-30B-AWQ on RTX 3090 (24GB VRAM).
+Vision workflows may not require model swapping on current hardware.
 
-When vision tasks are needed:
-1. Stop MIND vLLM instance
-2. Start EYES vLLM instance
-3. Execute vision task
-4. Stop EYES, restart MIND
+Original design (8GB VRAM):
+- EYES (Qwen3-VL-2B, ~5GB) swaps with MIND (Qwen3-4B-AWQ, ~3.3GB)
+- Only one model loaded at a time
+- Swap takes ~60-90 seconds each way
 
-This swap takes ~60-90 seconds each way (model loads from disk).
+This module is retained for potential use on smaller hardware configurations.
 """
 
 import asyncio

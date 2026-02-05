@@ -21,6 +21,7 @@ from libs.core.url_health import (
     get_unhealthy_urls,
 )
 from libs.core.models import (
+    ActionNeeded,
     Claim,
     ContentReference,
     ContextSource,
@@ -28,13 +29,11 @@ from libs.core.models import (
     Goal,
     GoalStatus,
     GoalValidation,
-    Intent,
     InterventionRequest,
     InterventionSeverity,
     PlannerAction,
     PlannerRoute,
     QueryAnalysis,
-    QueryType,
     ReflectionDecision,
     ReflectionResult,
     SynthesisResult,
@@ -71,8 +70,7 @@ __all__ = [
     "ResearchError",
     "CaptchaDetectedError",
     # Enums
-    "QueryType",
-    "Intent",
+    "ActionNeeded",
     "ReflectionDecision",
     "PlannerRoute",
     "PlannerAction",

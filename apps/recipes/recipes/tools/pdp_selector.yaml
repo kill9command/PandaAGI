@@ -7,7 +7,7 @@
 name: tools_pdp_selector
 category: tools
 role: pdp_selector
-model_layer: REFLEX  # Classification/extraction uses REFLEX (temp 0.3)
+model_layer: REFLEX  # Classification/extraction uses REFLEX (temp 0.4)
 
 # Prompt fragments (loaded in order)
 prompt_fragments:
@@ -39,6 +39,10 @@ token_budget:
   input_docs: 2200  # page analysis data
   output: 500       # JSON selectors
   buffer: 100
+
+llm_params:
+  temperature: 0.4
+  max_tokens: 500
 
 # Trimming strategy
 trimming_strategy:

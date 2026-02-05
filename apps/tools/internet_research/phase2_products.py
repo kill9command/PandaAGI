@@ -5,10 +5,13 @@ Uses Phase 1 intelligence to find products from 3 vendors.
 
 Flow:
 1. Build vendor list from Phase 1 hints + search if needed
-2. Visit each vendor (max 3)
-3. Search for products using Phase 1 search terms
+2. Visit each vendor (max 3) using WebAgent for navigation
+3. WebAgent navigates and extracts products using PERCEIVE-DECIDE-ACT-VERIFY loop
 4. Extract products and compare to Phase 1 price expectations
 5. Return products with recommendations
+
+Architecture: Uses WebAgent (the canonical system for web navigation/extraction)
+See: architecture/mcp-tool-patterns/internet-research-mcp/WEB_AGENT_ARCHITECTURE.md
 """
 
 import asyncio
@@ -22,6 +25,14 @@ from typing import Optional
 
 from .state import ResearchState
 from .browser import ResearchBrowser, get_domain
+
+# WebAgent integration - the canonical system for web navigation
+from apps.services.tool_server.web_agent import (
+    WebAgent,
+    WebAgentResult,
+    Product as WebAgentProduct,
+)
+from apps.services.tool_server.site_knowledge_cache import SiteKnowledgeCache
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +121,7 @@ class Phase2ProductFinder:
         self.llm_url = llm_url or os.getenv("SOLVER_URL", "http://127.0.0.1:8000/v1/chat/completions")
         self.llm_model = llm_model or os.getenv("SOLVER_MODEL_ID", "qwen3-coder")
         self.llm_api_key = llm_api_key or os.getenv("SOLVER_API_KEY", "qwen-local")
-        self.target_vendors = target_vendors
+        self.target_vendors = int(target_vendors)
         self.event_emitter = event_emitter
         self.human_assist_allowed = human_assist_allowed
 
@@ -118,6 +129,9 @@ class Phase2ProductFinder:
             session_id=session_id,
             human_assist_allowed=human_assist_allowed,
         )
+
+        # Site knowledge cache for WebAgent learning
+        self._knowledge_cache = SiteKnowledgeCache()
 
     async def execute(
         self,
@@ -286,43 +300,157 @@ class Phase2ProductFinder:
         search_terms: list[str],
     ) -> list[Product]:
         """
-        Visit a vendor and extract products.
+        Visit a vendor and extract products using WebAgent.
 
-        1. Navigate to vendor
-        2. Use search box to search for product
-        3. Extract products from results
+        WebAgent implements PERCEIVE-DECIDE-ACT-VERIFY loop for intelligent
+        navigation and product extraction. This replaces the old hardcoded
+        URL pattern + LLM text extraction approach.
+
+        Args:
+            vendor_url: Base URL of the vendor (e.g., https://www.amazon.com)
+            goal: User's search goal
+            search_terms: Search terms from Phase 1
+
+        Returns:
+            List of products found, or empty list if none/error
         """
         vendor_domain = get_domain(vendor_url)
-
-        # Build search URL for the vendor
         search_term = search_terms[0] if search_terms else goal
+
+        # Build initial search URL as starting point for WebAgent
+        # WebAgent may navigate further from here based on page understanding
         search_url = self._build_vendor_search_url(vendor_url, search_term)
+        logger.info(f"[Phase2] Using WebAgent to navigate: {vendor_domain}")
 
-        logger.info(f"[Phase2] Navigating to: {search_url}")
+        try:
+            # Get the Playwright page from web_vision_mcp
+            from apps.services.tool_server import web_vision_mcp
 
-        # Visit the search results page
-        result = await self.browser.visit(search_url)
+            # Ensure we have a page in the session
+            nav_result = await web_vision_mcp.navigate(
+                session_id=self.session_id,
+                url=search_url,
+                wait_for="networkidle",
+            )
 
-        if not result.success:
-            logger.warning(f"[Phase2] Failed to visit {vendor_domain}: {result.error}")
+            if not nav_result.get("success"):
+                logger.warning(f"[Phase2] Initial navigation failed: {nav_result.get('error')}")
+                return []
+
+            page = await web_vision_mcp.get_page(self.session_id)
+            if not page:
+                logger.warning(f"[Phase2] Could not get page object for {vendor_domain}")
+                return []
+
+            # Create WebAgent with the page
+            agent = WebAgent(
+                page=page,
+                llm_url=self.llm_url,
+                llm_model=self.llm_model,
+                llm_api_key=self.llm_api_key,
+                knowledge_cache=self._knowledge_cache,
+                session_id=self.session_id,
+            )
+
+            # Let WebAgent navigate and extract products
+            # It will use PERCEIVE-DECIDE-ACT-VERIFY loop to:
+            # - Understand the page
+            # - Navigate if needed (click filters, scroll, etc.)
+            # - Extract products when appropriate
+            web_result: WebAgentResult = await agent.navigate(
+                url=search_url,
+                goal=f"find products matching: {search_term}",
+                original_query=goal,
+                max_steps=5,
+            )
+
+            # Handle WebAgent determination signals
+            logger.info(f"[Phase2] WebAgent result: determination={web_result.determination}, "
+                       f"items_seen={web_result.items_seen}, products={len(web_result.products)}")
+
+            if web_result.determination == "products_found":
+                # Success - convert WebAgent products to Phase2 products
+                return self._convert_webagent_products(web_result.products, vendor_domain)
+
+            elif web_result.determination == "no_relevant_products":
+                # Valid result: page examined but nothing matched
+                # This is NOT a failure - just no matching products on this vendor
+                logger.info(f"[Phase2] No relevant products on {vendor_domain}: {web_result.reason}")
+                return []
+
+            elif web_result.determination == "no_online_availability":
+                # Products exist but in-store only - skip this vendor
+                logger.info(f"[Phase2] {vendor_domain} has no online availability: {web_result.reason}")
+                return []
+
+            elif web_result.determination == "blocked":
+                # CAPTCHA/login wall - intervention was attempted
+                logger.warning(f"[Phase2] Blocked at {vendor_domain}: {web_result.reason}")
+                return []
+
+            elif web_result.determination == "wrong_page_type":
+                # Not a product listing page
+                logger.info(f"[Phase2] {vendor_domain} is not a product page: {web_result.reason}")
+                return []
+
+            else:  # "error" or unknown
+                logger.warning(f"[Phase2] WebAgent error on {vendor_domain}: {web_result.reason}")
+                return []
+
+        except Exception as e:
+            logger.error(f"[Phase2] WebAgent exception on {vendor_domain}: {e}", exc_info=True)
             return []
 
-        if result.blocked:
-            logger.warning(f"[Phase2] Blocked at {vendor_domain}: {result.blocker_type}")
-            return []
+    def _convert_webagent_products(
+        self,
+        webagent_products: list[WebAgentProduct],
+        vendor_domain: str,
+    ) -> list[Product]:
+        """Convert WebAgent products to Phase2 Product format."""
+        products = []
+        for wp in webagent_products:
+            # Parse numeric price - handle both string and float from SelectorExtractor
+            price_numeric = None
+            price_display = ""
+            if wp.price is not None:
+                import re
+                # SelectorExtractor may return float (transform: price) or string
+                if isinstance(wp.price, (int, float)):
+                    price_numeric = float(wp.price)
+                    price_display = f"${wp.price:.2f}"
+                else:
+                    price_display = str(wp.price)
+                    price_match = re.search(r'[\d,]+\.?\d*', price_display.replace(',', ''))
+                    if price_match:
+                        try:
+                            price_numeric = float(price_match.group())
+                        except ValueError:
+                            pass
 
-        # Extract products from the page
-        products = await self._extract_products_from_page(
-            vendor_domain=vendor_domain,
-            page_url=search_url,
-            page_text=result.text,
-            goal=goal,
-        )
+            products.append(Product(
+                name=wp.name,
+                price=price_display,
+                price_numeric=price_numeric,
+                vendor=vendor_domain,
+                url=wp.url or "",
+                in_stock=wp.in_stock if wp.in_stock is not None else True,
+                specs={},  # WebAgent Product doesn't have specs field
+                confidence=wp.confidence,
+            ))
 
         return products
 
     def _build_vendor_search_url(self, vendor_url: str, search_term: str) -> str:
-        """Build a search URL for a vendor."""
+        """
+        Build initial search URL for a vendor.
+
+        NOTE: This provides a starting point for WebAgent navigation.
+        WebAgent may navigate further from this URL using its
+        PERCEIVE-DECIDE-ACT-VERIFY loop (e.g., clicking filters, sorting).
+
+        The patterns here help WebAgent start on a search results page
+        rather than the homepage, saving navigation steps.
+        """
         from urllib.parse import quote_plus
 
         domain = get_domain(vendor_url)
@@ -356,7 +484,15 @@ class Phase2ProductFinder:
         page_text: str,
         goal: str,
     ) -> list[Product]:
-        """Extract products from page text using LLM."""
+        """
+        DEPRECATED: Extract products from page text using LLM.
+
+        This method is no longer used. WebAgent now handles product extraction
+        via PageIntelligenceService with proper PERCEIVE-DECIDE-ACT-VERIFY loop.
+
+        Kept for backwards compatibility if needed for fallback scenarios.
+        See _extract_from_vendor() for the WebAgent-based approach.
+        """
         prompt = f"""# Product Extractor
 
 Extract products from this vendor page.
@@ -406,6 +542,9 @@ JSON:"""
                         ],
                         "temperature": 0.3,
                         "max_tokens": 2000,
+                        "top_p": 0.8,
+                        "stop": ["<|im_end|>", "<|endoftext|>"],
+                        "repetition_penalty": 1.05,
                     },
                     headers={"Authorization": f"Bearer {self.llm_api_key}"},
                 )
@@ -508,6 +647,9 @@ JSON:"""
                         ],
                         "temperature": 0.5,
                         "max_tokens": 500,
+                        "top_p": 0.8,
+                        "stop": ["<|im_end|>", "<|endoftext|>"],
+                        "repetition_penalty": 1.05,
                     },
                     headers={"Authorization": f"Bearer {self.llm_api_key}"},
                 )

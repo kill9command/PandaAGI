@@ -1,10 +1,12 @@
 # Phase 4: Executor
 
 **Status:** SPECIFICATION
-**Version:** 1.0
+**Version:** 1.3
 **Created:** 2026-01-24
-**Updated:** 2026-01-24
-**Layer:** MIND role (Qwen3-Coder-30B-AWQ @ temp=0.5)
+**Updated:** 2026-02-04
+**Layer:** MIND role (Qwen3-Coder-30B-AWQ @ temp=0.6)
+
+**Related Concepts:** See §14 (Concept Alignment)
 
 ---
 
@@ -13,24 +15,26 @@
 The Executor is the **tactical decision-maker** that determines HOW to accomplish the goals set by the Planner. It answers the question: **"What is the next step to achieve this goal?"**
 
 Given:
-- The strategic plan from Planner (section 3)
+- The STRATEGIC_PLAN JSON from Planner (canonical output)
 - Previous execution results (section 4)
 - The original context (sections 0-2)
 
 Decide:
 - **COMMAND** - Issue a natural language command to Coordinator
 - **ANALYZE** - Reason about accumulated results without tool execution
-- **COMPLETE** - All goals achieved, proceed to Synthesis
+- **CREATE_TOOL** - Create a new tool (self‑extension)
+- **CREATE_WORKFLOW** - Create a new workflow bundle (self‑extension)
+- **COMPLETE** - All goals achieved; return to Phase 3 (Planner) which routes to Synthesis
 - **BLOCKED** - Cannot proceed due to unrecoverable issue
 
-**Key Design Principle:** The Executor uses **natural language commands** to instruct the Coordinator. It does NOT know tool signatures or parameters. The Coordinator owns the tool catalog and translates commands into specific tool calls.
+**Key Design Principle:** The Executor uses **natural language commands** to instruct the Coordinator. It does NOT know tool signatures or parameters. The Coordinator owns the workflow catalog and executes workflows with embedded tools.
 
 ---
 
 ## 2. Position in Pipeline
 
 ```
-Phase 3: Planner (Strategic) → WHAT to do (goals, approach)
+Phase 3: Planner (Strategic) → WHAT to do (STRATEGIC_PLAN JSON)
     ↓
 Phase 4: Executor (Tactical) → HOW to do it (natural language commands)
     ↓
@@ -46,11 +50,11 @@ The Executor operates in a loop with the Coordinator:
 │                    EXECUTOR-COORDINATOR LOOP                     │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  Executor (MIND @ 0.5)                                           │
+│  Executor (MIND @ 0.6)                                           │
 │     │                                                            │
-│     ├── COMMAND: "Read the planner architecture doc"             │
+│     ├── COMMAND: "Run document review workflow for <doc_path>"   │
 │     │       ↓                                                    │
-│     │   Coordinator translates → file.read(...)                  │
+│     │   Coordinator selects workflow → executes embedded tools   │
 │     │       ↓                                                    │
 │     │   Results appended to §4                                   │
 │     │       ↓                                                    │
@@ -73,7 +77,9 @@ The Executor operates in a loop with the Coordinator:
 
 ## 3. Input Specification
 
-### 3.1 From Planner (Section 3)
+**Invocation rule:** Phase 4 runs only when Phase 3 routes to `executor`. If the route is `synthesis`, `clarify`, or `refresh_context`, Phase 4 is not invoked.
+
+### 3.1 From Planner (STRATEGIC_PLAN JSON)
 
 The Executor receives a STRATEGIC_PLAN from the Planner:
 
@@ -82,11 +88,11 @@ The Executor receives a STRATEGIC_PLAN from the Planner:
   "_type": "STRATEGIC_PLAN",
   "route_to": "executor",
   "goals": [
-    {"id": "GOAL_1", "description": "Compare architecture docs with external article"},
-    {"id": "GOAL_2", "description": "Update planner based on comparison"}
+    {"id": "GOAL_1", "description": "Compare internal docs with external reference"},
+    {"id": "GOAL_2", "description": "Apply required updates based on comparison"}
   ],
-  "approach": "Read local docs, research external, analyze, edit",
-  "success_criteria": "Identified changes and applied them"
+  "approach": "Read internal docs, research external reference, analyze, edit",
+  "success_criteria": "Identified required changes and applied them"
 }
 ```
 
@@ -100,27 +106,27 @@ On subsequent iterations, the Executor sees accumulated results:
 ### Executor Iteration 1
 **Goal Focus:** GOAL_1 - Compare docs
 **Action:** COMMAND
-**Command:** "Read the planner architecture doc to understand current design"
-**Coordinator:** file.read → architecture/main-system-patterns/phase3-planner.md
-**Result:** SUCCESS - 752 lines
-**Findings:** Current planner uses EXECUTE/COMPLETE pattern with tool specifications
+**Command:** "Read the relevant architecture doc to understand current design"
+**Coordinator:** file.read → <doc_path>
+**Result:** SUCCESS - <N> lines
+**Findings:** Current design pattern identified
 
 ### Executor Iteration 2
 **Goal Focus:** GOAL_1
 **Action:** COMMAND
-**Command:** "Search for 12-factor agent methodology"
-**Coordinator:** internet.research → "12-factor agent best practices"
-**Result:** SUCCESS - 5 sources found
-**Findings:** Key principles identified: config externalization, stateless processes...
+**Command:** "Search for external reference methodology"
+**Coordinator:** internet.research → "<reference_topic>"
+**Result:** SUCCESS - <N> sources found
+**Findings:** Key principles identified
 ```
 
 ### 3.3 Full Context Access
 
 The Executor has access to:
 - **§0** - Original user query
-- **§1** - Reflection decision
+- **§1** - Query Analysis Validation (Phase 1.5)
 - **§2** - Gathered context (memory, prior research)
-- **§3** - Strategic plan with goals
+- **§3** - Rendered strategic plan view (derived from STRATEGIC_PLAN JSON)
 - **§4** - Accumulated execution results
 
 ---
@@ -132,8 +138,12 @@ The Executor has access to:
 ```json
 {
   "_type": "EXECUTOR_DECISION",
-  "action": "COMMAND" | "ANALYZE" | "COMPLETE" | "BLOCKED",
+  "action": "COMMAND" | "ANALYZE" | "CREATE_TOOL" | "CREATE_WORKFLOW" | "COMPLETE" | "BLOCKED",
   "command": "Natural language instruction to Coordinator",
+  "workflow_hint": "Optional workflow name or intent label",
+  "tool_spec": { "name": "...", "inputs": [], "outputs": [], "dependencies": [] },
+  "tool_code": "python code (optional)",
+  "workflow_spec": { "name": "...", "triggers": [], "steps": [] },
   "analysis": {
     "current_state": "Brief summary of progress",
     "findings": "What was discovered or concluded",
@@ -150,7 +160,9 @@ The Executor has access to:
 
 | Action | Required Fields | Optional Fields |
 |--------|-----------------|-----------------|
-| COMMAND | command, reasoning | analysis, goals_progress |
+| COMMAND | command, reasoning | workflow_hint, analysis, goals_progress |
+| CREATE_TOOL | tool_spec, reasoning | tool_code, analysis, goals_progress |
+| CREATE_WORKFLOW | workflow_spec, reasoning | analysis, goals_progress |
 | ANALYZE | analysis, reasoning | goals_progress |
 | COMPLETE | goals_progress, reasoning | analysis |
 | BLOCKED | reasoning | analysis, goals_progress |
@@ -161,25 +173,26 @@ The Executor has access to:
 
 The Executor issues commands in natural language. The Coordinator translates these to specific tool calls.
 
-### 5.1 Command Examples
+### 5.1 Command Patterns
 
-| Natural Language Command | Coordinator Translation |
-|--------------------------|------------------------|
-| "Read the planner architecture doc" | file.read(path="architecture/.../phase3-planner.md") |
-| "Search the web for 12-factor agent patterns" | internet.research(query="12-factor agent patterns") |
-| "Find files related to authentication" | file.glob(pattern="**/auth*.py") |
-| "Save to memory that the user prefers RTX GPUs" | memory.save(type="preference", content="prefers RTX GPUs") |
-| "Edit strategic.md to add the new constraint" | file.edit(path="...", changes=...) |
-| "Run the test suite for the auth module" | test.run(target="tests/test_auth.py") |
-| "Show git status" | git.status() |
-| "Search for laptops under $1000 with RTX GPUs" | internet.research(query="laptops under $1000 RTX GPU") |
+| Natural Language Command | Coordinator Translation (Template) |
+|--------------------------|-----------------------------------|
+| "Run document review workflow for <doc_path>" | workflow.execute(name="<workflow_name>", args={...}) |
+| "Run research workflow for <topic>" | workflow.execute(name="<workflow_name>", args={...}) |
+| "Run file discovery workflow for <component>" | workflow.execute(name="<workflow_name>", args={...}) |
+| "Run memory update workflow for <preference>" | workflow.execute(name="<workflow_name>", args={...}) |
+| "Run edit workflow for <doc> to add <constraint>" | workflow.execute(name="<workflow_name>", args={...}) |
+| "Run test workflow for <module>" | workflow.execute(name="<workflow_name>", args={...}) |
+| "Run repo status workflow" | workflow.execute(name="<workflow_name>", args={...}) |
+| "Run commerce workflow for <item> under <budget> with <constraint>" | workflow.execute(name="<workflow_name>", args={...}) |
 
 ### 5.2 Command Principles
 
 1. **Be specific about intent** - "Read the planner doc to understand the output format" (not just "read a file")
-2. **Include context when helpful** - "Search for cheap laptops - the user wants the best value"
+2. **Include context when helpful** - "Search for <item> under <budget> - user wants best value"
 3. **One action per command** - Don't combine multiple operations
-4. **Don't specify tool names** - Say "search the web" not "call internet.research"
+4. **Prefer workflow intent** - Frame commands as workflow tasks ("run research workflow for <topic>")
+5. **Don't specify tool names** - Say "search the web" not "call internet.research"
 
 ### 5.3 What NOT to Include in Commands
 
@@ -203,7 +216,7 @@ Issue COMMAND when:
 {
   "_type": "EXECUTOR_DECISION",
   "action": "COMMAND",
-  "command": "Read the planner architecture doc to understand the current output format",
+  "command": "Read the relevant architecture doc to understand the current output format",
   "goals_progress": [
     {"goal_id": "GOAL_1", "status": "in_progress", "progress": "Starting doc analysis"}
   ],
@@ -223,8 +236,8 @@ Issue ANALYZE when:
   "_type": "EXECUTOR_DECISION",
   "action": "ANALYZE",
   "analysis": {
-    "current_state": "Read 3 docs, found 5 external sources",
-    "findings": "Current planner aligns with Factor IV but violates Factor III (config externalization). Changes needed: move tool selection to config.",
+    "current_state": "Read internal docs, gathered external references",
+    "findings": "Alignment and gaps identified. Changes needed to meet external reference constraints.",
     "next_step_rationale": "Have enough data to determine required changes"
   },
   "goals_progress": [
@@ -247,11 +260,11 @@ Issue COMPLETE when:
   "action": "COMPLETE",
   "goals_progress": [
     {"goal_id": "GOAL_1", "status": "achieved", "progress": "Comparison documented"},
-    {"goal_id": "GOAL_2", "status": "achieved", "progress": "Planner updated with new constraints"}
+    {"goal_id": "GOAL_2", "status": "achieved", "progress": "Updates applied"}
   ],
   "analysis": {
     "current_state": "All goals achieved",
-    "findings": "Updated strategic.md with config externalization constraint per 12-factor analysis"
+    "findings": "Applied required updates based on comparison analysis"
   },
   "reasoning": "Both goals achieved - comparison complete and changes applied"
 }
@@ -272,7 +285,7 @@ Issue BLOCKED when:
   "goals_progress": [
     {"goal_id": "GOAL_1", "status": "blocked", "progress": "Cannot access required file"}
   ],
-  "reasoning": "File auth.py requires elevated permissions not available in current mode"
+  "reasoning": "Required file access not available in current mode"
 }
 ```
 
@@ -295,8 +308,8 @@ Each iteration updates goal progress:
 
 ```json
 "goals_progress": [
-  {"goal_id": "GOAL_1", "status": "achieved", "progress": "Found 3 laptops under budget"},
-  {"goal_id": "GOAL_2", "status": "in_progress", "progress": "Need to compare specs"}
+  {"goal_id": "GOAL_1", "status": "achieved", "progress": "Found sufficient options under budget"},
+  {"goal_id": "GOAL_2", "status": "in_progress", "progress": "Need to compare attributes"}
 ]
 ```
 
@@ -305,12 +318,12 @@ Each iteration updates goal progress:
 When goals have dependencies, the Executor must complete dependencies first:
 
 ```markdown
-GOAL_1: Find gaming laptop
-GOAL_2: Find accessories for chosen laptop (depends on GOAL_1)
+GOAL_1: Find primary item
+GOAL_2: Find accessories for chosen item (depends on GOAL_1)
 
-Iteration 1: COMMAND - search for laptops (GOAL_1)
-Iteration 2: ANALYZE - select best laptop (GOAL_1 achieved)
-Iteration 3: COMMAND - search for accessories for [selected laptop] (GOAL_2)
+Iteration 1: COMMAND - search for primary items (GOAL_1)
+Iteration 2: ANALYZE - select best item (GOAL_1 achieved)
+Iteration 3: COMMAND - search for compatible accessories (GOAL_2)
 Iteration 4: COMPLETE
 ```
 
@@ -325,42 +338,42 @@ The Executor's decisions and results are accumulated in §4:
 
 ### Strategic Plan
 **Goals:**
-- GOAL_1: Compare architecture docs with 12-factor article
-- GOAL_2: Update planner based on comparison
+- GOAL_1: Compare internal docs with external reference
+- GOAL_2: Apply required updates based on comparison
 
-**Approach:** Read local docs, research external, analyze, edit
+**Approach:** Read internal docs, research external reference, analyze, edit
 
 ---
 
 ### Executor Iteration 1
 **Goal Focus:** GOAL_1 - Compare docs
 **Action:** COMMAND
-**Command:** "Read the planner architecture doc to understand current design"
-**Coordinator:** file.read → architecture/main-system-patterns/phase3-planner.md
+**Command:** "Read the relevant architecture doc to understand current design"
+**Coordinator:** file.read → <doc_path>
 **Result:** SUCCESS - 752 lines
-**Executor Analysis:** Current planner uses EXECUTE/COMPLETE pattern with tool specifications
+**Executor Analysis:** Current design pattern identified
 
 ### Executor Iteration 2
 **Goal Focus:** GOAL_1
 **Action:** COMMAND
-**Command:** "Search for 12-factor agent methodology"
-**Coordinator:** internet.research → "12-factor agent best practices"
+**Command:** "Search for external reference methodology"
+**Coordinator:** internet.research → "<reference_topic>"
 **Result:** SUCCESS - 5 sources found
-**Executor Analysis:** Key principles: config externalization, stateless processes...
+**Executor Analysis:** Key principles identified
 
 ### Executor Iteration 3
 **Action:** ANALYZE
 **Goal Focus:** GOAL_1
 **Comparison Results:**
-- Alignment: Factor IV (tools as attached resources) ✓
-- Violation: Factor III (config in environment) ✗
-- Changes needed: Externalize tool selection to config
+- Alignment: <alignment_point> ✓
+- Gap: <gap_point> ✗
+- Changes needed: <required_change>
 **Goals Progress:** GOAL_1 achieved, GOAL_2 in_progress
 
 ### Executor Iteration 4
 **Action:** COMMAND
-**Command:** "Update strategic.md to add configuration externalization"
-**Coordinator:** file.edit → apps/prompts/planner/strategic.md
+**Command:** "Update <doc> to add required constraint"
+**Coordinator:** file.edit → <doc_path>
 **Result:** SUCCESS
 
 ### Executor Iteration 5
@@ -404,26 +417,38 @@ The Executor's decisions and results are accumulated in §4:
 Executor outputs:
 {
   "action": "COMMAND",
-  "command": "Search for cheap laptops with good reviews"
+  "command": "Run research workflow for <item> under <budget> with <constraint>",
+  "workflow_hint": "<workflow_name_or_intent>"
 }
 
-Coordinator receives command, translates to:
+Coordinator receives command, selects workflow:
 {
-  "tool": "internet.research",
+  "workflow": "<workflow_name>",
   "args": {
-    "query": "cheap laptops with good reviews",
-    "mode": "commerce"
+    "query": "<item> under <budget> with <constraint>",
+    "mode": "<workflow_mode>"
   }
 }
 
-Coordinator executes tool, returns:
+Coordinator executes workflow, returns:
 {
-  "command_received": "Search for cheap laptops with good reviews",
-  "tool_selected": "internet.research",
+  "command_received": "Run research workflow for <item> under <budget> with <constraint>",
+  "workflow_selected": "<workflow_name>",
   "status": "success",
   "result": { ... },
   "claims": [ ... ]
 }
+
+If the Coordinator cannot proceed due to missing or ambiguous inputs, it returns a structured missing‑info response so the Executor can refine the command:
+
+```
+{
+  "command_received": "Run research workflow for <item> under <budget> with <constraint>",
+  "status": "needs_more_info",
+  "missing": ["<required_input_1>", "<required_input_2>"],
+  "message": "Need <required_input_1> and <required_input_2> to continue"
+}
+```
 ```
 
 ### 11.2 Result Format in §4
@@ -433,29 +458,29 @@ The Orchestrator formats Coordinator results for Executor:
 ```markdown
 ### Executor Iteration N
 **Action:** COMMAND
-**Command:** "Search for cheap laptops with good reviews"
-**Coordinator:** internet.research → "cheap laptops good reviews"
-**Result:** SUCCESS - 12 products found
+**Command:** "Search for <item> under <budget> with <constraint>"
+**Coordinator:** internet.research → "<item> under <budget> with <constraint>"
+**Result:** SUCCESS - <N> results found
 **Claims:**
 | Claim | Confidence | Source |
 |-------|------------|--------|
-| HP Victus @ $649 | 0.90 | walmart.com |
-| Lenovo LOQ @ $697 | 0.92 | bestbuy.com |
+| <item> @ <$price> | 0.90 | <source_domain> |
+| <item> @ <$price> | 0.92 | <source_domain> |
 ```
 
 ---
 
-## 12. Examples
+## 12. Pattern Templates
 
-### 12.1 Simple Research Query
+### 12.1 Simple Research
 
-**Query:** "Find me cheap laptops"
+**Query:** "<discovery request with budget>"
 
 **Strategic Plan:**
 ```json
 {
-  "goals": [{"id": "GOAL_1", "description": "Find cheap laptops with good value"}],
-  "approach": "Search for laptops, filter by price"
+  "goals": [{"id": "GOAL_1", "description": "Find options with good value under budget"}],
+  "approach": "Search for options, filter by constraints"
 }
 ```
 
@@ -463,7 +488,7 @@ The Orchestrator formats Coordinator results for Executor:
 ```json
 {
   "action": "COMMAND",
-  "command": "Search for cheap laptops under $800 with good reviews",
+  "command": "Search for <item> under <budget> with <constraint>",
   "goals_progress": [{"goal_id": "GOAL_1", "status": "in_progress"}],
   "reasoning": "Need fresh product data to answer"
 }
@@ -473,20 +498,20 @@ The Orchestrator formats Coordinator results for Executor:
 ```json
 {
   "action": "COMPLETE",
-  "goals_progress": [{"goal_id": "GOAL_1", "status": "achieved", "progress": "Found 5 laptops under $800"}],
+  "goals_progress": [{"goal_id": "GOAL_1", "status": "achieved", "progress": "Found sufficient options under budget"}],
   "reasoning": "Have sufficient product data to answer user"
 }
 ```
 
 ### 12.2 Multi-Step Analysis
 
-**Query:** "Compare our planner with 12-factor methodology, then update it"
+**Query:** "<compare internal doc with external reference, then update>"
 
 **Executor Iteration 1:**
 ```json
 {
   "action": "COMMAND",
-  "command": "Read the planner architecture doc to understand current design",
+  "command": "Read the relevant architecture doc to understand current design",
   "reasoning": "Need to understand current state before comparison"
 }
 ```
@@ -495,7 +520,7 @@ The Orchestrator formats Coordinator results for Executor:
 ```json
 {
   "action": "COMMAND",
-  "command": "Search for 12-factor agent methodology and best practices",
+  "command": "Search for external reference methodology and best practices",
   "reasoning": "Need external reference for comparison"
 }
 ```
@@ -505,7 +530,7 @@ The Orchestrator formats Coordinator results for Executor:
 {
   "action": "ANALYZE",
   "analysis": {
-    "findings": "Current planner aligns with Factor IV but violates Factor III. Need to externalize config.",
+    "findings": "Current design aligns with <alignment_point> but violates <gap_point>. Need to apply <required_change>.",
     "next_step_rationale": "Ready to make changes based on analysis"
   },
   "reasoning": "Have enough data to complete comparison"
@@ -516,7 +541,7 @@ The Orchestrator formats Coordinator results for Executor:
 ```json
 {
   "action": "COMMAND",
-  "command": "Edit strategic.md to add configuration externalization constraint",
+  "command": "Edit <doc> to apply required change",
   "reasoning": "Implementing the identified change"
 }
 ```
@@ -543,25 +568,48 @@ The Orchestrator formats Coordinator results for Executor:
 4. **ANALYZE before COMPLETE** - Reason about results before declaring done
 5. **One step at a time** - React to results, adjust approach as needed
 6. **Explicit progress tracking** - Update goals_progress every iteration
+7. **Constraint-respecting** - Commands must honor Phase 2 constraints; if blocked, trigger replanning
 
 ---
 
-## 14. Related Documents
+## 14. Concept Alignment
 
-- `architecture/main-system-patterns/phase3-planner.md` - Prior phase (provides strategic plan)
-- `architecture/main-system-patterns/phase5-coordinator.md` - Next phase (translates commands)
-- `architecture/main-system-patterns/PLANNER_EXECUTOR_COORDINATOR_LOOP.md` - Full loop specification
-- `architecture/main-system-patterns/phase6-synthesis.md` - After COMPLETE
-- `architecture/LLM-ROLES/llm-roles-reference.md` - Model and temperature specs
+This section maps Phase 4's responsibilities to the cross-cutting concept documents.
+
+| Concept | Document | Phase 4 Relevance |
+|---------|----------|--------------------|
+| **Execution System** | `concepts/system_loops/EXECUTION_SYSTEM.md` | Phase 4 is the **tactical tier** of the 3-tier architecture. It operates in a bounded loop with the Coordinator (Phase 5). The Orchestrator manages iteration tracking, §4 append semantics, and NERVES compression when §4 exceeds token limits. |
+| **Self-Building System** | `concepts/self_building_system/SELF_BUILDING_SYSTEM.md` | The Executor can issue CREATE_TOOL and CREATE_WORKFLOW actions when required capabilities are missing. It provides tool specs, code, and test requirements; the Coordinator handles actual creation and validation. |
+| **Backtracking Policy** | `concepts/self_building_system/BACKTRACKING_POLICY.md` | When tool failures or requirement violations occur, the Executor reports BLOCKED, which feeds back to the Planner for replanning. The Executor interprets failure patterns (consecutive tool failures, permission denials) and decides whether to retry locally or escalate. |
+| **Tool System** | `concepts/tools_workflows_system/TOOL_SYSTEM.md` | The Executor does NOT know tool signatures — that's the Coordinator's job. But it initiates tool creation via the Self-Building System when required tool families are missing. |
+| **Document IO** | `concepts/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md` | Reads §0–§2, STRATEGIC_PLAN JSON, and the growing §4. §3 is a rendered view derived from the plan. Writes to §4 (Execution Progress). §4 is always **appended**, never replaced — each iteration adds a new block with action, results, and goal progress. |
+| **Recipe System** | `concepts/recipe_system/RECIPE_SYSTEM.md` | Executed as a MIND recipe, ~3,500 tokens per iteration. The focused prompt (no tool catalog) keeps token usage low. Each iteration is a separate recipe invocation. |
+| **Error Handling** | `concepts/error_and_improvement_system/ERROR_HANDLING.md` | Enforces loop limits: max 10 iterations, max 5 consecutive COMMANDs without ANALYZE, max 3 tool failures → BLOCKED with intervention. All limits are fail-fast — no silent degradation. |
+| **Confidence System** | `concepts/confidence_system/UNIVERSAL_CONFIDENCE_SYSTEM.md` | Claims from tool results include confidence scores. The Executor uses these in ANALYZE decisions — low-confidence results may trigger additional commands for verification before declaring COMPLETE. |
+| **LLM Roles** | `LLM-ROLES/llm-roles-reference.md` | Uses the MIND role (temp=0.6) for tactical reasoning. The MIND temperature provides balanced reasoning about next steps without the determinism of REFLEX or the creativity of VOICE. |
+| **Prompt Management** | `concepts/recipe_system/PROMPT_MANAGEMENT_SYSTEM.md` | Natural language commands are a key prompt design principle. The Executor describes intent in natural language; the Coordinator translates. This separation means the Executor prompt never includes tool catalogs or parameter schemas. |
 
 ---
 
-## 15. Changelog
+## 15. Related Documents
+
+- `architecture/main-system-patterns/phase3-planner.md` — Prior phase (provides strategic plan)
+- `architecture/main-system-patterns/phase5-coordinator.md` — Next phase (translates commands)
+- `architecture/concepts/system_loops/EXECUTION_SYSTEM.md` — Full loop specification
+- `architecture/main-system-patterns/phase6-synthesis.md` — After COMPLETE
+- `architecture/LLM-ROLES/llm-roles-reference.md` — Model and temperature specs
+
+---
+
+## 16. Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026-01-24 | Initial specification |
+| 1.1 | 2026-02-03 | Added §14 Concept Alignment. Removed stale Concept Implementation Touchpoints and Benchmark Gaps sections. |
+| 1.2 | 2026-02-04 | Aligned inputs to STRATEGIC_PLAN JSON canonical output. Abstracted examples into pattern templates. Clarified invocation rule and input sections. |
+| 1.3 | 2026-02-04 | Switched command interface to workflow-oriented handling. Coordinator executes workflows with embedded tools. |
 
 ---
 
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-02-04

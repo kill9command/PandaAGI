@@ -1,9 +1,9 @@
 """Phase 6: Validation - Quality gate.
 
 Architecture Reference:
-    architecture/main-system-patterns/phase6-validation.md
+    architecture/main-system-patterns/phase7-validation.md
 
-Role: MIND (MIND model @ temp=0.5)
+Role: MIND (MIND model @ temp=0.6)
 Token Budget: ~6,000 total
 
 Question: "Is this response accurate and complete?"
@@ -40,7 +40,7 @@ class Validation(BasePhase[ValidationResult]):
     """
     Phase 6: Validate response quality.
 
-    Uses MIND role (MIND model with temp=0.5) for
+    Uses MIND role (MIND model with temp=0.6) for
     quality assessment.
 
     Four mandatory checks:
@@ -93,7 +93,17 @@ RETRY (confidence 0.30-0.49):
 - Wrong approach or missing data
 - Wrong research was done
 - Need different tools called
+- Wrong workflow was used (see workflow check below)
 - Use suggested_fixes to guide re-planning
+
+WORKFLOW APPROPRIATENESS CHECK:
+Verify the workflow used (in section 3) matches the user's intent from section 0:
+- If query has "buy", "purchase", "for sale", "price", "cheapest" → expect product_search
+- If query has "what is", "how to", "best", "review", "tell me about" → expect intelligence_search
+
+If workflow mismatch detected:
+- decision: RETRY
+- suggested_fixes: "workflow_mismatch: Should have used {correct_workflow} because {reason}"
 
 FAIL (confidence < 0.30):
 - Unrecoverable error
@@ -204,8 +214,8 @@ Validate this response against the 4 mandatory checks."""
         # Parse response
         result = self._parse_response(llm_response)
 
-        # Write to section 6
-        context.write_section_6(result, attempt)
+        # Write to section 7
+        context.write_section_7(result, attempt)
 
         return result
 

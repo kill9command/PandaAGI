@@ -7,7 +7,7 @@
 name: tools_claim_evaluator
 category: tools
 role: claim_evaluator
-model_layer: REFLEX  # Classification task uses REFLEX (temp 0.3)
+model_layer: REFLEX  # Classification task uses REFLEX (temp 0.4)
 
 # Prompt fragments (loaded in order)
 prompt_fragments:
@@ -70,6 +70,10 @@ token_budget:
   output: 200       # JSON evaluation
   buffer: 0
 
+llm_params:
+  temperature: 0.4
+  max_tokens: 200
+
 # Trimming strategy
 trimming_strategy:
   method: intelligent_truncate
@@ -128,10 +132,14 @@ description: |
   - Recency: 20%
   - Session relevance: 25%
 
-  **Decisions:**
-  - score >= 60: keep_active (relevant, high quality)
-  - score 40-59: archive_cold (potentially useful later)
-  - score < 40: delete (obsolete, low quality)
+  **Confidence Mapping:**
+  - confidence = quality_score / 100
+
+  **Decisions (universal thresholds):**
+  - confidence >= 0.80: keep_active
+  - 0.50–0.79: archive_cold
+  - 0.30–0.49: archive_cold (low)
+  - < 0.30: delete
 
   Input: claim details + session context
   Output: claim_evaluation.json with decision

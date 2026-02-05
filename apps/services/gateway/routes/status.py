@@ -52,7 +52,7 @@ class SystemStatusResponse(BaseModel):
     """Full system status response."""
     status: str = Field(..., description="Overall status: healthy, degraded, unhealthy")
     gateway: ServiceStatus = Field(..., description="Gateway service status")
-    orchestrator: Optional[ServiceStatus] = Field(None, description="Orchestrator status")
+    tool_server: Optional[ServiceStatus] = Field(None, description="Tool Server status")
     vllm: Optional[ServiceStatus] = Field(None, description="vLLM server status")
     models: list[ModelStatus] = Field(default_factory=list, description="Loaded models")
     database: Optional[ServiceStatus] = Field(None, description="Database status")
@@ -127,12 +127,12 @@ async def get_system_status() -> SystemStatusResponse:
         last_check=datetime.now(timezone.utc).isoformat(),
         details={
             "port": config.port,
-            "orchestrator_url": config.orchestrator_url,
+            "tool_server_url": config.tool_server_url,
         },
     )
 
     # Try to get Orchestrator status
-    orchestrator_status = None
+    tool_server_status = None
     vllm_status = None
     model_statuses = []
     database_status = None
@@ -142,13 +142,13 @@ async def get_system_status() -> SystemStatusResponse:
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as client:
-            response = await client.get(f"{config.orchestrator_url}/status")
+            response = await client.get(f"{config.tool_server_url}/status")
 
             if response.status_code == 200:
                 data = response.json()
 
-                orchestrator_status = ServiceStatus(
-                    name="orchestrator",
+                tool_server_status = ServiceStatus(
+                    name="tool_server",
                     status=data.get("status", "healthy"),
                     version=data.get("version"),
                     uptime_seconds=data.get("uptime_seconds"),
@@ -182,17 +182,17 @@ async def get_system_status() -> SystemStatusResponse:
                 active_research = data.get("active_research", 0)
 
     except httpx.ConnectError:
-        logger.warning("Cannot connect to Orchestrator for status check")
-        orchestrator_status = ServiceStatus(
-            name="orchestrator",
+        logger.warning("Cannot connect to Tool Server for status check")
+        tool_server_status = ServiceStatus(
+            name="tool_server",
             status="unhealthy",
             last_check=datetime.now(timezone.utc).isoformat(),
             details={"error": "Connection refused"},
         )
     except Exception as e:
-        logger.error(f"Error getting Orchestrator status: {e}")
-        orchestrator_status = ServiceStatus(
-            name="orchestrator",
+        logger.error(f"Error getting Tool Server status: {e}")
+        tool_server_status = ServiceStatus(
+            name="tool_server",
             status="unknown",
             last_check=datetime.now(timezone.utc).isoformat(),
             details={"error": str(e)},
@@ -200,13 +200,13 @@ async def get_system_status() -> SystemStatusResponse:
 
     # Determine overall status
     overall_status = "healthy"
-    if orchestrator_status and orchestrator_status.status != "healthy":
-        overall_status = "degraded" if orchestrator_status.status == "degraded" else "unhealthy"
+    if tool_server_status and tool_server_status.status != "healthy":
+        overall_status = "degraded" if tool_server_status.status == "degraded" else "unhealthy"
 
     return SystemStatusResponse(
         status=overall_status,
         gateway=gateway_status,
-        orchestrator=orchestrator_status,
+        tool_server=tool_server_status,
         vllm=vllm_status,
         models=model_statuses,
         database=database_status,
@@ -238,7 +238,7 @@ async def get_metrics(
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.get(
-                f"{config.orchestrator_url}/metrics",
+                f"{config.tool_server_url}/metrics",
                 params={"period": period},
             )
 
@@ -275,8 +275,8 @@ async def get_metrics(
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator for metrics")
+        logger.error("Cannot connect to Tool Server for metrics")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )

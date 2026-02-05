@@ -7,7 +7,7 @@
 name: tools_content_summarizer
 category: tools
 role: content_summarizer
-model_layer: NERVES  # Compression uses NERVES (temp 0.1)
+model_layer: NERVES  # Compression uses NERVES (temp 0.3)
 
 # Prompt fragments (loaded in order)
 prompt_fragments:
@@ -57,6 +57,10 @@ token_budget:
   input_docs: 2230    # query + url + type + content + target
   output: 800         # summarized content
   buffer: 100
+
+llm_params:
+  temperature: 0.3
+  max_tokens: 800
 
 # Trimming strategy
 trimming_strategy:

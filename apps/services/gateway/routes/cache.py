@@ -104,7 +104,7 @@ async def list_cache(
                 params["cache_type"] = cache_type
 
             response = await client.get(
-                f"{config.orchestrator_url}/cache",
+                f"{config.tool_server_url}/cache",
                 params=params,
             )
 
@@ -121,10 +121,10 @@ async def list_cache(
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )
 
 
@@ -146,7 +146,7 @@ async def get_cache_entry(topic: str) -> CacheDetailResponse:
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.get(
-                f"{config.orchestrator_url}/cache/{topic}",
+                f"{config.tool_server_url}/cache/{topic}",
             )
 
             if response.status_code == 404:
@@ -163,10 +163,10 @@ async def get_cache_entry(topic: str) -> CacheDetailResponse:
             return CacheDetailResponse(**data)
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )
 
 
@@ -198,7 +198,7 @@ async def clear_cache(
                 params["older_than_hours"] = older_than_hours
 
             response = await client.delete(
-                f"{config.orchestrator_url}/cache",
+                f"{config.tool_server_url}/cache",
                 params=params,
             )
 
@@ -215,8 +215,8 @@ async def clear_cache(
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )

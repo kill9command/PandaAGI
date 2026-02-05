@@ -1,6 +1,6 @@
 # Vendor Selector
 
-**Role:** REFLEX (temp=0.1)
+**Role:** REFLEX (temp=0.4)
 **Purpose:** Select best sources from search results for product research
 
 ---
@@ -8,9 +8,9 @@
 ## Overview
 
 Analyze Google search results and select the most promising sources for finding products that match the user's query. Prioritize:
-1. **Official retailers** with good pricing (Amazon, Best Buy, Newegg, etc.)
+1. **Official retailers** with good pricing
 2. **Specialty vendors** relevant to the product category
-3. **Comparison sites** for price research
+3. **Comparison sites** for price research (only if the user asked for comparisons)
 4. **Avoid** forums, social media, news articles (not vendors)
 
 ---
@@ -37,31 +37,31 @@ INTELLIGENCE CONTEXT (optional):
 
 ### 1. Source Type Priority
 
-| Source Type | Priority | Examples |
-|-------------|----------|----------|
-| Major Retailers | High | Amazon, Best Buy, Walmart, Target |
-| Specialty Retailers | High | Newegg (electronics), Chewy (pets), B&H (photo) |
-| Manufacturer Sites | Medium | Dell, HP, ASUS, Lenovo |
-| Comparison Sites | Medium | Google Shopping, PriceGrabber |
-| Marketplaces | Low | eBay, Facebook Marketplace |
-| Forums/Social | Skip | Reddit, Quora, Twitter |
-| News/Articles | Skip | Blog posts, reviews (not vendors) |
+| Source Type | Priority | How to Detect |
+|-------------|----------|---------------|
+| Major Retailers | High | Domain indicates storefront, pricing, cart/checkout |
+| Specialty Retailers | High | Category-focused store, product listings |
+| Manufacturer Sites | Medium | Official brand domain with store pages |
+| Comparison Sites | Medium | Aggregators with multiple sellers/prices |
+| Marketplaces | Low | Multi-seller listings, marketplace signals |
+| Forums/Social | Skip | Community/discussion domains |
+| News/Articles | Skip | Editorial content, reviews, guides |
 
 ### 2. User Priority Interpretation
 
 Read the **ORIGINAL USER QUERY** to understand what the user values:
-- "cheapest" -> prioritize price-competitive sources
-- "best" -> prioritize quality/review sites
-- "fastest" -> prioritize sources with fast shipping
-- "official" -> prioritize manufacturer sites
+- "cheapest" -> prioritize price-competitive sellers
+- "best" -> prioritize reputable vendors (do NOT select review articles)
+- "fastest" -> prioritize vendors with shipping/availability signals
+- "official" -> prioritize manufacturer store pages
 
 ### 3. Category Matching
 
-Match sources to product category:
-- **Electronics:** Newegg, B&H, Micro Center > general retailers
-- **Pets (live animals):** Breeders, rescues > pet supply stores
-- **Pets (supplies):** Chewy, PetSmart > live animal vendors
-- **Clothing:** Fashion retailers > electronics stores
+Match sources to product category based on the **domain and page intent**:
+- **Electronics:** prioritize electronics-focused stores over general retailers when clear
+- **Pets (live animals):** prioritize breeder/rescue listings over supply stores
+- **Pets (supplies):** prioritize pet supply retailers
+- **Clothing:** prioritize fashion retailers
 
 ---
 
@@ -92,56 +92,13 @@ Match sources to product category:
 
 ## Examples
 
-### Example 1: Electronics Purchase
+### Example 1: Electronics Purchase (Abstracted)
 
 **Original Query:** "find me the cheapest RTX 4060 laptop"
 
-**Search Results:**
-1. Best Buy - RTX 4060 Laptops
-2. Reddit r/LaptopDeals - Best RTX 4060 deals
-3. Newegg - Gaming Laptops with RTX 4060
-4. Tom's Hardware - RTX 4060 Laptop Review
-5. Amazon - RTX 4060 Gaming Laptops
+**Search Results:**\n1. [Major electronics retailer]\n2. [Forum deals thread]\n3. [Specialty electronics retailer]\n4. [Review article]\n5. [Large marketplace]
 
-**Output:**
-```json
-{
-  "sources": [
-    {
-      "index": 1,
-      "url": "https://bestbuy.com/...",
-      "domain": "bestbuy.com",
-      "source_type": "major_retailer",
-      "reasoning": "Major electronics retailer with price matching"
-    },
-    {
-      "index": 3,
-      "url": "https://newegg.com/...",
-      "domain": "newegg.com",
-      "source_type": "specialty_retailer",
-      "reasoning": "Tech-focused retailer, often has deals"
-    },
-    {
-      "index": 5,
-      "url": "https://amazon.com/...",
-      "domain": "amazon.com",
-      "source_type": "marketplace",
-      "reasoning": "Large selection, competitive pricing"
-    }
-  ],
-  "skipped": [
-    {
-      "index": 2,
-      "reason": "Reddit is a forum, not a vendor"
-    },
-    {
-      "index": 4,
-      "reason": "Review article, not a store"
-    }
-  ],
-  "selection_summary": "Selected 3 electronics retailers to find cheapest RTX 4060 laptops"
-}
-```
+**Output:**\n```json\n{\n  \"sources\": [\n    {\n      \"index\": 1,\n      \"url\": \"https://retailer.example/...\",\n      \"domain\": \"retailer.example\",\n      \"source_type\": \"major_retailer\",\n      \"reasoning\": \"Retail storefront with pricing and cart\"\n    },\n    {\n      \"index\": 3,\n      \"url\": \"https://specialty.example/...\",\n      \"domain\": \"specialty.example\",\n      \"source_type\": \"specialty_retailer\",\n      \"reasoning\": \"Category-focused store with product listings\"\n    },\n    {\n      \"index\": 5,\n      \"url\": \"https://market.example/...\",\n      \"domain\": \"market.example\",\n      \"source_type\": \"marketplace\",\n      \"reasoning\": \"Marketplace with broad inventory\"\n    }\n  ],\n  \"skipped\": [\n    {\n      \"index\": 2,\n      \"reason\": \"Forum, not a vendor\"\n    },\n    {\n      \"index\": 4,\n      \"reason\": \"Review article, not a store\"\n    }\n  ],\n  \"selection_summary\": \"Selected retailers that sell the requested product\"\n}\n```
 
 ---
 

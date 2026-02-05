@@ -1,0 +1,68 @@
+# Navigation Decider Recipe
+# Decides EXTRACT/NAVIGATE/GIVE_UP on each page during product search
+# Sub-system within Researcher, invoked by GoalDirectedNavigator
+
+name: navigation_decider
+role: navigation_decider
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/navigator/decide_action.md  # ~600 tokens
+
+# Input documents
+input_docs:
+  - path: requirements.md
+    description: Product requirements from Phase 1 (category, specs, alternatives, deal_breakers)
+    max_tokens: 300
+    required: true
+    path_type: dynamic  # Generated at runtime
+
+  - path: page_state.md
+    description: Current page content, URL, visible products/links
+    max_tokens: 800
+    required: true
+    path_type: dynamic
+
+# Output documents
+output_docs:
+  - decision.json  # {action: "EXTRACT|NAVIGATE|GIVE_UP", reason: "...", navigate_to: "..."}
+
+# Token budget (hard limits enforced)
+token_budget:
+  total: 2000
+  prompt: 600       # Fixed cost: decide_action.md
+  input_docs: 1100  # requirements.md (300) + page_state.md (800)
+  output: 200       # JSON decision output
+  buffer: 100       # Safety margin
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: page_state  # Truncate page content first, keep requirements
+
+# Output schema
+output_schema: NAVIGATION_DECISION
+
+# Description
+description: |
+  Navigation Decider evaluates each page during product search to determine
+  the best action based on product requirements.
+
+  **Input Documents:**
+  - requirements.md: Product requirements including acceptable specs and deal breakers
+  - page_state.md: Current page URL, title, visible products, navigation links
+
+  **Decisions:**
+  - EXTRACT: Page shows products that could match requirements - extract them
+  - NAVIGATE: Page has links to potentially relevant products - follow them
+  - GIVE_UP: Page is not relevant to requirements - stop exploring this path
+
+  **Key Behavior:**
+  - Uses acceptable_alternatives to identify potential matches
+  - Uses deal_breakers to quickly reject irrelevant pages
+  - Considers page type (listing vs PDP vs category) in decisions
+
+  Phase: Embedded in Researcher (internet.research tool)
+  Invoked by: GoalDirectedNavigator._decide_action()

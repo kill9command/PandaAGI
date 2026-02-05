@@ -4,10 +4,10 @@
 
 name: phase4_coordinator_chat
 category: pipeline
-phase: 4
-role: MIND
+phase: 5
+role: REFLEX
 mode: chat
-temperature: 0.5
+temperature: 0.4
 
 prompt_fragments:
   - "apps/prompts/pipeline/phase4_coordinator_chat.md"
@@ -32,64 +32,33 @@ output_doc:
   description: "Writes/appends section 4 with execution progress and tool results"
 
 token_budget:
-  total: 12000
-  prompt: 1500
-  input_docs: 7000
-  output: 3000
-  buffer: 500
+  total: 2500
+  prompt: 700
+  input_docs: 1200
+  output: 400
+  buffer: 200
 
 llm_params:
-  temperature: 0.5
-  max_tokens: 2500
+  temperature: 0.4
+  max_tokens: 400
 
-output_schema: COORDINATOR_RESULT
+output_schema: COORDINATOR_SELECTION
 
 description: |
-  Phase 4: Coordinator (Chat Mode) - Executor + Tool Expert
+  Phase 5: Coordinator (Chat Mode) - Tool Expert
 
-  Uses MIND role (temp=0.5). Combines the Executor (tactical decisions) and
-  Coordinator (tool selection) into a single execution phase.
+  Uses REFLEX role (temp=0.4). Translates Executor commands into workflow selections.
 
-  **Core Questions:**
-  - "What is the next step to achieve this goal?" (Executor)
-  - "Which tool best accomplishes this command?" (Tool Expert)
+  **Core Question:**
+  - "Which workflow best accomplishes this command?"
 
-  **Executor Actions:**
-  | Action | When | Result |
-  |--------|------|--------|
-  | COMMAND | Need external data or state change | Execute tool |
-  | ANALYZE | Compare/synthesize accumulated results | Analysis to section 4 |
-  | COMPLETE | All goals achieved | Proceed to Synthesis |
-  | BLOCKED | Cannot proceed | Create intervention |
-
-  **Chat Mode Tools:**
-  | Tool | When to Select |
-  |------|----------------|
-  | internet.research | "search", "find", "look up", web queries |
-  | memory.search | "recall", "what did I say", "my preferences" |
-  | memory.save | "remember", "save", "store" |
-  | memory.delete | "forget", "remove", "delete from memory" |
-  | file.read | "read file", "show contents" |
-  | file.glob | "find files", "list files matching" |
-  | file.grep | "search in files", "find text in" |
-
-  **Loop Limits:**
-  - Max iterations: 10
-  - Max consecutive tool calls: 5 (require ANALYZE before more)
-  - Max tool failures: 3 (then BLOCKED)
-
-  **Output (COORDINATOR_RESULT):**
+  **Output (COORDINATOR_SELECTION):**
   ```json
   {
-    "_type": "COORDINATOR_RESULT",
-    "action": "COMMAND|ANALYZE|COMPLETE|BLOCKED",
-    "tool_selected": "internet.research",
-    "tool_args": {...},
-    "status": "success|error|blocked",
-    "result": {...},
-    "claims": [...],
-    "goals_progress": [
-      {"goal_id": "GOAL_1", "status": "in_progress|achieved|blocked", "progress": "..."}
-    ]
+    "_type": "COORDINATOR_SELECTION",
+    "command_received": "<executor_command>",
+    "workflow_selected": "<workflow_name>",
+    "workflow_args": {...},
+    "status": "selected"
   }
   ```

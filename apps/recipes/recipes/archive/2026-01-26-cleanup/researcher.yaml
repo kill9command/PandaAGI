@@ -1,0 +1,92 @@
+# Researcher Recipe (MCP Tool Sub-System)
+# Strategic internet research orchestration
+
+name: researcher
+role: researcher
+mode: null  # Sub-system, invoked by Coordinator
+description: Strategic internet research orchestration with adaptive Phase 1/2 selection
+
+# System prompts for Researcher Role
+prompt_fragments:
+  - apps/prompts/researcher/core.md  # 800 tokens: Base instructions
+  - apps/prompts/researcher/strategy_selection.md  # 600 tokens: Phase 1/2 decision
+  - apps/prompts/researcher/satisfaction_criteria.md  # 400 tokens: Completion evaluation
+
+# Input documents Researcher receives
+input_docs:
+  - path: plan.md
+    description: Coordinator's tool execution plan
+    max_tokens: 200
+    required: true
+    extract: tool_config_only
+
+  - path: context.md
+    description: Session context (preferences only - budget, location)
+    max_tokens: 100
+    required: true
+    extract: preferences_only
+
+  - path: sessions/{session_id}/intelligence_cache.json
+    description: Cached Phase 1 intelligence from prior research (24h TTL)
+    max_tokens: 500
+    required: false
+    path_type: session
+
+# Output documents Researcher creates
+output_docs:
+  - research_plan.md      # Strategic execution plan
+  - research_results.json # Aggregated results for Coordinator
+
+# Token budget enforcement
+token_budget:
+  total: 3000
+  prompt: 1800   # Fixed cost of prompt fragments
+  input_docs: 800
+  output: 400
+  buffer: 0
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - drop: intelligence_cache
+    - truncate: context  # Keep first 50 tokens (core preferences)
+
+# Mode-specific configurations
+modes:
+  standard:
+    description: Single-pass execution, return results immediately
+    max_passes: 1
+    satisfaction_evaluation: false
+    default_phase_strategy: auto
+
+  deep:
+    description: Multi-pass execution until satisfaction criteria met
+    max_passes: 10
+    satisfaction_evaluation: true
+    default_phase_strategy: phase1_then_phase2
+    stop_conditions:
+      - all_criteria_met
+      - safety_cap_reached
+      - token_budget_exhausted
+
+# Quality gates
+quality_gates:
+  min_sources: 8
+  min_confidence: 0.75
+  required_info_fields:
+    commerce_search: [name, location, price, credibility]
+    informational: [key_topics, expert_opinions, recommendations]
+    comparison: [pros, cons, best_use_cases]
+
+# Tool integration
+tool_integration:
+  orchestrator_endpoint: /context.research_orchestrate
+  executes_tools:
+    - internet.research.phase1  # Intelligence gathering
+    - internet.research.phase2  # Match to Intelligence
+
+# Description
+# This is an MCP sub-system invoked by Coordinator when internet.research is called.
+# It has internal LLM roles (query_planner, source_evaluator, content_summarizer, etc.)
+# Phase: Embedded in Coordinator (Phase 5 in canonical flow)

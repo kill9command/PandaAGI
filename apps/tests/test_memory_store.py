@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from apps.services.orchestrator.memory_store import MemoryStore, reset_memory_store_cache, get_memory_store
+from apps.services.tool_server.memory_store import MemoryStore, reset_memory_store_cache, get_memory_store
 
 
 @pytest.fixture
@@ -111,7 +111,7 @@ def test_user_specific_memory_isolation(memory_tmp: Path, monkeypatch: pytest.Mo
     reset_memory_store_cache()
 
     user1_store = get_memory_store("user1")
-    spouse_store = get_memory_store("spouse")
+    user2_store = get_memory_store("user2")
 
     user1_store.save_memory(
         title="User1 note",
@@ -120,15 +120,15 @@ def test_user_specific_memory_isolation(memory_tmp: Path, monkeypatch: pytest.Mo
         tags=["topic:hamster"],
     )
 
-    spouse_store.save_memory(
-        title="Spouse note",
-        body_md="Spouse tracked plant care schedule.",
+    user2_store.save_memory(
+        title="User2 note",
+        body_md="User2 tracked plant care schedule.",
         scope="short_term",
         tags=["topic:plants"],
     )
 
     user1_items = user1_store.query("hamster", k=3)
-    spouse_items = spouse_store.query("hamster", k=3)
+    user2_items = user2_store.query("hamster", k=3)
 
     assert any("User1" in (item.get("title", "")) for item in user1_items)
-    assert not any("User1" in (item.get("title", "")) for item in spouse_items)
+    assert not any("User1" in (item.get("title", "")) for item in user2_items)

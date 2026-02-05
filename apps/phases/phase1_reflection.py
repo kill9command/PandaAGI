@@ -3,7 +3,7 @@
 Architecture Reference:
     architecture/main-system-patterns/phase1-reflection.md
 
-Role: REFLEX (MIND model @ temp=0.3)
+Role: REFLEX (MIND model @ temp=0.4)
 Token Budget: ~2,200 total
 
 Core Question: "Can we answer this query?"
@@ -31,7 +31,7 @@ class Reflection(BasePhase[ReflectionResult]):
     """
     Phase 1: Decide if query is clear enough to proceed.
 
-    Uses REFLEX role (MIND model with temp=0.3) for fast,
+    Uses REFLEX role (MIND model with temp=0.4) for fast,
     deterministic classification.
 
     Key Principle: Default to PROCEED when uncertain.

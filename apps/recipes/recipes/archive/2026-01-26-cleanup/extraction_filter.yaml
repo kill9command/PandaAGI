@@ -1,0 +1,79 @@
+# Extraction Filter Recipe
+# Quick filter before expensive PDP extraction
+# Sub-system within Researcher, invoked by extraction pipeline
+
+name: extraction_filter
+role: extraction_filter
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/navigator/filter_listings.md  # ~400 tokens
+
+# Input documents
+input_docs:
+  - path: requirements.md
+    description: Product requirements (key specs and deal breakers only)
+    max_tokens: 200
+    required: true
+    path_type: dynamic
+
+  - path: listings.json
+    description: Listing titles from search results page
+    max_tokens: 800
+    required: true
+    path_type: dynamic
+
+# Output documents
+output_docs:
+  - worth_pdp.json  # {worth_pdp: [indices], skip: [indices], reasons: {...}}
+
+# Token budget
+token_budget:
+  total: 1550
+  prompt: 400       # Fixed cost: filter_listings.md
+  input_docs: 950   # requirements.md (200) + listings.json (750)
+  output: 100       # Simple JSON output
+  buffer: 100       # Safety buffer for token counting variance
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: listings  # Truncate listing list if too long
+
+# Output schema
+output_schema: EXTRACTION_FILTER
+
+# Description
+description: |
+  Extraction Filter performs quick checks on listing titles to decide which
+  products are worth the expensive PDP extraction operation.
+
+  **Purpose:**
+  PDP extraction requires navigating to product pages, waiting for load,
+  and extracting detailed specs. This filter reduces wasted time by
+  pre-filtering obviously irrelevant products.
+
+  **Input Documents:**
+  - requirements.md: Key specs to look for and deal breakers to avoid
+  - listings.json: Array of {index, title, price} from listing page
+
+  **Quick Checks:**
+  - Does title mention acceptable specs? -> worth_pdp: true
+  - Does title mention deal_breakers? -> worth_pdp: false
+  - Uncertain? -> worth_pdp: true (safer to check than miss)
+
+  **Output:**
+  {
+    "worth_pdp": [0, 2, 3],     // Indices worth PDP extraction
+    "skip": [1, 4],            // Indices to skip (deal breaker or irrelevant)
+    "reasons": {
+      "0": "Title mentions RTX 4060",
+      "1": "Title mentions Intel UHD (deal breaker)",
+      ...
+    }
+  }
+
+  Phase: Embedded in extraction pipeline
+  Invoked by: ProductPerceptionPipeline.extract_and_verify()

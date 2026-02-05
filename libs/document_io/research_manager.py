@@ -1,4 +1,4 @@
-"""Research document management for PandaAI v2.
+"""Pandora research document management.
 
 Architecture Reference:
     architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md#4-researchmd-specification
@@ -7,7 +7,7 @@ Key Design:
     - Evergreen knowledge (facts that don't expire)
     - Time-sensitive data (prices, availability - 6 hour TTL)
     - JSON companion file for indexing in ResearchIndexDB
-    - Linked from context.md section 4
+    - Linked from context.md §4 Tool Results
 
 Purpose:
     Contains full research results from internet.research tool calls.
@@ -88,7 +88,7 @@ class ResearchManager:
 (To be populated by research tool)
 
 ## Linked From
-- [context.md](./context.md) Section 4 Tool Execution
+- [context.md](./context.md) §4 Tool Results
 
 """
         self.turn_dir.mkdir(parents=True, exist_ok=True)

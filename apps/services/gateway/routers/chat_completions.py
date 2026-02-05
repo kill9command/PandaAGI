@@ -1,7 +1,7 @@
 """
 Chat Completions Router
 
-The main chat endpoint that runs the unified 7-phase flow locally.
+The main chat endpoint that runs the unified 8-phase flow locally.
 This is the primary endpoint used by the webapp.
 
 Endpoints:
@@ -23,10 +23,6 @@ from apps.services.gateway.config import (
     GUIDE_HEADERS,
     GUIDE_MODEL_ID,
     MODEL_TIMEOUT,
-    # Legacy aliases
-    SOLVER_URL,
-    SOLVER_HEADERS,
-    SOLVER_MODEL_ID,
 )
 from apps.services.gateway.dependencies import (
     get_unified_flow,
@@ -65,7 +61,7 @@ async def chat_completions(
     clear_session: bool = False,
 ):
     """
-    Main chat endpoint - processes user messages through the unified 7-phase flow.
+    Main chat endpoint - processes user messages through the unified 8-phase flow.
 
     This is the primary endpoint used by the webapp for all chat interactions.
 
@@ -150,12 +146,12 @@ async def chat_completions(
     session_id = str(payload.get("session_id") or payload.get("session") or profile_id or trace_id)
 
     # ========================================
-    # UNIFIED 7-PHASE FLOW ROUTING
+    # UNIFIED 9-PHASE FLOW ROUTING
     # ========================================
     unified_flow = get_unified_flow()
 
     if is_unified_flow_enabled() and unified_flow:
-        logger.info(f"[UnifiedRouting] Using unified 7-phase flow (trace={trace_id})")
+        logger.info(f"[UnifiedRouting] Using unified 8-phase flow (trace={trace_id})")
 
         # NOTE: Intent classification removed - Phase 0 extracts user_purpose via LLM
         # The unified_flow will run Phase 0 which generates natural language user_purpose
@@ -208,7 +204,7 @@ async def chat_completions(
                 confidence=1.0 if validation_passed else 0.7,
                 duration_ms=int(elapsed_ms),
                 details={"unified_flow": True, "turn_number": turn_number, "validation_passed": validation_passed},
-                reasoning="Unified 7-phase flow completed",
+                reasoning="Unified 8-phase flow completed",
                 timestamp=time.time()
             ))
 

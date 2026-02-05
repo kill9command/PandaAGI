@@ -3,6 +3,19 @@ Thinking Visualization Service
 
 Provides real-time thinking stage events for the frontend visualization system.
 Tracks query progress through stages like analyzing, planning, executing, synthesizing.
+
+Architecture Reference:
+    architecture/README.md (8-Phase Pipeline)
+
+Design Notes:
+- Stage names (guide_analyzing, coordinator_planning, orchestrator_executing,
+  guide_synthesizing) are legacy from multi-model design. Current architecture
+  uses phase-based roles: Phase 1 Query Analyzer, Phase 3 Planner, Phase 4
+  Executor, Phase 5 Coordinator, Phase 6 Synthesizer.
+- These names are kept for frontend compatibility - the UI relies on these
+  stage identifiers for visualization.
+- Confidence heuristics are for UI display purposes, not decision-making.
+  Actual validation confidence comes from Phase 7.
 """
 
 import asyncio

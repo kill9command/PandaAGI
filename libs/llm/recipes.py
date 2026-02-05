@@ -105,20 +105,23 @@ class RecipeLoader:
         Load recipe for a specific phase.
 
         Args:
-            phase: Phase number (0-6)
+            phase: Phase number (0-indexed: 0-7 maps to architecture phases 1-8)
             mode: 'chat' or 'code'
 
         Returns:
             Recipe for the phase
+
+        Note: Phase 8 (Save) is procedural and has no recipe.
         """
         recipe_names = {
-            0: "query_analyzer",
-            1: "reflection",
-            2: f"context_gatherer_{mode}",
-            3: f"planner_{mode}",
-            4: f"coordinator_{mode}",
-            5: f"synthesizer_{mode}",
-            6: "validator",
+            0: "query_analyzer",           # Phase 1: Query Analyzer
+            1: "query_analyzer_validator", # Phase 1.5: Query Validator (legacy: reflection)
+            2: f"context_gatherer_{mode}", # Phase 2: Context Gatherer
+            3: f"planner_{mode}",          # Phase 3: Planner
+            4: f"executor_{mode}",         # Phase 4: Executor
+            5: f"coordinator_{mode}",      # Phase 5: Coordinator
+            6: f"synthesizer_{mode}",      # Phase 6: Synthesis
+            7: "validator",                # Phase 7: Validation
         }
 
         name = recipe_names.get(phase)

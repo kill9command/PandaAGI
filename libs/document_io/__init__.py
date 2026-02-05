@@ -1,7 +1,7 @@
-"""Document IO System for PandaAI v2.
+"""Pandora Document IO System.
 
 This module implements the document-centric IO model:
-- context.md management (sections 0-6)
+- context.md management (sections §0-§6, 8-phase pipeline)
 - Turn lifecycle management
 - Research document handling
 - Link formatting (dual Markdown + Wikilink)
@@ -10,7 +10,6 @@ This module implements the document-centric IO model:
 Key Principle: Everything is a document. All state flows through context.md.
 
 Architecture Reference:
-    architecture/Implementation/03-DOCUMENT-IO.md
     architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md
 
 Usage:
@@ -29,7 +28,7 @@ Usage:
 
     # Write sections
     context.write_section_0(query_analysis)
-    context.write_section_1(reflection_result)
+    context.write_section_1(analysis_result)
 
     # Create research document
     research = ResearchManager(context.turn_dir)

@@ -1,0 +1,79 @@
+# Phase 2 Planner Recipe
+# Intelligence brief → executable search plan
+
+name: phase2_planner
+role: phase2_planner
+mode: null  # Sub-system within Research pipeline
+description: Transform Phase 1 intelligence into executable Phase 2 search plan
+
+# System prompts for Phase 2 Planner
+prompt_fragments:
+  - apps/prompts/phase2_planner/core.md  # ~1100 tokens: Core instructions
+
+# Input documents Phase 2 Planner receives
+input_docs:
+  - path: phase1_intelligence.md
+    description: Synthesized intelligence brief from Phase 1
+    max_tokens: 1200
+    required: true
+    extract: full
+
+  - path: context.md
+    description: User's original query and constraints
+    max_tokens: 200
+    required: true
+    extract: preferences_only
+
+# Output documents Phase 2 Planner creates
+output_docs:
+  - phase2_search_plan.md  # Executable search strategies with JSON block
+
+# Token budget enforcement
+token_budget:
+  total: 3500
+  prompt: 1100     # Fixed cost of prompt fragments
+  input_docs: 1400  # Intelligence + context
+  output: 1000      # Search plan (~800-1000 tokens)
+  buffer: 0
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: phase1_intelligence  # Keep essential fields
+    - keep: context                  # Always keep user constraints
+
+# Output schema reference
+output_schema: SEARCH_PLAN
+# Defined in io_contracts.md:
+#   - Viability criteria
+#   - Search strategies (vendor-direct, generic, model-specific)
+#   - Execution order
+#   - JSON block for programmatic execution
+
+# Quality gates
+quality_gates:
+  min_search_strategies: 1     # At least 1 strategy
+  require_viability_criteria: true
+  require_json_block: true
+  require_click_verify: true   # Must specify click-to-verify
+
+# Integration
+integration:
+  invoked_by: research_orchestrator
+  invocation_point: after_intelligence_synthesis
+  input_from: intelligence_synthesizer
+  output_consumers:
+    - research_orchestrator.phase2_executor  # Executes the plan
+
+# Flow description
+# This role sits between Intelligence Synthesizer and Phase 2 execution.
+# It translates the structured intelligence into specific search queries
+# and vendor visits that the executor can run.
+#
+# Flow:
+#   Intelligence Synthesizer → phase1_intelligence.md
+#                            ↓
+#   Phase 2 Planner (THIS)
+#                            ↓
+#   phase2_search_plan.md → Phase 2 Executor → phase2_findings.md

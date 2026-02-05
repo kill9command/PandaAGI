@@ -1,237 +1,108 @@
 ---
 name: create_workflow
-version: "1.0"
+version: "2.0"
 category: meta
 description: >
-  Meta-workflow for creating new workflows from natural language descriptions.
-  Analyzes what the user wants, designs the workflow structure, validates
-  that it doesn't require bootstrap tools, and writes it to disk.
+  Generates a workflow specification (including tool specs) from a goal.
+  Outputs a JSON spec that the Executor can submit via CREATE_WORKFLOW.
 
 triggers:
-  - "create a workflow for {task}"
-  - "make a workflow that {does}"
-  - "add a new workflow to {does}"
+  - "create workflow"
+  - "build workflow"
+  - "design workflow"
+  - "workflow for {goal}"
 
 inputs:
-  task_description:
+  workflow_goal:
     type: string
     required: true
-    description: "Natural language description of what the workflow should do"
+    description: "Goal statement for the workflow to be created"
 
-  name:
+  constraints:
     type: string
     required: false
-    description: "Workflow name (snake_case, auto-generated if not provided)"
+    description: "Constraints or policies that must be honored"
 
-  category:
+  existing_context:
     type: string
     required: false
-    default: "utility"
-    description: "Workflow category (research, memory, file, utility, meta)"
+    from: section_2
+    description: "Relevant context and prior decisions"
 
 outputs:
-  workflow_path:
+  result:
     type: string
-    description: "Path to the created workflow file"
-
-  workflow_name:
-    type: string
-    description: "Name of the created workflow"
-
-  registered:
-    type: boolean
-    description: "Whether the workflow was registered successfully"
-
-  can_create:
-    type: boolean
-    description: "Whether the workflow could be created (no bootstrap dependencies)"
-
-  reason:
-    type: string
-    description: "Reason if workflow could not be created"
+    description: "JSON string containing workflow_spec and tool_specs"
 
 steps:
-  - name: analyze_task
-    tool: internal://llm.call
+  - name: design_workflow_spec
+    tool: llm.call
     args:
       prompt: |
-        Analyze this task and design a workflow:
+        You are generating a workflow specification for a system that requires:
+        - Tools only exist inside workflows.
+        - Workflow creation MUST include tool_specs for every declared tool.
+        - Use placeholders, not real-world examples.
+        - Keep triggers abstract and pattern-based.
 
-        Task: {{task_description}}
+        Goal:
+        {{workflow_goal}}
 
-        Output a JSON object with:
-        - name: workflow name in snake_case (e.g., "fetch_weather")
-        - category: one of [research, memory, file, utility]
-        - description: 1-2 sentence description
-        - triggers: list of trigger patterns (strings like "get weather for {city}")
-        - required_tools: list of tool URIs needed (e.g., "internal://web.fetch")
-        - steps: array of step objects with {name, tool, args, outputs}
+        Constraints:
+        {{constraints}}
 
-        Available tools:
-        - internal://internet_research.execute_research - Web research
-        - internal://internet_research.execute_full_research - Commerce research
-        - internal://memory.save - Save to memory
-        - internal://memory.search - Search memory
-        - internal://llm.call - Direct LLM call
-        - bootstrap://file_io.read - Read file (BOOTSTRAP - cannot use)
-        - bootstrap://file_io.write - Write file (BOOTSTRAP - cannot use)
-        - bootstrap://code_execution.run - Run code (BOOTSTRAP - cannot use)
+        Context:
+        {{existing_context}}
 
-        Do NOT use bootstrap tools - they cannot be self-created.
+        Output JSON ONLY with this structure:
+        {
+          "workflow_spec": {
+            "name": "<snake_case>",
+            "category": "<category>",
+            "description": "<one_or_two_sentences>",
+            "triggers": ["<abstract_trigger_pattern>", "<abstract_trigger_pattern>"],
+            "tools": ["<tool_name>", "<tool_name>"],
+            "inputs": {
+              "<input_name>": {"type": "<type>", "required": true, "description": "<desc>"}
+            },
+            "outputs": {
+              "<output_name>": {"type": "<type>", "description": "<desc>"}
+            },
+            "steps": [
+              {"name": "<step_name>", "tool": "<tool_name>", "args": {"<arg>": "<value>"}, "outputs": ["<output>"]}
+            ],
+            "success_criteria": ["<criterion>"]
+          },
+          "tool_specs": [
+            {"tool_name": "<tool_name>", "spec": "<tool_spec_markdown>", "code": "<python_code>", "tests": "<tests_or_empty>"}
+          ]
+        }
 
-        JSON only, no markdown:
+        Requirements:
+        - The workflow_spec.tools list MUST be derivable from steps tool names.
+        - Every tool in workflow_spec.tools MUST have a tool_specs entry.
+        - Use placeholders like <entity>, <constraint>, <value> in triggers.
+        - Do NOT include real-world examples.
+        - Keep JSON compact and valid.
       role: mind
-      max_tokens: 1500
+      max_tokens: 1800
     outputs:
-      - workflow_spec
-
-  - name: validate_tools
-    tool: internal://workflow_registry.validate_tools
-    args:
-      tools: "{{workflow_spec.required_tools}}"
-    outputs:
-      - valid_tools
-      - bootstrap_tools
-
-  - name: check_bootstrap
-    tool: internal://workflow_registry.check_bootstrap
-    args:
-      tools: "{{bootstrap_tools}}"
-    outputs:
-      - can_create
-      - reason
-
-  - name: generate_workflow_markdown
-    condition: "{{can_create}}"
-    tool: internal://llm.call
-    args:
-      prompt: |
-        Generate a complete workflow markdown file for this specification:
-
-        {{workflow_spec}}
-
-        Follow this exact format:
-
-        ---
-        name: {{workflow_spec.name}}
-        version: "1.0"
-        category: {{workflow_spec.category}}
-        description: >
-          {{workflow_spec.description}}
-
-        triggers:
-          - [list triggers here]
-
-        inputs:
-          [define inputs with type, required, description]
-
-        outputs:
-          [define outputs with type, description]
-
-        steps:
-          [define steps with name, tool, args, outputs]
-
-        success_criteria:
-          - [at least one criterion]
-
-        fallback:
-          workflow: null
-          message: "Workflow failed."
-        ---
-
-        ## [Workflow Name]
-
-        [Documentation paragraph]
-
-        Output ONLY the markdown content, starting with ---
-      role: mind
-      max_tokens: 2000
-    outputs:
-      - workflow_content
-
-  - name: write_workflow_file
-    condition: "{{can_create}}"
-    tool: bootstrap://file_io.write
-    args:
-      path: "apps/workflows/{{workflow_spec.category}}/{{workflow_spec.name}}.md"
-      content: "{{workflow_content}}"
-    outputs:
-      - workflow_path
-
-  - name: register_workflow
-    condition: "{{can_create}}"
-    tool: internal://workflow_registry.register
-    args:
-      path: "{{workflow_path}}"
-    outputs:
-      - registered
-      - workflow_name
+      - result
 
 success_criteria:
-  - "can_create == true"
-  - "workflow_path exists"
-  - "registered == true"
+  - "result is not empty"
 
 fallback:
   workflow: null
-  message: >
-    Cannot create this workflow. Reason: {{reason}}
-    The workflow requires bootstrap tools which cannot be self-created.
-    Bootstrap tools (file_io, code_execution) must be manually created.
+  message: "Unable to generate workflow specification. Provide a clearer goal and constraints."
 ---
 
-## Create Workflow Meta-Workflow
+## Create Workflow (Spec Generation)
 
-This is a self-extension workflow that allows Pandora to create new workflows
-from natural language descriptions.
+This workflow generates a workflow specification and tool specs.
 
-### How It Works
+**Usage Pattern:**
+1. Run this workflow to generate `workflow_spec` + `tool_specs`.
+2. The Executor uses CREATE_WORKFLOW with the generated output.
 
-1. **Analyze Task**: LLM analyzes the task description and designs a workflow
-   structure including name, triggers, inputs, outputs, and steps.
-
-2. **Validate Tools**: Check which tools the workflow needs and identify any
-   bootstrap tool dependencies.
-
-3. **Check Bootstrap**: Verify the workflow doesn't require bootstrap tools.
-   Bootstrap tools (file_io, code_execution) cannot be self-created because
-   the workflow system needs them to exist.
-
-4. **Generate Markdown**: LLM generates the complete workflow markdown file
-   following the standard format.
-
-5. **Write File**: Write the workflow to the appropriate category directory.
-
-6. **Register**: Register the new workflow with the WorkflowRegistry.
-
-### Bootstrap Tools
-
-These tools CANNOT be self-created:
-
-- `bootstrap://file_io.read` - Read files from disk
-- `bootstrap://file_io.write` - Write files to disk
-- `bootstrap://code_execution.run` - Execute code in sandbox
-
-The workflow system needs these primitives to exist before it can create
-new workflows. They must be manually implemented.
-
-### Example
-
-Input:
-```
-task_description: "Create a workflow that fetches weather data for a city"
-```
-
-The meta-workflow will:
-1. Design a workflow with triggers like "get weather for {city}"
-2. Determine it needs web fetch capability
-3. Generate the workflow markdown
-4. Save to `apps/workflows/utility/fetch_weather.md`
-5. Register it for immediate use
-
-### Limitations
-
-- Cannot create workflows that need to read/write files
-- Cannot create workflows that need code execution
-- Can only use existing non-bootstrap tools
-- New workflows are limited to research, memory, and LLM operations
+**Note:** This workflow does not write files or register workflows directly.

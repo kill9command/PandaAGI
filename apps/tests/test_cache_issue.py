@@ -5,7 +5,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from libs.gateway.intent_classifier import IntentClassifier, IntentType
+from apps.services.gateway.intent_classifier import IntentClassifier, IntentType
 
 def test_intent_classification():
     """Test intent classification for the hamster queries."""

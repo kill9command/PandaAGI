@@ -4,7 +4,7 @@ Architecture Reference:
     architecture/services/user-interface.md#Section 6
 
 Endpoints:
-    POST /chat                   - Submit user message (proxy to Orchestrator)
+    POST /chat                   - Submit user message (proxy to Tool Server)
     WebSocket /chat/stream       - Stream response + progress
     POST /inject                 - Inject message during research
     POST /intervention/resolve   - Mark intervention as resolved
@@ -122,7 +122,7 @@ class InterventionResolveResponse(BaseModel):
 async def chat(request: ChatRequest) -> ChatResponse:
     """Submit a user message for processing.
 
-    This endpoint proxies the request to the Orchestrator service,
+    This endpoint proxies the request to the Tool Server service,
     which executes the 8-phase pipeline.
 
     Args:
@@ -132,7 +132,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         ChatResponse with synthesized answer and metadata
 
     Raises:
-        HTTPException: If Orchestrator is unavailable or returns error
+        HTTPException: If Tool Server is unavailable or returns error
     """
     logger.info(f"Chat request: session={request.session_id}, mode={request.mode}")
     logger.debug(f"Query: {request.message[:100]}...")
@@ -140,7 +140,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(config.request_timeout)) as client:
             response = await client.post(
-                f"{config.orchestrator_url}/chat",
+                f"{config.tool_server_url}/chat",
                 json=request.model_dump(),
                 headers={
                     "X-Pandora-Mode": request.mode,
@@ -150,7 +150,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
             if response.status_code != 200:
                 error_detail = response.json() if response.content else {"error": "Unknown error"}
-                logger.error(f"Orchestrator error: {response.status_code} - {error_detail}")
+                logger.error(f"Tool Server error: {response.status_code} - {error_detail}")
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=error_detail,
@@ -168,13 +168,13 @@ async def chat(request: ChatRequest) -> ChatResponse:
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable", "url": config.orchestrator_url},
+            detail={"error": "Tool Server service unavailable", "url": config.tool_server_url},
         )
     except httpx.TimeoutException:
-        logger.error("Orchestrator request timed out")
+        logger.error("Tool Server request timed out")
         raise HTTPException(
             status_code=504,
             detail={"error": "Request timed out", "timeout": config.request_timeout},
@@ -201,7 +201,7 @@ async def inject_message(request: InjectRequest) -> InjectResponse:
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.post(
-                f"{config.orchestrator_url}/inject",
+                f"{config.tool_server_url}/inject",
                 json=request.model_dump(),
             )
 
@@ -216,10 +216,10 @@ async def inject_message(request: InjectRequest) -> InjectResponse:
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator for injection")
+        logger.error("Cannot connect to Tool Server for injection")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )
 
 
@@ -241,7 +241,7 @@ async def resolve_intervention(request: InterventionResolveRequest) -> Intervent
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.post(
-                f"{config.orchestrator_url}/intervention/resolve",
+                f"{config.tool_server_url}/intervention/resolve",
                 json=request.model_dump(),
             )
 
@@ -256,10 +256,10 @@ async def resolve_intervention(request: InterventionResolveRequest) -> Intervent
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator for intervention resolution")
+        logger.error("Cannot connect to Tool Server for intervention resolution")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )
 
 
@@ -272,7 +272,7 @@ async def websocket_chat_stream(websocket: WebSocket):
     """WebSocket endpoint for streaming chat responses.
 
     Enables real-time progress updates during long-running operations
-    like research. Proxies WebSocket connection to Orchestrator.
+    like research. Proxies WebSocket connection to Tool Server.
 
     Client -> Server Messages:
         { type: "message", content: "find me a laptop", session_id: "...", user_id: "...", mode: "chat" }
@@ -296,56 +296,56 @@ async def websocket_chat_stream(websocket: WebSocket):
     await websocket.accept()
     logger.info("WebSocket connection accepted")
 
-    orchestrator_ws: Optional[websockets.WebSocketClientProtocol] = None
+    tool_server_ws: Optional[websockets.WebSocketClientProtocol] = None
 
     try:
-        # Connect to Orchestrator WebSocket
-        orchestrator_ws_url = f"{config.orchestrator_ws_url}/chat/stream"
-        orchestrator_ws = await websockets.connect(
-            orchestrator_ws_url,
+        # Connect to Tool Server WebSocket
+        tool_server_ws_url = f"{config.tool_server_ws_url}/chat/stream"
+        tool_server_ws = await websockets.connect(
+            tool_server_ws_url,
             ping_interval=config.ws_ping_interval,
             ping_timeout=config.ws_ping_timeout,
         )
-        logger.info(f"Connected to Orchestrator WebSocket: {orchestrator_ws_url}")
+        logger.info(f"Connected to Tool Server WebSocket: {tool_server_ws_url}")
 
-        async def forward_to_orchestrator():
-            """Forward messages from client to Orchestrator."""
+        async def forward_to_tool_server():
+            """Forward messages from client to Tool Server."""
             try:
                 while True:
                     data = await websocket.receive_text()
-                    logger.debug(f"Client -> Orchestrator: {data[:100]}...")
-                    await orchestrator_ws.send(data)
+                    logger.debug(f"Client -> ToolServer: {data[:100]}...")
+                    await tool_server_ws.send(data)
             except WebSocketDisconnect:
                 logger.info("Client disconnected")
             except Exception as e:
-                logger.error(f"Error forwarding to Orchestrator: {e}")
+                logger.error(f"Error forwarding to Tool Server: {e}")
 
         async def forward_to_client():
-            """Forward messages from Orchestrator to client."""
+            """Forward messages from Tool Server to client."""
             try:
-                async for message in orchestrator_ws:
-                    logger.debug(f"Orchestrator -> Client: {str(message)[:100]}...")
+                async for message in tool_server_ws:
+                    logger.debug(f"ToolServer -> Client: {str(message)[:100]}...")
                     if isinstance(message, bytes):
                         await websocket.send_bytes(message)
                     else:
                         await websocket.send_text(message)
             except websockets.ConnectionClosed:
-                logger.info("Orchestrator WebSocket closed")
+                logger.info("Tool Server WebSocket closed")
             except Exception as e:
                 logger.error(f"Error forwarding to client: {e}")
 
         # Run both forwarding tasks concurrently
         await asyncio.gather(
-            forward_to_orchestrator(),
+            forward_to_tool_server(),
             forward_to_client(),
             return_exceptions=True,
         )
 
     except websockets.exceptions.WebSocketException as e:
-        logger.error(f"Cannot connect to Orchestrator WebSocket: {e}")
+        logger.error(f"Cannot connect to Tool Server WebSocket: {e}")
         await websocket.send_json({
             "type": "error",
-            "message": f"Cannot connect to Orchestrator: {str(e)}",
+            "message": f"Cannot connect to Tool Server: {str(e)}",
         })
 
     except WebSocketDisconnect:
@@ -362,10 +362,10 @@ async def websocket_chat_stream(websocket: WebSocket):
             pass
 
     finally:
-        # Clean up Orchestrator connection
-        if orchestrator_ws:
+        # Clean up Tool Server connection
+        if tool_server_ws:
             try:
-                await orchestrator_ws.close()
+                await tool_server_ws.close()
             except Exception:
                 pass
 

@@ -1,0 +1,110 @@
+# Validator Recipe
+# Response validation before sending (unified for both chat and code modes)
+# Phase 6 in the Unified Flow architecture
+# Updated for Unified Flow: uses single context.md with sections §0-§5
+
+name: validator
+role: validator
+mode: null  # Unified for both chat and code
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/validator/core.md (1550 tokens)"
+
+# Input documents (Unified Flow: context.md + toolresults.md for full evidence)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 3000
+    path_type: "turn"
+    description: "Unified context document with §0 (query), §1 (gathered context), §2 (reflection), §3 (plan), §4 (tool results summary), §5 (draft response)"
+  - path: "toolresults.md"
+    optional: true
+    max_tokens: 1000
+    path_type: "turn"
+    description: "Full tool execution results with complete prices, URLs, and product details for validation cross-reference"
+
+# Output documents (what this role creates)
+output_docs:
+  - "context.md §6"      # Validation result appended by unified flow
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+# NOTE: Increased 2026-01-26 to fix emergency trimming causing JSON parse failures
+# Validator prompt is ~6000 tokens, needs room for context and full JSON output
+token_budget:
+  total: 9500
+  prompt: 6200          # Fixed cost: validator/core.md (principle-based v2.0) - actual ~6058
+  input_docs: 2300      # Budget for context.md (1800) + toolresults.md (500)
+  output: 800           # VALIDATION JSON output
+  buffer: 200           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 8500
+
+# Output schema
+output_schema: VALIDATION
+
+# Description
+description: |
+  Validator checks the response before sending to user.
+
+  **Unified Flow Integration:**
+  - Reads context.md which contains:
+    - §0: User Query (what the user asked)
+    - §1: Gathered Context (supporting information)
+    - §2: Reflection Decision
+    - §3: Task Plan
+    - §4: Tool Results summary (LLM-summarized claims preserving prices)
+    - §5: Draft Response (what Synthesizer produced)
+  - Reads toolresults.md (optional) for full evidence with exact prices/URLs
+  - Output is appended to context.md as §6 by unified flow
+
+  **Price Verification:**
+  When validating price claims in §5, cross-reference toolresults.md for exact values.
+  The claims table in §4 is summarized - use toolresults.md for authoritative data.
+
+  Validates:
+  1. Claims match evidence - Every claim in §5 has supporting evidence in §4
+  2. No hallucinations - No information invented or from prior unrelated context
+  3. Query addressed - Response §5 actually answers the user's query §0
+  4. Coherent formatting - Response is well-structured and readable
+
+  Decisions:
+  - APPROVE: Response is valid, all goals fulfilled, send to user
+  - APPROVE_PARTIAL: Some goals fulfilled, others not - send with acknowledgment (#57)
+  - REVISE: Issues found but fixable, loop back to synthesis with hints
+  - RETRY: Issues require re-planning, loop back to planner (max 1 retry)
+  - FAIL: Critical issues, cannot recover (e.g., no evidence at all)
+
+  Output Format:
+  {
+    "decision": "APPROVE|REVISE|RETRY|FAIL",
+    "issues": ["issue1", "issue2"],
+    "confidence": 0.95,
+    "revision_hints": "Specific guidance for fixing issues",
+    "revision_focus": "formatting|completeness|accuracy|tone",
+    "specific_fixes": ["Add price table", "Include sources"],
+    "suggested_fixes": ["What Planner should do differently"],
+    "retry_focus": "research_type|research_query|tool_selection|goal_coverage",
+    "priority_action": "Single most important fix",
+    "goal_statuses": [
+      {"goal_id": "g1", "description": "Find X", "score": 0.9, "status": "fulfilled"},
+      {"goal_id": "g2", "description": "Find Y", "score": 0.3, "status": "unfulfilled"}
+    ]
+  }
+
+  New structured recommendation fields (Priority 3 - PM Assistant pattern):
+  - revision_focus: Category of fix needed (formatting, completeness, accuracy, tone)
+  - specific_fixes: List of actionable fixes for REVISE
+  - retry_focus: Category of retry needed (research_type, research_query, tool_selection, goal_coverage)
+  - priority_action: Single most important action for RETRY
+
+  ARCHITECTURAL DECISION (2025-12-30):
+  - Removed LEARN decision - learning now happens implicitly via turn indexing
+  - Removed learning metadata field - not needed without lesson extraction
+  - Added RETRY decision for cases requiring re-planning
+
+  Phase: Validation (Phase 6 in unified flow)
+  Mode: Unified (works for both chat and code)

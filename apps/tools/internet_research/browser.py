@@ -69,25 +69,20 @@ class ResearchBrowser:
     async def _get_search_engine(self):
         """Get or create the search engine."""
         if self._search_engine is None:
-            from apps.services.orchestrator.human_search_engine import HumanSearchEngine
+            from apps.services.tool_server.human_search_engine import HumanSearchEngine
             self._search_engine = HumanSearchEngine()
         return self._search_engine
 
     async def _get_sanitizer(self):
         """Get or create the content sanitizer."""
         if self._sanitizer is None:
-            from apps.services.orchestrator.content_sanitizer import ContentSanitizer
-            self._sanitizer = ContentSanitizer(max_tokens=self.max_text_tokens)
+            from apps.services.tool_server.content_sanitizer import ContentSanitizer
+            self._sanitizer = ContentSanitizer()
         return self._sanitizer
 
     async def _get_browser_session(self):
-        """Get or create a browser session."""
-        if self._browser_session is None:
-            from apps.services.orchestrator import web_vision_mcp
-            # Create a session if needed
-            session = await web_vision_mcp.get_or_create_session(self.session_id)
-            self._browser_session = session
-        return self._browser_session
+        """Browser session is managed internally by web_vision_mcp operations."""
+        return self.session_id
 
     async def search(self, query: str) -> SearchResults:
         """
@@ -163,7 +158,7 @@ class ResearchBrowser:
         logger.info(f"[ResearchBrowser] Visiting: {url}")
 
         try:
-            from apps.services.orchestrator import web_vision_mcp
+            from apps.services.tool_server import web_vision_mcp
 
             # Navigate to the page
             session = await self._get_browser_session()
@@ -248,9 +243,13 @@ class ResearchBrowser:
             # Get HTML and sanitize
             html = await page.content()
             sanitizer = await self._get_sanitizer()
-            text = sanitizer.sanitize(html)
+            result = sanitizer.sanitize(html, url, max_tokens=self.max_text_tokens)
 
-            # Truncate if too long (rough token estimate: 4 chars per token)
+            # Extract text from chunks
+            chunks = result.get("chunks", [])
+            text = "\n\n".join(chunk.get("text", "") for chunk in chunks)
+
+            # Truncate if still too long (rough token estimate: 4 chars per token)
             max_chars = self.max_text_tokens * 4
             if len(text) > max_chars:
                 text = text[:max_chars] + "\n\n[Content truncated...]"
@@ -291,7 +290,7 @@ class ResearchBrowser:
             True if intervention was resolved successfully, False otherwise
         """
         try:
-            from apps.services.orchestrator.captcha_intervention import (
+            from apps.services.tool_server.captcha_intervention import (
                 request_intervention,
                 InterventionType,
             )
@@ -396,8 +395,8 @@ class ResearchBrowser:
     async def close(self):
         """Clean up browser resources."""
         try:
-            from apps.services.orchestrator import web_vision_mcp
-            await web_vision_mcp.close_session(self.session_id)
+            from apps.services.tool_server import web_vision_mcp
+            await web_vision_mcp.reset_session(self.session_id)
         except Exception as e:
             logger.warning(f"[ResearchBrowser] Error closing session: {e}")
 

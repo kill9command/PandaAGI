@@ -1,10 +1,12 @@
 # Phase 3: Planner
 
 **Status:** SPECIFICATION
-**Version:** 2.0
+**Version:** 2.10
 **Created:** 2026-01-04
-**Updated:** 2026-01-24
-**Layer:** MIND role (MIND model @ temp=0.5)
+**Updated:** 2026-02-04
+**Layer:** MIND role (MIND model @ temp=0.6)
+
+**Related Concepts:** See §11 (Concept Alignment)
 
 ---
 
@@ -14,23 +16,35 @@ The Planner is the **strategic decision-maker** that determines WHAT needs to be
 
 Given:
 - The user's request (section 0)
-- The reflection decision (section 1)
 - The gathered context (section 2)
 - On RETRY: Full context including failure feedback (section 0-7)
 
 Decide:
 - **executor** - Need tool execution to accomplish goals (go to Phase 4 Executor)
 - **synthesis** - Can answer from current context (go to Phase 6 Synthesis)
-- **clarify** - Query ambiguous, return to user
+- **refresh_context** - Missing memory/context; re-run Phase 2.1/2.2 before planning
+ 
+**Precondition:** Planner only runs when Phase 1.5 and Phase 2.5 have already passed. It does not re-check validation signals.
 
-The Planner outputs a **STRATEGIC_PLAN** that defines:
+**Memory rule:** The Planner does **not** search memory directly. If required memory is missing from §2, it routes to `refresh_context` to re-run Phase 2.1/2.2.
+
+The Planner outputs a **STRATEGIC_PLAN** (JSON) that defines:
 1. **Goals** - What needs to be accomplished
 2. **Approach** - High-level strategy (not specific tools)
 3. **Success criteria** - How to know when done
+4. **Routing decision** - Where to send execution next
+
+**Canonical Output:** The Planner only outputs STRATEGIC_PLAN JSON. The `context.md` §3 view is a derived render produced by the orchestrator for human readability.
+
+**Requirement Awareness:** The Planner reads the original query from §0, which carries all user requirements (budget, preferences, restrictions). Plans should reflect these requirements in goals and approach. Incompatible or ambiguous requirements trigger `clarify` routing.
 
 **Key Design Principle:** The Planner is STRATEGIC, not tactical. It defines goals, not tool calls. The Executor (Phase 4) determines HOW to achieve goals using natural language commands.
 
-**Note:** Intent classification is handled by Phase 0 (Query Analyzer). The Planner receives pre-classified intent in section 0 and should NOT re-classify it.
+**Plan State Initialization:** The Planner initializes plan state with goals derived from §0. This is updated in later phases as goals progress.
+
+**Note:** Phase 1 provides `user_purpose` (natural language statement) and `data_requirements`. The Planner uses these to inform routing and workflow guidance, and should NOT re-interpret them into rigid action enums.
+
+**Workflow Note:** The Planner does not select tools. The Executor issues workflow-oriented commands, and the Coordinator executes workflows with embedded tools.
 
 ---
 
@@ -38,39 +52,63 @@ The Planner outputs a **STRATEGIC_PLAN** that defines:
 
 ### 2.1 Initial Run: context.md (section 0-2)
 
-Section 0 includes pre-classified intent and mode from Phase 0 Query Analyzer.
+Section 0 includes `user_purpose`, `data_requirements`, and `mode` from Phase 1 Query Analyzer.
+
+Section 2 includes gathered context (memory, preferences, cached research).
 
 ```markdown
 ## 0. User Query
-whats the cheapest laptop with an nvidia gpu you can find?
+find me the cheapest <product_type> you can find?
 
-**Intent:** commerce
+**User Purpose:** User wants the cheapest <product_type>. Price is the top priority.
 **Mode:** chat
-**Query Type:** general_question
-
-## 1. Reflection Decision
-**Decision:** PROCEED
-**Reasoning:** Commerce query, have some cached intel but need fresh prices
-**Query Type:** ACTION
-**Is Follow-up:** false
+**Data Requirements:** needs_current_prices=true, needs_product_urls=true, freshness_required=< 1 hour
 
 ## 2. Gathered Context
-### Session Preferences
-- **budget:** $500
 
-### Prior Research Intelligence
-**Topic:** commerce.laptop
-**Quality:** 0.88
-**Age:** 1.2 hours
-<!-- PHASE2_COMPLETE: fresh_intelligence_available -->
+### Session Preferences
+```yaml
+_meta:
+  source_type: preference
+  node_ids: ["memory:budget"]
+  confidence_avg: 0.82
+  provenance: ["memory/preferences.json"]
+```
+- budget: $X–$Y (high confidence)
 
 ### Relevant Prior Turns
-| Turn | Relevance | Summary |
-|------|-----------|---------|
-| 811 | high | RTX 4050 laptop comparison |
+```yaml
+_meta:
+  source_type: turn_summary
+  node_ids: ["turn:NNN"]
+  confidence_avg: 0.78
+  provenance: ["turns/turn_000NNN/context.md"]
+```
+- Turn NNN: Prior comparison of <product_type>
+
+### Cached Research
+```yaml
+_meta:
+  source_type: research_cache
+  node_ids: ["research:topic.id"]
+  confidence_avg: 0.88
+  provenance: ["research_cache/topic.json"]
+```
+- Found N options; M under $X with <key_feature>
+
+### Constraints
+```yaml
+_meta:
+  source_type: user_query
+  node_ids: []
+  provenance: ["§0.raw_query"]
+```
+- must_have: <key_feature>
+- budget: max $X
 
 ### Source References
-- [1] turns/turn_000811/context.md
+- [1] turns/turn_000NNN/context.md
+- [2] research_cache/topic.json
 ```
 
 ### 2.2 RETRY Run: context.md (section 0-6)
@@ -91,16 +129,16 @@ On RETRY, Planner receives the **full document**. Critical additions:
 ### Attempt 1: RETRY
 **Reason:** URL_NOT_IN_RESEARCH
 **Issues:**
-- amazon.com/hamster-123 not found in research.json
+- <source_url> not found in research cache
 - Possible hallucination
-**Instruction:** Avoid Amazon, try pet-specific retailers
+**Instruction:** Avoid <disallowed_source_type>, prefer <preferred_source_type>
 ```
 
 ### 2.3 Metadata
 
-| Input | Example | Purpose |
+| Input | Pattern | Purpose |
 |-------|---------|---------|
-| session_id | "abc123" | Session context lookup |
+| session_id | "<session_id>" | Session context lookup |
 | mode | "chat" or "code" | Tool availability, recipe selection |
 | unified_ctx | Object | In-memory context items |
 | live_ctx | Object | Session preferences, facts, topic |
@@ -112,9 +150,8 @@ On RETRY, Planner receives the **full document**. Critical additions:
 The Planner makes routing decisions by **reasoning about context sufficiency**, not by following rigid rules. The LLM examines:
 
 1. **The query (section 0):** What is the user asking for?
-2. **The reflection decision (section 1):** Has the query been classified as PROCEED or CLARIFY?
-3. **The gathered context (section 2):** What information do we already have?
-4. **The gap:** Can we answer fully with section 2, or do we need more?
+2. **The gathered context (section 2):** What information do we already have?
+3. **The gap:** Can we answer fully with section 2, or do we need more?
 
 **Core Question:** "Can I provide a complete, accurate answer with the current context, or do I need to gather more information first?"
 
@@ -124,29 +161,30 @@ The Planner makes routing decisions by **reasoning about context sufficiency**, 
 |-------------------------|----------|--------|
 | "I have enough context to answer" | synthesis | Direct answer from context (Phase 6) |
 | "I need more information or action" | executor | Define goals, Executor handles tactics (Phase 4) |
+| "Required memory/context missing from §2" | refresh_context | Re-run Phase 2.1/2.2 to gather missing memories |
 | "Query is unclear" | clarify | Ask user for clarification (rare) |
 
 ### 3.1 Phase 3 CLARIFY Scope (Post-Context)
 
 Phase 3 CLARIFY handles **semantic ambiguity** — queries that remain ambiguous AFTER gathering context from §2:
 
-| Trigger | Example | Why CLARIFY |
-|---------|---------|-------------|
-| Query clear but user intent ambiguous | "Get me something nice" (§2 shows many interests) | Cannot prioritize without user input |
-| Context reveals user-specific info needed | "Compare my options" (no options in §2) | Need user to specify what to compare |
-| Multiple valid interpretations with §2 | "The best one" (§2 shows laptops AND keyboards) | Cannot guess which category |
+| Trigger | Pattern Cue | Why CLARIFY |
+|---------|-------------|-------------|
+| Query clear but user intent ambiguous | Vague request while §2 shows many plausible interest areas | Cannot prioritize without user input |
+| Context reveals user-specific info needed | Comparative request with no candidate set in §2 | Need user to specify what to compare |
+| Multiple valid interpretations with §2 | Referent like "the best one" while §2 has multiple categories | Cannot infer target category |
 
-**Phase 3 CLARIFY is RARE.** If Phase 1 PROCEED'd and §2 has relevant context, Phase 3 should almost always route to coordinator or synthesis.
+**Phase 3 CLARIFY is RARE.** If upstream validation passed and §2 has relevant context, Phase 3 should almost always route to executor or synthesis.
 
 **Decision Tree:**
 ```
-Phase 1 PROCEED'd → Phase 3 receives query with §2 context
-  ├── §2 has relevant context → Route to coordinator/synthesis
-  ├── §2 empty but query is answerable → Route to coordinator (gather more)
+Upstream validation passed → Phase 3 receives query with §2 context
+  ├── §2 has relevant context → Route to executor/synthesis
+  ├── §2 empty but query is answerable → Route to executor (gather more)
   └── §2 empty AND query requires user-specific info → CLARIFY (rare)
 ```
 
-**Key Principle:** Phase 1 handles syntactic ambiguity (pre-context). Phase 3 handles semantic ambiguity (post-context). If Phase 1 already PROCEED'd, Phase 3 should rarely override with CLARIFY.
+**Key Principle:** Phase 1 handles syntactic ambiguity (pre-context). Phase 3 handles semantic ambiguity (post-context). If upstream validation passed, Phase 3 should rarely override with CLARIFY.
 
 ### Routing Guidance (Not Hard Rules)
 
@@ -156,13 +194,44 @@ These are hints for the LLM, not hard requirements:
 |---------|--------------|-----------|
 | Greeting, chitchat | synthesis | No external data needed |
 | "What did you find?" with section 2 populated | synthesis | Answer from prior results |
-| "Find me...", "Search for..." | coordinator | Needs research tools |
-| Price/availability queries | coordinator | Needs fresh data |
-| Code operations | coordinator | Needs file/git tools |
+| "Find me...", "Search for..." | executor | Needs research tools |
+| Price/availability queries | executor | Needs fresh data |
+| Code operations | executor | Needs file/git tools |
 
 The LLM may override these based on context. For example:
-- "Find me a laptop" with fresh laptop data in section 2 could skip to synthesis
-- "What's my favorite color?" with no preferences in section 2 needs memory.query
+- A discovery request with fresh, sufficient data already in §2 can route to synthesis
+- A recall request with no relevant memories in §2 should route to refresh_context
+
+### 3.2 Self‑Building Routing (APEX‑Critical)
+
+If required tools/workflows do not exist, the Planner should route to **self‑extension**:
+
+**Indicators:**
+- No workflow matches the task
+- Task requires a missing tool family (spreadsheet/doc/pdf/email/calendar)
+- Repeated failures with the same missing capability
+
+**Strategic Plan Template:**
+
+```json
+{
+  "_type": "STRATEGIC_PLAN",
+  "route_to": "executor",
+  "plan_type": "self_extend",
+  "self_extension": {
+    "action": "CREATE_WORKFLOW",
+    "workflow_name": "<workflow_name>",
+    "required_tools": ["<tool_family.read>", "<tool_family.write>"]
+  },
+  "goals": [
+    {"id": "G1", "description": "Create workflow bundle with required tools"},
+    {"id": "G2", "description": "Execute workflow to produce required artifacts"}
+  ],
+  "success_criteria": "Workflow created, tools validated, artifacts produced"
+}
+```
+
+See: `architecture/concepts/self_building_system/SELF_BUILDING_SYSTEM.md`.
 
 ### Wrong Routing Recovery
 
@@ -172,13 +241,13 @@ If Planner routes incorrectly, Validation catches it:
 Planner (routes to synthesis) -> Synthesis (weak answer)
     |
     v
-Validation: RETRY "Response lacks specifics, no prices found"
+Validation: RETRY "Response lacks required evidence"
     |
     v
-Planner (sees section 6 failure) -> NOW routes to Coordinator
+Planner (sees section 6 failure) -> NOW routes to executor
     |
     v
-Coordinator -> Synthesis -> Validation (APPROVE)
+Executor -> Coordinator -> Synthesis -> Validation (APPROVE)
 ```
 
 **Why This Works:**
@@ -189,167 +258,116 @@ Coordinator -> Synthesis -> Validation (APPROVE)
 
 ---
 
-## 4. Intent Handling
+## 4. Purpose-Based Routing
 
-The Planner receives pre-classified intent from Phase 0 in section 0. It should **NOT re-classify intent**. Instead, use the provided intent to inform tool routing:
+The Planner receives `user_purpose` and `data_requirements` from Phase 1 in §0. It should **NOT** convert these into rigid action enums. Instead, it uses the natural language statement plus data requirements to choose a workflow and routing.
 
-### 4.1 Intent to Tool Mapping
+### 4.1 Purpose → Approach Heuristics
 
-| Intent | Primary Tool | Notes |
-|--------|--------------|-------|
-| `commerce` | `internet.research` | Research with commerce parameters |
-| `informational` | `internet.research` | Research with forum/article focus |
-| `recall` | `memory.search` | Query user's stored preferences/facts |
-| `preference` | `memory.save` | Store user's stated preference |
-| `navigation` | `browser.navigate` | Direct site navigation |
-| `site_search` | `internet.research` | Research with site restriction |
-| `greeting` | (none - synthesis) | Fast-path should handle, but if reached, route to synthesis |
-| `query` | (context-dependent) | May need research or may answer from §2 |
-| `edit` | `file.edit` | Code mode file modification |
-| `create` | `file.write` | Code mode file creation |
-| `git` | `git.*` | Version control operations |
-| `test` | `test.run` | Execute test suite |
-| `refactor` | `file.edit` | Code restructuring |
+| user_purpose signal | Primary Approach | Notes |
+|---------------------|-----------------|-------|
+| Discovery/comparison intent | `internet.research` workflow | Use `data_requirements` to choose commerce vs informational |
+| Recall intent | `memory.search` | Query stored preferences/facts |
+| Explicit URL navigation intent | `browser.navigate` | Direct site navigation |
+| Code task intent (file/git/test operations) | Code tools (`file.edit`, `git.*`, `test.run`) | Mode must be `code` |
+| Greeting/acknowledgement | Route to synthesis | No tools needed |
 
-### 4.2 Intent vs Routing
+### 4.2 Workflow Selection Using data_requirements
 
-**Important:** Intent informs tool selection, but does NOT determine routing.
+When the purpose indicates research, the Planner selects a workflow based on `data_requirements`:
 
-The routing decision (`coordinator` vs `synthesis`) is based on **context sufficiency analysis**:
-- Intent `commerce` with fresh data in §2 → might route to `synthesis`
-- Intent `greeting` (if not fast-pathed) → routes to `synthesis`
-- Intent `recall` with no memory hits in §2 → routes to `coordinator` for `memory.search`
+| data_requirements | Workflow | Description |
+|-------------------|----------|-------------|
+| `needs_current_prices: true` + no prior intelligence | `product_research` | Full commerce research (Phase 1 + Phase 2.1/2.2) |
+| `needs_current_prices: true` + prior intelligence in §2 | `product_quick_find` | Fast commerce (Phase 2.1/2.2 only, reuses prior intelligence) |
+| `needs_current_prices: false` | `intelligence_search` | Informational research (Phase 1 only) |
 
-**The Planner is the single source of truth for routing (coordinator vs synthesis).**
+### 4.3 Routing vs Sufficiency
 
----
+**Important:** Workflow selection does NOT determine routing. Routing depends on **context sufficiency**.
 
-## 5. Memory Pattern Detection
+The routing decision (`executor` vs `synthesis` vs `refresh_context`) is based on **context sufficiency analysis**:
+- If §2 already contains fresh data → route to `synthesis`
+- If the query is a greeting/acknowledgement → route to `synthesis`
+- If memory signals exist but no memory hits in §2 → route to `refresh_context` to re-run Phase 2.1/2.2
 
-The Planner is responsible for detecting memory-related patterns in user queries and creating appropriate tool calls. This is NOT done in Phase 7 (Save) - memory operations are explicit tool calls.
+**The Planner is the single source of truth for routing (executor vs synthesis vs refresh_context).**
 
-### 5.1 Memory Patterns
-
-| Pattern | Tool Call | Example |
-|---------|-----------|---------|
-| "remember that..." | memory.save | "Remember that I prefer RTX GPUs" |
-| "my favorite X is..." | memory.save | "My favorite color is blue" |
-| "what's my favorite..." | memory.search | "What's my favorite hamster breed?" |
-| "what did I tell you about..." | memory.search | "What did I tell you about my budget?" |
-| "forget that..." | memory.delete | "Forget that I like AMD" |
-| "I no longer..." | memory.delete | "I no longer want budget options" |
-
-### 5.2 Memory Tool Call in Task Plan
-
-When detecting a memory pattern, Planner includes the tool call in the task plan:
-
-```markdown
-## 3. Task Plan
-
-**Goal:** Save user preference for RTX GPUs
-**Intent:** preference
-
-### Memory Operation
-- **Tool:** memory.save
-- **Type:** preference
-- **Content:** User prefers RTX GPUs over AMD
-
-**Route To:** coordinator
-```
-
-### 5.3 Combined Queries
-
-When a query contains both memory operations and other tasks:
-
-```markdown
-## 3. Task Plan
-
-**Goal:** Save preference and find matching laptops
-**Intent:** commerce
-
-### Memory Operation
-- **Tool:** memory.save
-- **Type:** preference
-- **Content:** User prefers RTX GPUs
-
-### Research Operation
-- **Tool:** internet.research
-- **Query:** "gaming laptops with RTX GPU"
-
-**Route To:** coordinator
-```
-
-The Coordinator executes both operations, with results appended to §4.
+**Synthesis handoff:** When routing to `synthesis`, the Planner still writes §3. Phase 6 reads §3 for intent framing and §2 for facts.
 
 ---
 
-## 6. Output Formats
+## 5. Output Format (Canonical JSON)
 
-### 6.1 STRATEGIC_PLAN JSON Schema (v1.0)
+### 5.1 STRATEGIC_PLAN JSON Schema (v1.0)
 
 The Planner outputs a strategic plan that defines goals, not tool calls:
 
 ```json
 {
   "_type": "STRATEGIC_PLAN",
-  "route_to": "executor" | "synthesis" | "clarify",
+  "route_to": "executor" | "synthesis" | "clarify" | "refresh_context",
   "goals": [
     {
       "id": "GOAL_1",
-      "description": "Find cheapest laptop with nvidia gpu",
+      "description": "Identify lowest-cost option meeting <key_constraints>",
       "priority": "high" | "medium" | "low"
     },
     {
       "id": "GOAL_2",
-      "description": "Compare prices across vendors",
+      "description": "Compare candidates across sources",
       "priority": "medium",
       "depends_on": "GOAL_1"
     }
   ],
-  "approach": "Search for products, compare prices, filter by specs",
-  "success_criteria": "Found at least 3 options with prices and specs",
-  "context_summary": "User wants cheapest nvidia laptop, no budget specified",
-  "reason": "Need fresh product prices - section 2 has no recent data"
+  "approach": "Gather candidates, compare attributes, filter by constraints",
+  "success_criteria": "Found sufficient options with verified attributes",
+  "context_summary": "User prioritizes lowest cost; constraints unspecified",
+  "reason": "Need fresh data - section 2 lacks recent evidence",
+  "refresh_context_request": ["missing <preference>", "no prior turn for <topic>"]
 }
 ```
 
-### 6.2 context.md Section 3 Format
+### 5.2 Derived context.md Section 3 (Rendered View)
+
+This section is **rendered from the STRATEGIC_PLAN JSON** by the orchestrator. The Planner does not author this markdown directly.
 
 ```markdown
 ## 3. Strategic Plan
 
 **Route To:** executor
-**Reason:** Commerce query requires fresh product prices
+**Reason:** Query requires fresh, verifiable data
 
 ### Goals
 | ID | Description | Priority | Dependencies |
 |----|-------------|----------|--------------|
-| GOAL_1 | Find cheapest laptop with nvidia gpu | high | - |
-| GOAL_2 | Compare prices across vendors | medium | GOAL_1 |
+| GOAL_1 | Identify lowest-cost option meeting <key_constraints> | high | - |
+| GOAL_2 | Compare candidates across sources | medium | GOAL_1 |
 
 ### Approach
-Search for products, compare prices, filter by specs
+Gather candidates, compare attributes, filter by constraints
 
 ### Success Criteria
-Found at least 3 options with prices and specs
+Found sufficient options with verified attributes
 
 ### Context Summary
-User wants cheapest nvidia laptop, no budget specified
+User prioritizes lowest cost; constraints unspecified
 ```
 
-### 6.3 Field Descriptions
+### 5.3 Field Descriptions
 
 | Field | Required | Description |
 |-------|----------|-------------|
 | `_type` | Yes | Always "STRATEGIC_PLAN" |
-| `route_to` | Yes | "executor", "synthesis", or "clarify" |
+| `route_to` | Yes | "executor", "synthesis", "clarify", or "refresh_context" |
 | `goals` | Yes | Array of goals to accomplish |
 | `approach` | Yes | High-level strategy description |
 | `success_criteria` | Yes | How to know when done |
 | `context_summary` | No | Brief summary of relevant context |
 | `reason` | Yes | Why this routing decision |
+| `refresh_context_request` | No | List of missing memories/context to fetch when route_to is `refresh_context` |
 
-### 6.4 Goal Fields
+### 5.4 Goal Fields
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -362,25 +380,30 @@ User wants cheapest nvidia laptop, no budget specified
 
 ---
 
-## 7. RETRY Handling Flow
+## 6. RETRY Handling Flow
 
 When Validation (Phase 7) returns RETRY, it loops back to Planner (Phase 3). Planner receives the full context.md with section 7 containing failure information.
 
-### 7.1 Planner's Job on Retry
+**Retry reading order (to reduce confusion):**
+1. §7 Validation (why it failed)
+2. §4 Execution (what was tried)
+3. §0 User Query + §2 Gathered Context (requirements + evidence)
+
+### 6.1 Planner's Job on Retry
 
 1. **Read section 6** to understand WHY it failed
 2. **Read section 4** to see WHAT was already tried
 3. **Create NEW plan** that avoids previous failures
-4. **Write updated section 3** with new approach
+4. **Emit updated STRATEGIC_PLAN JSON**; orchestrator re-renders §3
 
-### 7.2 context.md on Retry (What Planner Sees)
+### 6.2 context.md on Retry (What Planner Sees)
 
 ```markdown
 ## 0. User Query
-Find me a Syrian hamster under $30
+Find me a <item_type> under <$budget>
 
-## 1. Reflection Decision
-**Decision:** PROCEED
+## 1. Query Analysis Validation
+**Status:** pass
 
 ## 2. Gathered Context
 [Original context - still valid]
@@ -388,17 +411,17 @@ Find me a Syrian hamster under $30
 ## 3. Strategic Plan (Previous - Will Be Replaced)
 **Route To:** executor
 **Goals:**
-- GOAL_1: Find Syrian hamsters for sale under $30
+- GOAL_1: Find <item_type> for sale under <$budget>
 
 ## 4. Execution Progress (Previous Attempt)
 ### Executor Iteration 1
-**Command:** "Search for Syrian hamsters for sale"
-**Coordinator:** internet.research
-**Result:** Found 2 products
+**Command:** "Search for <item_type> under <$budget>"
+**Coordinator:** <research_tool_family>
+**Result:** Found N candidate listings
 **Claims:**
 | Claim | Source |
 |-------|--------|
-| Syrian Hamster @ $25 (amazon.com) | internet.research |
+| <item> @ <$price> (<source_domain>) | <research_tool_family> |
 
 ## 5. (Reserved for Coordinator Results)
 
@@ -409,71 +432,71 @@ Find me a Syrian hamster under $30
 ### Attempt 1: RETRY
 **Reason:** URL_NOT_IN_RESEARCH
 **Issues:**
-- amazon.com/hamster-123 not found in research.json
+- <source_url> not found in research cache
 - Possible hallucination
-**Instruction:** Avoid Amazon, try pet-specific retailers
+**Instruction:** Avoid <disallowed_source_type>, prefer <preferred_source_type>
 ```
 
-### 7.3 Planner Output on Retry
+### 6.3 Planner Output on Retry
 
-Updated section 3 with new strategic plan:
+Rendered section 3 view derived from updated STRATEGIC_PLAN JSON:
 
 ```markdown
 ## 3. Strategic Plan (Attempt 2)
 
-**Previous Attempt Failed:** URL hallucination from Amazon
-**Lesson Learned:** Amazon URLs were not verified
+**Previous Attempt Failed:** URL hallucination from <source_type>
+**Lesson Learned:** <source_type> URLs were not verified
 
 ### Goals
 | ID | Description | Priority |
 |----|-------------|----------|
-| GOAL_1 | Find Syrian hamsters from pet-specific retailers | high |
+| GOAL_1 | Find <item_type> from <preferred_source_type> under <$budget> | high |
 
 ### Approach
-Focus on pet specialty stores (Petco, PetSmart) and local breeders.
-Avoid general marketplaces where URL verification has failed.
+Focus on <preferred_source_type> sources and <alternative_sources>.
+Avoid <disallowed_source_type> where verification failed.
 
 ### Success Criteria
-Found at least 2 verified product listings from pet stores.
+Found at least <N> verified listings from <preferred_source_type>.
 
 **Route To:** executor
 ```
 
-### 7.4 STRATEGIC_PLAN JSON on Retry
+### 6.4 STRATEGIC_PLAN JSON on Retry
 
 ```json
 {
   "_type": "STRATEGIC_PLAN",
   "route_to": "executor",
-  "reason": "Retry after validation failure - focusing on pet-specific retailers",
+  "reason": "Retry after validation failure - focusing on verified source types",
   "is_retry": true,
   "attempt": 2,
 
   "previous_failure": {
     "reason": "URL_NOT_IN_RESEARCH",
-    "failed_sources": ["amazon.com"],
-    "instruction": "Avoid Amazon, try pet-specific retailers"
+    "failed_sources": ["<source_domain>"],
+    "instruction": "Avoid <disallowed_source_type>, prefer <preferred_source_type>"
   },
 
   "goals": [
     {
       "id": "GOAL_1",
-      "description": "Find Syrian hamsters from pet-specific retailers",
+      "description": "Find <item_type> from <preferred_source_type>",
       "priority": "high"
     }
   ],
 
-  "approach": "Focus on pet specialty stores and local breeders. Avoid general marketplaces.",
-  "success_criteria": "Found at least 2 verified product listings from pet stores",
+  "approach": "Focus on <preferred_source_type> and <alternative_sources>. Avoid <disallowed_source_type>.",
+  "success_criteria": "Found at least <N> verified listings from <preferred_source_type>",
 
   "constraints": {
-    "avoid_sources": ["amazon.com"],
-    "prefer_sources": ["petco.com", "petsmart.com", "local breeders"]
+    "avoid_sources": ["<source_domain>"],
+    "prefer_sources": ["<source_domain_1>", "<source_domain_2>", "<source_type_group>"]
   }
 }
 ```
 
-### 7.5 Retry Flow Diagram
+### 6.5 Retry Flow Diagram
 
 ```
 Phase 7 (Validation)
@@ -485,7 +508,7 @@ Phase 3 (Planner) <- Receives full context.md
     |
     +-- Reads section 7: Why it failed
     +-- Reads section 4: What was tried
-    +-- Writes section 3: New strategic plan avoiding failures
+    +-- Emits STRATEGIC_PLAN JSON; renderer updates §3
             |
             v
 Phase 4 (Executor) -> Determines tactical steps
@@ -510,42 +533,43 @@ Phase 7 (Validation) -> Check again
 
 ---
 
-## 8. Multi-Goal Query Handling
+## 7. Multi-Goal Query Handling
 
 When a user query contains multiple distinct goals, the Planner:
 
 1. **Detects** multiple goals in the query
-2. **Enumerates** goals in section 3 with status tracking
+2. **Enumerates** goals in the plan output with status tracking
 3. **Plans** sequential research execution (one goal at a time)
 4. **Tracks** dependencies between goals ("find X and accessories for X")
 
-### 8.1 Example Section 3 with Multi-Goal
+### 7.1 Template Section 3 with Multi-Goal
 
 ```markdown
-## 3. Task Plan
+## 3. Strategic Plan
 
-### Goals Identified
+**Route To:** executor
+**Reason:** Multiple categories require separate research
 
-| ID | Description | Status | Dependencies |
-|----|-------------|--------|--------------|
-| GOAL_1 | Find gaming laptop under $1500 | in_progress | - |
-| GOAL_2 | Recommend mechanical keyboard | pending | - |
-| GOAL_3 | Suggest laptop accessories | pending | GOAL_1 |
+### Goals
 
-### Execution Plan
+| ID | Description | Priority | Dependencies |
+|----|-------------|----------|--------------|
+| GOAL_1 | Find primary item under <$budget> | high | - |
+| GOAL_2 | Recommend complementary item | medium | - |
+| GOAL_3 | Suggest accessories dependent on GOAL_1 | medium | GOAL_1 |
 
-1. [GOAL_1] Execute internet.research for laptops
-2. [GOAL_2] Execute internet.research for keyboards
-3. [GOAL_3] Execute internet.research for accessories (after GOAL_1 completes)
+### Approach
+Research each category separately. GOAL_3 depends on GOAL_1 results (need primary item details for compatibility).
 
-**Route To:** coordinator
+### Success Criteria
+At least <N> options per category with verified attributes.
 ```
 
-### 8.2 Sequential Research Constraint
+### 7.2 Sequential Research Constraint
 
 **Critical:** Internet research MUST be sequential (one goal at a time) due to website anti-bot measures. The Planner-Coordinator loop handles this naturally.
 
-### 8.3 Dependency Handling
+### 7.3 Dependency Handling
 
 When goals have dependencies:
 
@@ -554,35 +578,35 @@ When goals have dependencies:
 
 | ID | Description | Status | Dependencies |
 |----|-------------|--------|--------------|
-| GOAL_1 | Find gaming laptop | pending | - |
+| GOAL_1 | Find primary item | pending | - |
 | GOAL_2 | Find compatible accessories | pending | GOAL_1 |
 
 ### Execution Order
-1. GOAL_1 must complete first (need laptop model for accessories)
+1. GOAL_1 must complete first (need primary item details for accessories)
 2. GOAL_2 uses GOAL_1 results to search for compatible accessories
 ```
 
 ---
 
-## 9. Token Budget
+## 8. Token Budget
 
 **Total Budget:** ~5,750 tokens
 
 | Component | Tokens | Purpose |
 |-----------|--------|---------|
 | Prompt fragments | 1,540 | System instructions, role definition |
-| Input documents | 2,000 | context.md (§0-§2 initial, §0-§6 on RETRY) |
+| Input documents | 2,000 | context.md (§0-§2 initial, §0-§7 on RETRY) |
 | Output | 2,000 | TICKET JSON and §3 content |
 | Buffer | 210 | Safety margin |
 | **Total** | **5,750** | |
 
 ---
 
-## 10. Examples
+## 9. Pattern Templates
 
-### 10.1 Example: Commerce Query (Route to Executor)
+### 9.1 Template: Discovery/Commerce (Route to Executor)
 
-**Query:** "find me the cheapest gaming laptop with an RTX 4050"
+**Query:** "<discovery request with constraints>"
 
 **Section 2:** Empty or stale research
 
@@ -593,24 +617,24 @@ When goals have dependencies:
   "_type": "STRATEGIC_PLAN",
   "route_to": "executor",
   "goals": [
-    {"id": "GOAL_1", "description": "Find gaming laptops with RTX 4050", "priority": "high"},
-    {"id": "GOAL_2", "description": "Identify cheapest option", "priority": "high", "depends_on": "GOAL_1"}
+    {"id": "GOAL_1", "description": "Identify candidates meeting <key_constraints>", "priority": "high"},
+    {"id": "GOAL_2", "description": "Compare candidates across sources", "priority": "high", "depends_on": "GOAL_1"}
   ],
-  "approach": "Search for RTX 4050 laptops, compare prices across retailers",
-  "success_criteria": "Found at least 3 laptops with verified prices",
-  "reason": "No fresh data in section 2, need current prices"
+  "approach": "Gather candidates, compare attributes, filter by constraints",
+  "success_criteria": "Found sufficient options with verified attributes",
+  "reason": "Section 2 lacks fresh evidence for current conditions"
 }
 ```
 
-**Reasoning:** No fresh data in section 2, need research to find current prices. Executor will determine how to search.
+**Reasoning:** No fresh evidence in §2; executor must gather current data.
 
 ---
 
-### 10.2 Example: Follow-up Query (Route to Synthesis)
+### 9.2 Template: Follow-up/Explanation (Route to Synthesis)
 
-**Query:** "why did you pick those options?"
+**Query:** "<follow-up asking about prior choices>"
 
-**Section 2:** Contains previous laptop comparison from turn 743
+**Section 2:** Contains prior comparison from turn <NNN>
 
 **Planner Output:**
 
@@ -619,21 +643,21 @@ When goals have dependencies:
   "_type": "STRATEGIC_PLAN",
   "route_to": "synthesis",
   "goals": [
-    {"id": "GOAL_1", "description": "Explain selection criteria for previously shown laptops"}
+    {"id": "GOAL_1", "description": "Explain selection criteria for prior options"}
   ],
   "approach": "Reference prior findings in section 2, explain rationale",
-  "success_criteria": "User understands why those options were selected",
-  "reason": "All needed context is in section 2 from previous turn"
+  "success_criteria": "User understands the selection criteria",
+  "reason": "All needed context already exists in section 2"
 }
 ```
 
-**Reasoning:** All needed context is in section 2 from previous turn. No new research required.
+**Reasoning:** §2 already contains sufficient evidence.
 
 ---
 
-### 10.3 Example: Code Task (Route to Executor)
+### 9.3 Template: Code Task (Route to Executor)
 
-**Query:** "add error handling to the login function in auth.py"
+**Query:** "<code change request with file/function reference>"
 
 **Mode:** code
 
@@ -644,23 +668,23 @@ When goals have dependencies:
   "_type": "STRATEGIC_PLAN",
   "route_to": "executor",
   "goals": [
-    {"id": "GOAL_1", "description": "Understand current login function implementation", "priority": "high"},
-    {"id": "GOAL_2", "description": "Add appropriate error handling", "priority": "high", "depends_on": "GOAL_1"},
-    {"id": "GOAL_3", "description": "Verify changes work correctly", "priority": "medium", "depends_on": "GOAL_2"}
+    {"id": "GOAL_1", "description": "Understand current implementation", "priority": "high"},
+    {"id": "GOAL_2", "description": "Apply requested change", "priority": "high", "depends_on": "GOAL_1"},
+    {"id": "GOAL_3", "description": "Verify changes behave correctly", "priority": "medium", "depends_on": "GOAL_2"}
   ],
-  "approach": "Read current code, add try/except blocks, run tests",
-  "success_criteria": "Error handling added and tests pass",
-  "reason": "Need to read and modify code files"
+  "approach": "Inspect code, implement changes, verify behavior",
+  "success_criteria": "Change implemented and verified",
+  "reason": "Requires reading and modifying code"
 }
 ```
 
-**Reasoning:** Need to read file, edit it, and run tests. Executor will determine specific operations.
+**Reasoning:** Requires code access and modifications.
 
 ---
 
-### 10.4 Example: Greeting (Route to Synthesis)
+### 9.4 Template: Greeting (Route to Synthesis)
 
-**Query:** "hello, how are you?"
+**Query:** "<greeting or acknowledgement>"
 
 **Planner Output:**
 
@@ -671,19 +695,19 @@ When goals have dependencies:
   "goals": [
     {"id": "GOAL_1", "description": "Respond to greeting"}
   ],
-  "approach": "Generate friendly conversational response",
+  "approach": "Provide a friendly conversational response",
   "success_criteria": "User feels acknowledged",
-  "reason": "Simple greeting, no tools needed"
+  "reason": "No tools required"
 }
 ```
 
-**Reasoning:** No tools needed, simple conversational response.
+**Reasoning:** No external data or actions required.
 
 ---
 
-### 10.5 Example: Ambiguous Query (Route to Clarify)
+### 9.5 Template: Ambiguous Query (Route to Clarify)
 
-**Query:** "get me some"
+**Query:** "<incomplete request>"
 
 **Section 2:** No relevant context
 
@@ -694,28 +718,28 @@ When goals have dependencies:
   "_type": "STRATEGIC_PLAN",
   "route_to": "clarify",
   "goals": [],
-  "approach": "Cannot determine approach without knowing what user wants",
+  "approach": "Cannot determine approach without missing details",
   "success_criteria": "N/A - need clarification",
-  "reason": "Query incomplete - no object specified",
-  "clarification_question": "What would you like me to find for you?"
+  "reason": "Query incomplete",
+  "clarification_question": "<targeted clarification question>"
 }
 ```
 
-**Reasoning:** No object specified, cannot proceed without more information.
+**Reasoning:** Missing required details to proceed.
 
 ---
 
-### 10.6 Example: RETRY with Failure Context
+### 9.6 Template: RETRY with Failure Context
 
-**Query:** "find me a Syrian hamster under $30"
+**Query:** "<discovery request with constraints>"
 
 **Section 7 (from previous attempt):**
 ```markdown
 ### Attempt 1: RETRY
 **Reason:** URL_NOT_IN_RESEARCH
 **Issues:**
-- amazon.com/hamster-123 not found in research.json
-**Instruction:** Avoid Amazon, try pet-specific retailers
+- <source_url> not found in research cache
+**Instruction:** Avoid <disallowed_source_type>, prefer <preferred_source_type>
 ```
 
 **Planner Output (Attempt 2):**
@@ -728,24 +752,24 @@ When goals have dependencies:
   "attempt": 2,
   "previous_failure": {
     "reason": "URL_NOT_IN_RESEARCH",
-    "instruction": "Avoid Amazon"
+    "instruction": "Avoid <disallowed_source_type>"
   },
   "goals": [
-    {"id": "GOAL_1", "description": "Find Syrian hamsters from pet-specific retailers under $30", "priority": "high"}
+    {"id": "GOAL_1", "description": "Find options from <preferred_source_type> under <constraints>", "priority": "high"}
   ],
-  "approach": "Search pet specialty stores (Petco, PetSmart) and breeder directories. Avoid general marketplaces.",
-  "success_criteria": "Found at least 2 verified listings from pet stores",
+  "approach": "Search verified sources in <preferred_source_type>, avoid disallowed sources",
+  "success_criteria": "Found at least <N> verified listings from preferred sources",
   "constraints": {
-    "avoid_sources": ["amazon.com"],
-    "prefer_sources": ["petco.com", "petsmart.com"]
+    "avoid_sources": ["<source_domain>"],
+    "prefer_sources": ["<source_domain_1>", "<source_domain_2>"]
   },
-  "reason": "Retry with different approach per validation feedback"
+  "reason": "Retry with approach adjusted per validation feedback"
 }
 ```
 
 ---
 
-## 11. Key Principles
+## 10. Key Principles
 
 1. **Strategic, Not Tactical:** Planner defines WHAT (goals), not HOW (tools)
 2. **LLM-Driven Reasoning:** Route decision based on context sufficiency analysis
@@ -757,16 +781,38 @@ When goals have dependencies:
 
 ---
 
+## 11. Concept Alignment
+
+This section maps Phase 3's responsibilities to the cross-cutting concept documents.
+
+| Concept | Document | Phase 3 Relevance |
+|---------|----------|--------------------|
+| **Execution System** | `concepts/system_loops/EXECUTION_SYSTEM.md` | Phase 3 is the **strategic tier** of the 3-tier architecture. It defines goals and routing (executor vs synthesis vs clarify). The Planner Workpad (§6 of Execution System) and Plan Critic (§7) are optional pre-execution quality gates available to this phase. |
+| **Backtracking Policy** | `concepts/self_building_system/BACKTRACKING_POLICY.md` | When Validation returns RETRY with failure feedback in §7, the Planner decides: local retry (adjust approach), partial replan (change specific goals), full replan (new strategy), or clarify (ask user). Plan state tracks goal progress across attempts. |
+| **Self-Building System** | `concepts/self_building_system/SELF_BUILDING_SYSTEM.md` | When required tools or workflows don't exist, the Planner routes to self-extension — emitting CREATE_WORKFLOW or CREATE_TOOL goals. The Executor and Coordinator handle the actual creation. |
+| **Memory Architecture** | `concepts/memory_system/MEMORY_ARCHITECTURE.md` | The Planner does **not** search memory directly. If required memory is missing from §2, it routes to `refresh_context` to re-run Phase 2.1/2.2. Memory candidates are written to a staging area and only committed after Validation returns APPROVE (Memory Staging, §7 of Memory Architecture). |
+| **Recipe System** | `concepts/recipe_system/RECIPE_SYSTEM.md` | Executed as a MIND recipe with ~5,750 token budget. The recipe defines the STRATEGIC_PLAN output schema. Mode-specific recipes (chat vs code) adjust available routing options. |
+| **Document IO** | `concepts/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md` | Reads §0–§2 on initial run, or §0–§7 on RETRY (full document with failure feedback). Emits STRATEGIC_PLAN JSON; orchestrator renders §3 (Strategic Plan). On RETRY, §4 is preserved and appended, not replaced. |
+| **Confidence System** | `concepts/confidence_system/UNIVERSAL_CONFIDENCE_SYSTEM.md` | Uses quality scores from §2 to inform routing. Cached research with quality ≥ 0.70 may allow skipping fresh research. Low quality scores trigger executor routing for new data. |
+| **Code Mode** | `concepts/code_mode/code-mode-architecture.md` | Mode-specific planning: code mode enables code tools (`file.edit`, `git.*`, `test.run`), chat mode restricts to research and memory tools. The Planner reads `mode` from §0 to select the appropriate recipe. |
+| **Tool System** | `concepts/tools_workflows_system/TOOL_SYSTEM.md` | The Planner doesn't know tool signatures (that's the Coordinator's job) but understands tool families conceptually for routing decisions and workflow selection. |
+| **Error Handling** | `concepts/error_and_improvement_system/ERROR_HANDLING.md` | RETRY handling is the Planner's core error recovery mechanism. Max 1 RETRY attempt before FAIL. The Planner reads §7 failure feedback and creates a new plan that avoids previous failures. |
+| **Improvement Extraction** | `concepts/error_and_improvement_system/improvement-principle-extraction.md` | On RETRY, the Planner learns from failure context: what was tried (§4), why it failed (§7), and adjusts its approach accordingly. This is turn-local learning that feeds into the retry plan. |
+| **LLM Roles** | `LLM-ROLES/llm-roles-reference.md` | Uses the MIND role (temp=0.6) for reasoning about goals, routing, and context sufficiency. Strategic planning requires the MIND temperature for balanced reasoning. |
+| **Prompt Management** | `concepts/recipe_system/PROMPT_MANAGEMENT_SYSTEM.md` | The Planner prompt carries the original query (§0) for context discipline — ensuring user priorities (budget, preferences) are visible when making routing decisions. |
+
+---
+
 ## 12. Related Documents
 
-- `architecture/main-system-patterns/phase0-query-analyzer.md` - Phase 0 (provides intent, mode, query_type in §0)
-- `architecture/LLM-ROLES/llm-roles-reference.md` - Model assignments and role definitions
-- `architecture/main-system-patterns/phase2-context-gathering.md` - Phase 2 (provides §2 context)
-- `architecture/main-system-patterns/phase4-executor.md` - Phase 4 (tactical decisions, natural language commands)
-- `architecture/main-system-patterns/phase5-coordinator.md` - Phase 5 (tool selection and execution)
-- `architecture/main-system-patterns/phase6-synthesis.md` - Phase 6 (synthesis route)
-- `architecture/main-system-patterns/PLANNER_EXECUTOR_COORDINATOR_LOOP.md` - 3-tier loop specification
-- `architecture/DOCUMENT-IO-SYSTEM/MEMORY_ARCHITECTURE.md` - Memory system for memory.* tool calls
+- `architecture/main-system-patterns/phase1-query-analyzer.md` — Phase 1 (provides user_purpose, data_requirements, mode in §0)
+- `architecture/LLM-ROLES/llm-roles-reference.md` — Model assignments and role definitions
+- `architecture/main-system-patterns/phase2.2-context-gathering-synthesis.md` — Phase 2.2 (provides §2 context)
+- `architecture/main-system-patterns/phase4-executor.md` — Phase 4 (tactical decisions, natural language commands)
+- `architecture/main-system-patterns/phase5-coordinator.md` — Phase 5 (tool selection and execution)
+- `architecture/main-system-patterns/phase6-synthesis.md` — Phase 6 (synthesis route)
+- `architecture/concepts/system_loops/EXECUTION_SYSTEM.md` — 3-tier loop specification
+- `architecture/concepts/memory_system/MEMORY_ARCHITECTURE.md` — Memory system for memory.* tool calls
 
 ---
 
@@ -778,9 +824,19 @@ When goals have dependencies:
 | 1.1 | 2026-01-05 | Added memory pattern detection (section 5), removed implementation references |
 | 1.2 | 2026-01-05 | Removed recipe/prompt file references from Related Documents |
 | 1.3 | 2026-01-05 | Added Phase 3 CLARIFY Scope section defining semantic vs syntactic ambiguity; clarified relationship with Phase 1 CLARIFY |
-| 1.4 | 2026-01-22 | Consolidated intent classification to Phase 0. Replaced Intent Taxonomy section with Intent Handling section that references Phase 0 output. Updated Input Specification to show intent/mode in §0. Added Phase 0 to Related Documents. |
+| 1.4 | 2026-01-22 | Consolidated intent handling to Phase 1. Replaced Intent Taxonomy section with Purpose Handling section that references Phase 1 output. Updated Input Specification to show user_purpose/mode in §0. Added Phase 1 to Related Documents. |
 | 2.0 | 2026-01-24 | **Major revision:** Changed output from TICKET to STRATEGIC_PLAN. Planner is now strategic (goals) not tactical (tools). Added Executor phase between Planner and Coordinator. Updated routing to executor/synthesis/clarify. Updated all examples to new format. |
+| 2.1 | 2026-02-03 | Added §12 Concept Alignment. Fixed routing references (coordinator → executor). Updated memory examples to STRATEGIC_PLAN format. Fixed multi-goal example to be strategic (no tool names). Fixed stale paths in Related Documents. Removed stale Concept Implementation Touchpoints and Benchmark Gaps sections. |
+| 2.2 | 2026-02-04 | Removed `action_needed` dependency; Planner now routes using `user_purpose` + `data_requirements`. Updated examples and routing section. |
+| 2.3 | 2026-02-04 | Clarified upstream validation gate and corrected routing references to executor. |
+| 2.4 | 2026-02-04 | Added refresh_context route for missing memory; Planner no longer searches memory directly. |
+| 2.5 | 2026-02-04 | Removed memory pattern detection; updated section numbering and memory architecture alignment. |
+| 2.6 | 2026-02-04 | Updated §2 example to match planner-optimized memory graph format. |
+| 2.7 | 2026-02-04 | Added refresh_context_request field and retry reading order guidance. |
+| 2.8 | 2026-02-04 | Abstracted examples into pattern templates and placeholders. |
+| 2.9 | 2026-02-04 | Made STRATEGIC_PLAN JSON canonical; §3 markdown is a derived render. |
+| 2.10 | 2026-02-04 | Clarified workflow guidance lives downstream (Executor/Coordinator), not in Planner tool selection. |
 
 ---
 
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-02-04

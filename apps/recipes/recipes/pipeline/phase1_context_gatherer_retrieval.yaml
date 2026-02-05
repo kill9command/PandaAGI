@@ -1,98 +1,74 @@
-# Context Gatherer RETRIEVAL Phase Recipe
-# Merged SCAN + READ into single LLM call
-#
-# Token Budget: 5,500 tokens (vs 6,500 for SCAN + READ combined)
-# Savings: 15% per retrieval phase
-#
-# Key Features:
-# - Single LLM call identifies turns AND evaluates their contexts
-# - Deterministic N-1 pre-loading for follow-ups (before LLM call)
-# - Outputs both relevant_turns and direct_info in one pass
+# Phase 2.1: Context Gathering — Retrieval (Memory Graph)
+# Aligns with architecture/main-system-patterns/phase2.1-context-gathering-retrieval.md
 
 name: phase1_context_gatherer_retrieval
 category: pipeline
-phase: 1
+phase: 2
 role: MIND
-temperature: 0.5
+temperature: 0.6
 
 token_budget:
   total: 5500
-  prompt: 800      # System prompt + instructions
-  input_docs: 4000 # turn_index + pre-loaded contexts
-  output: 600      # JSON response with turns + direct_info
-  buffer: 100
+  prompt: 900      # System prompt + instructions
+  input_docs: 3600 # Unified memory index + query analysis
+  output: 700      # RetrievalPlan JSON
+  buffer: 300
 
 input_docs:
-  - path: "turn_index"
-    path_type: "index"
-    max_tokens: 1500
-    description: "Index of recent turns with topics, entities, flags"
-  - path: "context_bundle"
-    path_type: "memory"
-    max_tokens: 2500
-    description: "Pre-loaded contexts for top turns"
+  - path: "query_analysis"
+    path_type: "input"
+    max_tokens: 600
+    description: "Phase 1 narrative (resolved_query, user_purpose, reasoning) + hints"
+  - path: "unified_memory_index"
+    path_type: "input"
+    max_tokens: 3000
+    description: "Memory graph nodes across turns, preferences, facts, cache, visit records"
 
 output_doc:
-  path: "retrieval_result.json"
+  path: "retrieval_plan.json"
   path_type: "turn"
-  description: "JSON with relevant turns, links to follow, and reasoning"
+  description: "RetrievalPlan JSON with selected nodes and coverage"
 
-output_schema: RETRIEVAL_RESULT
+output_schema: RETRIEVAL_PLAN
 
 system_prompt: |
   You are the Context Gatherer (RETRIEVAL phase).
 
-  Your task is to identify relevant prior turns AND evaluate their content in a single pass.
-  This merged approach is more efficient than separate SCAN and READ phases.
+  Your task is to select relevant memory nodes from a Unified Memory Index.
+  Do NOT load full documents. Do NOT fabricate node_ids.
 
-  ## CRITICAL RULES
+  ## Inputs
+  - QueryAnalysis (narrative + hints)
+  - Unified Memory Index (Obsidian-style memory graph)
 
-  **RULE ZERO (FOLLOW-UPS) - HIGHEST PRIORITY:**
-  For follow-up queries containing pronouns ("it", "that", "some", "these", "those", "them")
-  or continuation signals ("again", "more", "another", "also", "yes", "ok"):
-  - The N-1 turn (marked with ← PREVIOUS TURN) is ALWAYS CRITICAL
-  - It contains the subject that pronouns refer to
-  - ALWAYS include N-1 with relevance="critical" for follow-ups
+  ## Output Schema (RetrievalPlan)
+  {
+    "selected_nodes": {
+      "turn_summary": ["node_id", "..."],
+      "preference": ["node_id", "..."],
+      "fact": ["node_id", "..."],
+      "research_cache": ["node_id", "..."],
+      "visit_record": ["node_id", "..."]
+    },
+    "selection_reasons": {
+      "turn_summary": "string",
+      "preference": "string",
+      "fact": "string",
+      "research_cache": "string",
+      "visit_record": "string"
+    },
+    "coverage": {
+      "has_prior_turns": true | false,
+      "has_memory": true | false,
+      "has_cached_research": true | false,
+      "has_visit_data": true | false
+    },
+    "reasoning": "short narrative rationale"
+  }
 
-  **RULE ONE (TOPIC RELEVANCE):**
-  Only mark turns as relevant if their topic matches the current query.
-  - "laptops" query → only laptop/electronics turns
-  - "hamsters" query → only pet/hamster turns
-  - Do NOT cross-contaminate topics
-
-  **RULE TWO (RECENCY MATTERS):**
-  More recent turns are generally more relevant than older ones.
-  If in doubt, prefer the newer turn.
-
-  **RULE THREE (EXTRACT DIRECT INFO):**
-  Don't just note that information exists - extract the usable content.
-  Include specific prices, vendor names, product names in usable_info.
-
-  **RULE FOUR (LINKS FOR DETAILS):**
-  Only add links_to_follow if:
-  - You need more detail than the summary provides
-  - There's a research.md or research.json with additional info
-  - The summary is missing critical information
-
-  ## OUTPUT FORMAT
-
-  Return JSON with:
-  - turns: List of relevant turns with extracted usable_info
-  - links_to_follow: Documents needing deeper extraction (optional)
-  - sufficient: Whether gathered info answers the query
-  - missing_info: What's still needed (if any)
-  - reasoning: Your analysis process
-
-  ## EXAMPLES
-
-  Query: "find me some of those" (follow-up)
-  → N-1 was about laptops
-  → Output: turns=[{turn: N-1, relevance: "critical", usable_info: "Prior search found laptops at Best Buy..."}]
-
-  Query: "where can I buy a hamster?"
-  → No relevant prior turns
-  → Output: turns=[], sufficient: false, missing_info: "No prior hamster research found"
-
-  Query: "what was the price range from earlier?"
-  → Turn 5 had laptop prices
-  → Output: turns=[{turn: 5, usable_info: "$800-1200 range at Best Buy, Newegg"}]
+  ## Rules
+  - Use ONLY node_ids from the Unified Memory Index.
+  - All keys must exist (use empty arrays if none).
+  - Prefer narrative signal from `user_purpose` + `resolved_query`.
+  - If hints are missing, still select relevant nodes.
+  - Coverage must match selected_nodes.

@@ -1,0 +1,114 @@
+# Requirements Reasoning Recipe
+# LLM-driven analysis of user needs based on query and Phase 1 intelligence
+# Replaces hardcoded ProductRequirements with flexible reasoning
+#
+# Inserted AFTER Phase 1 (gather_intelligence) and BEFORE Phase 2 (intelligent_vendor_search)
+# Only runs for commerce queries (commerce_search, comparison)
+
+name: requirements_reasoning
+role: requirements_reasoning
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/phase1_intelligence/requirements_reasoning.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    optional: false
+    max_tokens: 200
+    path_type: "runtime"
+    description: "User's original search query"
+  - path: "phase1_intelligence"
+    optional: true
+    max_tokens: 1500
+    path_type: "runtime"
+    description: "Phase 1 intelligence (may be cached or empty)"
+  - path: "user_context"
+    optional: true
+    max_tokens: 300
+    path_type: "runtime"
+    description: "User preferences and session context"
+
+# Output documents
+output_docs:
+  - "requirements_reasoning.yaml"
+
+# Token budget (measured 2025-12-13)
+# Prompt template: ~1600 tokens, inputs: ~150-500 tokens, output: ~800 tokens
+token_budget:
+  total: 4000
+  prompt: 1800
+  input_docs: 800
+  output: 1200
+  buffer: 200
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 2800
+
+# Output schema (informational - not enforced by code)
+# See output_format below for expected structure
+output_schema: null  # YAML document, not JSON schema
+
+# Description
+description: |
+  Requirements Reasoning analyzes what the user actually needs:
+  - Determines the fundamental product type (live animal, electronics, etc.)
+  - Identifies disqualifiers (toy vs real, accessory vs main product)
+  - Generates optimized search queries
+  - Creates validity criteria for Phase 2 viability filtering
+
+  This replaces hardcoded ProductRequirements with LLM reasoning,
+  enabling accurate filtering for ANY product category.
+
+  Input: query + phase1_intelligence + user_context
+  Output: requirements_reasoning.yaml with:
+    - query_understanding: what user wants
+    - validity_criteria: what makes product valid
+    - disqualifiers: what to reject
+    - search_optimization: improved query terms
+
+# Output format
+output_format: |
+  ```yaml
+  query_understanding:
+    core_product: "[what they're looking for]"
+    implicit_requirements: "[unstated expectations]"
+    user_intent: "[buy live pet | buy electronics | etc.]"
+
+  validity_criteria:
+    must_be: "[fundamental requirement]"
+    must_have:
+      - "[requirement 1]"
+      - "[requirement 2]"
+
+  disqualifiers:
+    wrong_category:
+      - "[category to reject]"
+    red_flags:
+      - "[warning sign]"
+
+  specifications:
+    user_stated: []
+    recommended: []
+
+  search_optimization:
+    primary_query: "[optimized search]"
+    add_terms: []
+    avoid_terms: []
+    vendor_hints: []
+  ```
+
+# When to use
+triggers:
+  - query_type: "commerce_search"
+  - query_type: "comparison"
+  - execute_phase2: true
+
+# Skip conditions
+skip_when:
+  - phase2_skipped: true
+  - query_type: "informational"

@@ -1,0 +1,78 @@
+# Executor (Code Mode) Recipe - Tactical Decision Layer
+# Issues natural language commands to Coordinator, tracks goal progress
+# Part of the 3-tier architecture: Planner → Executor → Coordinator
+
+name: executor_code
+role: executor
+mode: code
+
+# Executor loop configuration
+executor_loop:
+  enabled: true
+  max_iterations: 10
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/executor/code_tactical.md (2000 tokens)"
+
+# Input documents (context.md with strategic plan in §3)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 4000
+    path_type: "turn"
+    description: "Unified context document with §0-§4 (§3 has strategic plan, §4 accumulates execution results)"
+
+# Output documents
+output_docs:
+  - "executor_decision.json"   # Executor decision (COMMAND, ANALYZE, COMPLETE, BLOCKED)
+
+# Token budget
+token_budget:
+  total: 6500
+  prompt: 2000          # Fixed cost: code_tactical.md
+  input_docs: 4000      # Budget for context.md (grows with iterations)
+  output: 400           # Executor decision output (small)
+  buffer: 100           # Safety margin
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 6000
+
+# Output schema
+output_schema: EXECUTOR_DECISION
+
+# Description
+description: |
+  Executor operates as the TACTICAL layer between Planner and Coordinator.
+
+  **How it works:**
+  1. Receives strategic goals from Planner (in §3)
+  2. Decides next tactical step: COMMAND, ANALYZE, COMPLETE, or BLOCKED
+  3. If COMMAND: Issues natural language instruction to Coordinator
+  4. If ANALYZE: Reasons about accumulated results (no tool call)
+  5. If COMPLETE: Goals achieved, proceed to synthesis
+  6. If BLOCKED: Cannot proceed (unrecoverable)
+
+  **Key Design:**
+  - Executor uses NATURAL LANGUAGE commands (not tool specs)
+  - Coordinator (Tool Expert) translates commands to tool calls
+  - This keeps Executor focused on reasoning while Coordinator handles tool complexity
+
+  **Code Mode Workflow Patterns:**
+  1. Understand then modify: Read code, analyze, edit, test
+  2. TDD: Create failing test, implement, verify pass
+  3. Debug and fix: Run tests, read failures, fix, verify
+
+  **Available commands (Code mode):**
+  - "Read the [file] to understand [purpose]"
+  - "Find files related to [feature]"
+  - "Edit [file] to [make change]"
+  - "Create a new file at [path]"
+  - "Run tests for [module]"
+  - "Show git status"
+  - "Commit with message '[message]'"
+
+  Phase: Execution (Phase 4 in 9-phase flow)
+  Mode: Code (file operations, git, tests)

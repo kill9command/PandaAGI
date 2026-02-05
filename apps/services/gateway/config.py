@@ -2,7 +2,7 @@
 Gateway Configuration Module
 
 Centralizes all environment variables, path constants, and configuration
-for the Gateway service. Follows the pattern from Orchestrator service.
+for the Gateway service. Follows the pattern from Tool Server service.
 
 Architecture Reference:
     architecture/Implementation/04-SERVICES-OVERVIEW.md
@@ -28,9 +28,13 @@ logger = logging.getLogger("uvicorn.error")
 # Service URLs and Connection Settings
 # =============================================================================
 
-ORCH_URL = os.getenv("ORCH_URL", "http://127.0.0.1:8090")
+TOOL_SERVER_URL = os.getenv("TOOL_SERVER_URL", "http://127.0.0.1:8090")
 
-# Guide/Coordinator endpoints (fall back to legacy SOLVER_/THINK_ envs for compatibility)
+# LLM endpoints (single-model stack uses same URL for all roles)
+# Design Note: "Guide/Coordinator" naming is legacy from multi-model design.
+# Current architecture: Phase 3 Planner, Phase 4 Executor, Phase 5 Coordinator, Phase 6 Synthesizer.
+# All roles run on the same model (Qwen3-Coder-30B-AWQ) with different temperatures.
+# See architecture/README.md for role temperature mapping.
 GUIDE_URL = os.getenv("GUIDE_URL") or os.getenv("SOLVER_URL", "http://127.0.0.1:8000/v1/chat/completions")
 COORDINATOR_URL = os.getenv("COORDINATOR_URL") or os.getenv("THINK_URL", "http://127.0.0.1:8000/v1/chat/completions")
 
@@ -68,6 +72,7 @@ THINK_HEADERS = COORDINATOR_HEADERS
 MAX_CYCLES = int(os.getenv("MAX_CYCLES", "3"))
 TOKEN_BUDGET = int(os.getenv("TOKEN_BUDGET", "12000"))
 MODEL_TIMEOUT = float(os.getenv("MODEL_TIMEOUT", "90"))
+GATEWAY_PORT = int(os.getenv("GATEWAY_PORT", "9000"))
 
 # =============================================================================
 # Path Constants
@@ -75,7 +80,7 @@ MODEL_TIMEOUT = float(os.getenv("MODEL_TIMEOUT", "90"))
 
 PROMPTS_DIR = pathlib.Path(os.getenv("PROMPTS_DIR", "apps/prompts"))
 STATIC_DIR = pathlib.Path(os.getenv("STATIC_DIR", "static"))
-PROMPT_BACKUP_DIR = pathlib.Path(os.getenv("PROMPT_BACKUP_DIR", "project_build_instructions/corpora/oldprompts"))
+PROMPT_BACKUP_DIR = pathlib.Path(os.getenv("PROMPT_BACKUP_DIR", "apps/docs/corpora/oldprompts"))
 TRANSCRIPTS_DIR = pathlib.Path(os.getenv("TRANSCRIPTS_DIR", "transcripts"))
 TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -86,7 +91,7 @@ SHARED_STATE_DIR = pathlib.Path(os.getenv("SHARED_STATE_DIR", "panda_system_docs
 SHARED_STATE_DIR.mkdir(parents=True, exist_ok=True)
 
 TOOL_CATALOG_PATH = pathlib.Path(
-    os.getenv("TOOL_CATALOG_PATH", "project_build_instructions/gateway/tool_catalog.json")
+    os.getenv("TOOL_CATALOG_PATH", "config/tool_catalog.json")
 )
 
 # =============================================================================
@@ -369,9 +374,9 @@ class GatewayConfig(BaseSettings):
     port: int = Field(default=9000, alias="GATEWAY_PORT")
     workers: int = Field(default=1, alias="GATEWAY_WORKERS")
 
-    # Orchestrator connection
-    orchestrator_host: str = Field(default="localhost", alias="ORCHESTRATOR_HOST")
-    orchestrator_port: int = Field(default=8090, alias="ORCHESTRATOR_PORT")
+    # Tool Server connection
+    tool_server_host: str = Field(default="localhost", alias="TOOL_SERVER_HOST")
+    tool_server_port: int = Field(default=8090, alias="TOOL_SERVER_PORT")
 
     # Timeouts
     request_timeout: float = Field(default=300.0, description="HTTP request timeout in seconds")
@@ -383,14 +388,14 @@ class GatewayConfig(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     @property
-    def orchestrator_url(self) -> str:
-        """Get the Orchestrator base URL."""
-        return f"http://{self.orchestrator_host}:{self.orchestrator_port}"
+    def tool_server_url(self) -> str:
+        """Get the Tool Server base URL."""
+        return f"http://{self.tool_server_host}:{self.tool_server_port}"
 
     @property
-    def orchestrator_ws_url(self) -> str:
-        """Get the Orchestrator WebSocket URL."""
-        return f"ws://{self.orchestrator_host}:{self.orchestrator_port}"
+    def tool_server_ws_url(self) -> str:
+        """Get the Tool Server WebSocket URL."""
+        return f"ws://{self.tool_server_host}:{self.tool_server_port}"
 
 
 @lru_cache()

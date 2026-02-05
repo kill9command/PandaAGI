@@ -1,13 +1,23 @@
-"""Model routing for the 5-model cognitive stack.
+"""Model routing for the single-model cognitive stack.
 
-All text phases use MIND model (Qwen3-4B-AWQ) with different temperatures:
-- REFLEX role (temp=0.3): Classification, binary decisions (Phases 0-1)
-- NERVES role (temp=0.1): Compression, low creativity
-- MIND role (temp=0.5): Reasoning, planning (Phases 2-4, 6)
-- VOICE role (temp=0.7): User dialogue, synthesis (Phase 5)
+All text phases use MIND model (Qwen3-Coder-30B-AWQ) with different temperatures:
+- REFLEX role (temp=0.4): Classification, binary decisions (Phases 1, 5)
+- NERVES role (temp=0.3): Compression, low creativity
+- MIND role (temp=0.6): Reasoning, planning (Phases 2, 3, 4, 7)
+- VOICE role (temp=0.7): User dialogue, synthesis (Phase 6)
 
-EYES model (Qwen3-VL-2B) swaps with MIND for vision tasks.
-SERVER (Qwen3-Coder-30B) is accessed via remote API for heavy coding.
+Architecture reference:
+  Phase 1: Query Analyzer (REFLEX)
+  Phase 2.1/2.2: Context Retrieval/Synthesis (MIND)
+  Phase 3: Planner (MIND)
+  Phase 4: Executor (MIND)
+  Phase 5: Coordinator (REFLEX)
+  Phase 6: Synthesis (VOICE)
+  Phase 7: Validation (MIND)
+  Phase 8: Save (procedural, no LLM)
+
+Note: Code uses 0-indexed phases for array access (0-7 maps to arch phases 1-8).
+EYES model (Qwen3-VL) swaps with MIND for vision tasks (legacy, rarely used).
 """
 
 from enum import Enum
@@ -20,38 +30,40 @@ from libs.llm.client import get_llm_client, LLMResponse
 class ModelLayer(Enum):
     """Model layer identifiers."""
 
-    REFLEX = "reflex"  # Layer 0 - Fast gates, classification (Qwen3-0.6B)
+    REFLEX = "reflex"  # Layer 0 - Fast gates, classification (shares MIND)
     NERVES = "nerves"  # Layer 1 - Routing, compression (shares MIND)
-    MIND = "mind"      # Layer 2 - Planning, reasoning (Qwen3-4B-AWQ, keystone)
+    MIND = "mind"      # Layer 2 - Planning, reasoning (Qwen3-Coder-30B-AWQ, keystone)
     VOICE = "voice"    # Layer 3 - User dialogue, synthesis (shares MIND)
     EYES = "eyes"      # Layer 4 - Vision tasks (Qwen3-VL-2B, cold pool)
     SERVER = "server"  # Remote - Heavy coding (Qwen3-Coder-30B)
 
 
-# Phase to model mapping
-# Note: All phases use MIND model with different temperatures (roles)
-# Phases 0-1: REFLEX role (temp=0.3) - but uses MIND model
-# Phases 2-4, 6: MIND role (temp=0.5)
-# Phase 5: VOICE role (temp=0.7) - but uses MIND model
+# Phase to model mapping (8-phase pipeline, 0-indexed)
+# Code uses 0-7 internally; architecture uses 1-8 (Phase 2 splits into 2.1/2.2).
+# All phases use MIND model with different temperatures (roles).
 PHASE_MODEL_MAP = {
-    0: ModelLayer.MIND,   # Query Analyzer (REFLEX role, temp=0.3)
-    1: ModelLayer.MIND,   # Reflection (REFLEX role, temp=0.3)
-    2: ModelLayer.MIND,   # Context Gatherer (MIND role, temp=0.5)
-    3: ModelLayer.MIND,   # Planner (MIND role, temp=0.5)
-    4: ModelLayer.MIND,   # Coordinator (MIND role, temp=0.5)
-    5: ModelLayer.MIND,   # Synthesis (VOICE role, temp=0.7)
-    6: ModelLayer.MIND,   # Validation (MIND role, temp=0.5)
+    0: ModelLayer.MIND,   # Phase 1: Query Analyzer (REFLEX role, temp=0.4)
+    1: ModelLayer.MIND,   # Phase 1.5: Query Validator (REFLEX role, temp=0.4) [legacy: Reflection]
+    2: ModelLayer.MIND,   # Phase 2: Context Gatherer (MIND role, temp=0.6)
+    3: ModelLayer.MIND,   # Phase 3: Planner (MIND role, temp=0.6)
+    4: ModelLayer.MIND,   # Phase 4: Executor (MIND role, temp=0.6)
+    5: ModelLayer.MIND,   # Phase 5: Coordinator (REFLEX role, temp=0.4)
+    6: ModelLayer.MIND,   # Phase 6: Synthesis (VOICE role, temp=0.7)
+    7: ModelLayer.MIND,   # Phase 7: Validation (MIND role, temp=0.6)
+    # Phase 8: Save - procedural, no LLM call
 }
 
-# Phase to temperature mapping (role behavior)
+# Phase to temperature mapping (role behavior per architecture)
 PHASE_TEMPERATURE_MAP = {
-    0: 0.3,  # REFLEX role
-    1: 0.3,  # REFLEX role
-    2: 0.5,  # MIND role
-    3: 0.5,  # MIND role
-    4: 0.5,  # MIND role
-    5: 0.7,  # VOICE role
-    6: 0.5,  # MIND role
+    0: 0.4,  # Phase 1: Query Analyzer - REFLEX role
+    1: 0.4,  # Phase 1.5: Query Validator - REFLEX role
+    2: 0.6,  # Phase 2: Context Gatherer - MIND role
+    3: 0.6,  # Phase 3: Planner - MIND role
+    4: 0.6,  # Phase 4: Executor - MIND role
+    5: 0.4,  # Phase 5: Coordinator - REFLEX role (per architecture)
+    6: 0.7,  # Phase 6: Synthesis - VOICE role
+    7: 0.6,  # Phase 7: Validation - MIND role
+    # Phase 8: Save - procedural, no LLM call
 }
 
 
@@ -147,7 +159,7 @@ class ModelRouter:
         Send completion using the model assigned to a phase.
 
         Args:
-            phase: Pipeline phase number (0-6)
+            phase: Pipeline phase number (0-7, phase 8 has no LLM call)
             messages: Chat messages
             **kwargs: Additional parameters (temperature, max_tokens)
 

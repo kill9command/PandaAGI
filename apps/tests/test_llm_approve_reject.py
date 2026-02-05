@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 import asyncio
 from libs.gateway.app import _llm_filter_cache_relevance
-from apps.services.orchestrator.shared_state.claims import ClaimRow
+from apps.services.tool_server.shared_state.claims import ClaimRow
 
 def test_approve_reject_filter():
     """Test that the LLM filter correctly uses APPROVE/REJECT decisions."""

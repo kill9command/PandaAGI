@@ -190,9 +190,11 @@ def extract_text_from_image(image_path: str) -> list[dict]:
 | Phase 1 | `main-system-patterns/phase1-reflection.md` |
 | Phase 2 | `main-system-patterns/phase2-context-gathering.md` |
 | Phase 3 | `main-system-patterns/phase3-planner.md` |
-| Phase 4 | `main-system-patterns/phase4-coordinator.md` |
-| Phase 5 | `main-system-patterns/phase5-synthesis.md` |
-| Phase 6 | `main-system-patterns/phase6-validation.md` |
+| Phase 4 | `main-system-patterns/phase4-executor.md` |
+| Phase 5 | `main-system-patterns/phase5-coordinator.md` |
+| Phase 6 | `main-system-patterns/phase6-synthesis.md` |
+| Phase 7 | `main-system-patterns/phase7-validation.md` |
+| Phase 8 | `main-system-patterns/phase8-save.md` |
 
 ---
 

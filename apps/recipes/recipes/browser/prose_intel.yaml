@@ -32,7 +32,7 @@ output_doc:
 token_budget:
   total: 5000
   prompt: 800
-  input_docs: 3400
+  input_docs: 3000
   output: 1200
 
 description: |

@@ -2,7 +2,7 @@
 Gateway Dependencies Module
 
 Provides singleton instances with lazy initialization for all Gateway services.
-Follows the pattern from Orchestrator service for consistent dependency injection.
+Follows the pattern from Tool Server service for consistent dependency injection.
 
 Architecture Reference:
     architecture/Implementation/04-SERVICES-OVERVIEW.md
@@ -75,8 +75,8 @@ def get_tool_circuit_breaker():
         )
         logger.info("[Dependencies] Tool circuit breaker initialized")
 
-        # Wire up the orchestrator client
-        from apps.services.gateway.services.orchestrator_client import (
+        # Wire up the tool_server client
+        from apps.services.gateway.services.tool_server_client import (
             set_tool_circuit_breaker,
         )
 
@@ -94,7 +94,7 @@ def get_artifact_store():
     """Get the artifact store singleton."""
     global _artifact_store
     if _artifact_store is None:
-        from apps.services.orchestrator.shared_state import ArtifactStore
+        from apps.services.tool_server.shared_state import ArtifactStore
 
         _artifact_store = ArtifactStore(SHARED_STATE_DIR / "artifacts")
         logger.info("[Dependencies] Artifact store initialized")
@@ -105,7 +105,7 @@ def get_ledger():
     """Get the session ledger singleton."""
     global _ledger
     if _ledger is None:
-        from apps.services.orchestrator.shared_state import SessionLedger
+        from apps.services.tool_server.shared_state import SessionLedger
 
         _ledger = SessionLedger(SHARED_STATE_DIR / "ledger.db")
         logger.info("[Dependencies] Session ledger initialized")
@@ -116,7 +116,7 @@ def get_claim_registry():
     """Get the claim registry singleton."""
     global _claim_registry
     if _claim_registry is None:
-        from apps.services.orchestrator.shared_state import ClaimRegistry
+        from apps.services.tool_server.shared_state import ClaimRegistry
 
         _claim_registry = ClaimRegistry(SHARED_STATE_DIR / "ledger.db")
         logger.info("[Dependencies] Claim registry initialized")
@@ -188,7 +188,7 @@ def get_wm_config():
     """Get the working memory config singleton."""
     global _wm_config
     if _wm_config is None:
-        from apps.services.orchestrator.context_builder import WorkingMemoryConfig
+        from apps.services.tool_server.context_builder import WorkingMemoryConfig
 
         _wm_config = WorkingMemoryConfig()
         logger.info("[Dependencies] Working memory config initialized")
@@ -229,7 +229,7 @@ def get_meta_reflection_gate():
     """Get the meta-reflection gate singleton."""
     global _meta_reflection_gate
     if _meta_reflection_gate is None:
-        from apps.services.orchestrator.meta_reflection import MetaReflectionGate
+        from apps.services.tool_server.meta_reflection import MetaReflectionGate
 
         _meta_reflection_gate = MetaReflectionGate(
             llm_url=GUIDE_URL,
@@ -253,7 +253,7 @@ def get_llm_client():
     """Get the LLM client singleton."""
     global _llm_client
     if _llm_client is None:
-        from libs.gateway.llm_client import LLMClient
+        from libs.gateway.llm.llm_client import LLMClient
 
         _llm_client = LLMClient(
             guide_url=GUIDE_URL,
@@ -311,7 +311,7 @@ def get_unified_flow():
                 llm_client=get_llm_client(),
                 session_context_manager=get_session_contexts(),
             )
-            logger.info("[Dependencies] Unified 7-phase flow ENABLED")
+            logger.info("[Dependencies] Unified 9-phase flow ENABLED")
         else:
             logger.warning("[Dependencies] Unified flow DISABLED - requests will fail")
     return _unified_flow
@@ -389,8 +389,8 @@ def get_research_ws_manager():
 
         _research_ws_manager = research_ws_manager
 
-        # Wire up the orchestrator client
-        from apps.services.gateway.services.orchestrator_client import (
+        # Wire up the tool_server client
+        from apps.services.gateway.services.tool_server_client import (
             set_research_ws_manager,
         )
 

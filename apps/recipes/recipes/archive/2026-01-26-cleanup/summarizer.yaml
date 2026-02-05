@@ -1,0 +1,72 @@
+# Summarizer Recipe (Memory Write Layer)
+# Turn summarization + persistent memory writes
+
+name: summarizer
+role: summarizer
+phase: turn_end
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/summarizer/core.md (1000 tokens)"
+
+# Input documents
+input_docs:
+  - path: "user_query.md"
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+
+  - path: "answer.md"
+    optional: false
+    max_tokens: 600
+    path_type: "turn"
+
+  - path: "context.md"
+    optional: true
+    max_tokens: 500
+    path_type: "turn"
+    description: "Unified context with Current Claims + Fresh Claims (replaces capsule.md)"
+
+# Output documents
+output_docs:
+  - "turn_summary.json"    # For immediate next turn
+  - "memory_writes.json"   # Instructions for persistent memory
+
+# Token budget (hard limits enforced)
+token_budget:
+  total: 4000
+  prompt: 1000          # summarizer/core.md prompt
+  input_docs: 1300      # user + answer + capsule
+  output: 1500          # JSON summary + memory writes
+  buffer: 200           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 3900
+
+# Output schema
+output_schema: TURN_SUMMARY  # JSON format defined in prompt
+
+# Description
+description: |
+  Summarizer (Memory Write Layer) handles two responsibilities:
+
+  1. TURN-LEVEL (for immediate next query):
+     - Compress current turn -> turn_summary.json
+     - Key findings, topic, satisfaction estimate
+     - This becomes prior_turn_summary.json for Context Builder
+
+  2. LONG-TERM MEMORY (persistent storage):
+     - Detect new user preferences -> write to user_preferences.md
+     - Detect new user facts -> write to user_facts.md
+     - Detect system learnings -> write to system_learnings.md
+     - Create lessons from successful/failed patterns
+
+  Memory Write Triggers:
+  - User says "remember..." -> user_facts.md
+  - User reveals preference -> user_preferences.md
+  - System learns something -> system_learnings.md
+  - Research yields reusable fact -> domain_knowledge.md
+
+  Phase: Summarization (Phase 8 in canonical flow, after response sent)

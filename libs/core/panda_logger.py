@@ -1,10 +1,10 @@
 """PandaAI Centralized Logger - Captures everything for debugging.
 
 This logger captures all system activity including:
-- All 8 phases of the pipeline
+- All 8 phases of the pipeline (1, 2.1, 2.2, 3, 4, 5, 6, 7, 8)
 - LLM calls (prompts, responses, tokens)
 - Tool executions
-- Internet research (Phase 1, Phase 2)
+- Internet research (broad search, deep dive)
 - Browser activity
 - Final responses
 - Errors and warnings

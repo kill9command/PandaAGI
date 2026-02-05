@@ -4,10 +4,10 @@
 
 name: phase4_coordinator_code
 category: pipeline
-phase: 4
-role: MIND
+phase: 5
+role: REFLEX
 mode: code
-temperature: 0.5
+temperature: 0.4
 
 prompt_fragments:
   - "apps/prompts/pipeline/phase4_coordinator_code.md"
@@ -32,65 +32,30 @@ output_doc:
   description: "Writes/appends section 4 with execution progress and tool results"
 
 token_budget:
-  total: 12000
-  prompt: 2000
-  input_docs: 5500
-  output: 4000
-  buffer: 500
+  total: 2500
+  prompt: 700
+  input_docs: 1200
+  output: 400
+  buffer: 200
 
 llm_params:
-  temperature: 0.5
-  max_tokens: 4000
+  temperature: 0.4
+  max_tokens: 400
 
-output_schema: COORDINATOR_RESULT
+output_schema: COORDINATOR_SELECTION
 
 description: |
-  Phase 4: Coordinator (Code Mode) - Executor + Tool Expert
+  Phase 5: Coordinator (Code Mode) - Tool Expert
 
-  Uses MIND role (temp=0.5). Higher token budget for code operations.
+  Uses REFLEX role (temp=0.4). Translates Executor commands into workflow selections.
 
-  **Code Mode Tools (in addition to chat tools):**
-  | Tool | When to Select |
-  |------|----------------|
-  | file.write | "create file", "write to" |
-  | file.edit | "edit", "modify", "change", "update file" |
-  | file.delete | "delete file", "remove file" |
-  | repo.scope_discover | "find related files", "discover structure" |
-  | file.read_outline | "show structure", "outline of" |
-  | git.status | "git status", "what changed" |
-  | git.diff | "show diff", "what's different" |
-  | git.commit_safe | "commit", "save changes to git" |
-  | git.push | "push", "upload changes" |
-  | bash.execute | "run command", "execute" |
-  | test.run | "run tests", "verify", "check tests" |
-  | code.verify_suite | "run test suite", "verify all tests" |
-
-  **Multi-Step Code Workflow:**
-  1. COMMAND: "Read the auth.py file" -> file.read
-  2. ANALYZE: "Current implementation uses basic auth..."
-  3. COMMAND: "Edit auth.py to add JWT validation" -> file.edit
-  4. COMMAND: "Run the auth tests" -> test.run
-  5. COMPLETE: "All goals achieved, tests passing"
-
-  **Goal Dependencies:**
-  When goals have dependencies, complete them in order:
-  - GOAL_1: Read current implementation
-  - GOAL_2: Make changes (depends on GOAL_1)
-  - GOAL_3: Run tests (depends on GOAL_2)
-
-  **Output (COORDINATOR_RESULT):**
+  **Output (COORDINATOR_SELECTION):**
   ```json
   {
-    "_type": "COORDINATOR_RESULT",
-    "action": "COMMAND|ANALYZE|COMPLETE|BLOCKED",
-    "tool_selected": "file.edit",
-    "tool_args": {
-      "file_path": "src/auth.py",
-      "old_string": "...",
-      "new_string": "..."
-    },
-    "status": "success|error|blocked",
-    "result": {...},
-    "goals_progress": [...]
+    "_type": "COORDINATOR_SELECTION",
+    "command_received": "<executor_command>",
+    "workflow_selected": "<workflow_name>",
+    "workflow_args": {...},
+    "status": "selected"
   }
   ```

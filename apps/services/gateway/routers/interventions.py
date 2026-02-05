@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 
-from apps.services.gateway.services.jobs import CANCELLED_TRACES, cancel_trace
+from apps.services.gateway.services.jobs import cancel_trace
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -38,7 +38,7 @@ async def list_pending_interventions() -> Dict[str, Any]:
         List of pending interventions as dicts
     """
     try:
-        from apps.services.orchestrator.captcha_intervention import (
+        from apps.services.tool_server.captcha_intervention import (
             get_all_pending_interventions,
         )
 
@@ -75,7 +75,7 @@ async def resolve_intervention(
         Resolution result
     """
     try:
-        from apps.services.orchestrator.captcha_intervention import (
+        from apps.services.tool_server.captcha_intervention import (
             get_pending_intervention,
             remove_pending_intervention,
         )
@@ -117,12 +117,12 @@ async def list_pending_captchas() -> Dict[str, Any]:
         List of pending CAPTCHAs
     """
     try:
-        from apps.services.orchestrator.captcha_intervention import (
+        from apps.services.tool_server.captcha_intervention import (
             get_all_pending_interventions,
         )
 
         all_interventions = get_all_pending_interventions()
-        captchas = [i for i in all_interventions if i.get("type") == "captcha"]
+        captchas = [i.to_dict() for i in all_interventions if i.intervention_type.value == "captcha"]
         return {
             "captchas": captchas,
             "count": len(captchas),
@@ -167,12 +167,12 @@ async def list_pending_permissions() -> Dict[str, Any]:
         List of pending permission requests
     """
     try:
-        from apps.services.orchestrator.captcha_intervention import (
+        from apps.services.tool_server.captcha_intervention import (
             get_all_pending_interventions,
         )
 
         all_interventions = get_all_pending_interventions()
-        permissions = [i for i in all_interventions if i.get("type") == "permission"]
+        permissions = [i.to_dict() for i in all_interventions if i.intervention_type.value == "permission"]
         return {
             "permissions": permissions,
             "count": len(permissions),

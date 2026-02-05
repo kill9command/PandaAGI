@@ -1,0 +1,85 @@
+# Unified Reflection Recipe
+# Consolidates V4 MetaReflectionGate + V5 Reflection Role
+# Strategic gate: PROCEED, GATHER_MORE, NEED_INFO, CLARIFY, CACHED
+
+name: reflection_unified
+role: reflection
+mode: null  # Unified for both chat and code
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/reflection/unified.md (800 tokens)"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 1200
+    path_type: "turn"
+    description: "Unified context document with §0 (query) and §1 (gathered context)"
+
+# Output documents
+output_docs:
+  - "context.md §2"  # Reflection decision appended by unified flow
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 800           # unified.md prompt
+  input_docs: 1200      # context.md (§0 + §1)
+  output: 300           # JSON decision output
+  buffer: 200           # Safety margin
+
+# LLM parameters
+llm_params:
+  temperature: 0.1      # Low for consistent decisions (from V4)
+  max_tokens: 300       # Standard budget (user choice)
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 2300
+
+# Output schema
+output_schema: REFLECTION_UNIFIED
+
+# Description
+description: |
+  Unified Reflection gate combining V4 MetaReflectionGate and V5 Reflection Role.
+
+  **Features from V4:**
+  - Query type detection (RETRY, ACTION, RECALL, INFORMATIONAL, CLARIFICATION)
+  - Pronoun resolution from context
+  - Confidence scoring (0.0-1.0)
+  - NEED_INFO decision for system info requests
+  - Statistics tracking
+
+  **Features from V5:**
+  - GATHER_MORE loop (back to Context Gatherer)
+  - Document-driven (context.md §2)
+  - Strategy hints from lessons
+  - CACHED decision support
+
+  **Decisions:**
+  1. PROCEED - Continue to Planner (confidence >= 0.8)
+  2. GATHER_MORE - Loop back to Context Gatherer with refined query
+  3. NEED_INFO - Request system info (memory/search) before deciding
+  4. CLARIFY - Ask user for clarification (confidence < 0.4)
+  5. CACHED - Return cached response (semantic match)
+
+  **Output JSON:**
+  ```json
+  {
+    "_type": "REFLECTION_UNIFIED",
+    "decision": "PROCEED|GATHER_MORE|NEED_INFO|CLARIFY|CACHED",
+    "confidence": 0.0-1.0,
+    "reasoning": "Brief explanation",
+    "query_type": "RETRY|ACTION|RECALL|INFORMATIONAL|CLARIFICATION",
+    "action_verbs": ["find", "search"],
+    "refined_query": "More specific search if GATHER_MORE",
+    "info_requests": [{"type": "memory", "query": "...", "reason": "..."}],
+    "clarification_question": "Question if CLARIFY",
+    "cache_key": "key if CACHED",
+    "strategy_hint": {...}
+  }
+  ```

@@ -1,0 +1,90 @@
+# Context Gatherer - Phase 3: EXTRACT
+# Extracts specific information from linked documents.
+
+name: context_gatherer_extract
+role: context_gatherer
+phase: extract
+mode: null
+
+# Input documents
+input_docs:
+  - path: "query.md"
+    optional: false
+    max_tokens: 200
+    path_type: "turn"
+    description: "Current user query"
+
+  - path: "read_result.md"
+    optional: false
+    max_tokens: 400
+    path_type: "turn"
+    description: "Phase 2 output - which links to follow and what to extract"
+
+  - path: "linked_docs.md"
+    optional: false
+    max_tokens: 3000
+    path_type: "turn"
+    description: "Content from followed links (research.md, toolresults.md)"
+
+# Output documents
+output_docs:
+  - "extracted.md"  # Extracted information
+
+# Token budget
+token_budget:
+  total: 4500
+  prompt: 500
+  input_docs: 3600      # query + read_result + linked_docs
+  output: 300
+  buffer: 100
+
+output_schema: JSON
+
+system_prompt: |
+  You are the Context Gatherer (EXTRACT phase). Extract relevant information from linked documents.
+
+  You have received:
+  - The current query (what the user is asking)
+  - Read result (what sections to focus on)
+  - Linked documents (full content from research.md, toolresults.md, etc.)
+
+  TASK:
+  Extract ONLY the information relevant to answering the current query.
+  Be concise - don't include everything, just what's needed.
+
+  EXTRACTION FOCUS:
+  - Specs and technical details (if comparing products)
+  - Prices and availability (if shopping query)
+  - Expert recommendations (if asking for advice)
+  - Community tips (if asking what to choose)
+
+  OUTPUT FORMAT (JSON):
+  ```json
+  {
+    "extracted": {
+      "rtx_4050": {
+        "specs": {"vram": "6GB", "cores": "2560"},
+        "price_range": "$624-$689",
+        "expert_view": "Best budget option for 1080p gaming"
+      },
+      "rtx_4060": {
+        "specs": {"vram": "8GB", "cores": "3072"},
+        "price_range": "$749-$1099",
+        "expert_view": "Sweet spot for 1080p/1440p"
+      },
+      "comparison": {
+        "performance_diff": "4060 is ~20-30% faster",
+        "price_diff": "4060 costs ~$100-150 more",
+        "recommendation": "4060 for serious gamers, 4050 for budget"
+      }
+    },
+    "need_more": false
+  }
+  ```
+
+description: |
+  Phase 3 of Context Gatherer: Extracts specific information from
+  linked documents (research.md, toolresults.md).
+
+  This phase is OPTIONAL - only runs if Phase 2 identified links to follow.
+  Focuses extraction based on what's needed for the current query.

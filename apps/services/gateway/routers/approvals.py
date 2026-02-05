@@ -17,7 +17,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from libs.gateway.tool_approval import (
+from libs.gateway.execution.tool_approval import (
     get_tool_approval_manager,
     APPROVAL_REQUIRED_TOOLS,
     APPROVAL_SYSTEM_ENABLED,

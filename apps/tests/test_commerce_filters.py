@@ -1,7 +1,7 @@
 import sys
 import types
 
-from apps.services.orchestrator import commerce_mcp
+from apps.services.tool_server import commerce_mcp
 
 
 def test_search_offers_filters_irrelevant_titles(monkeypatch):

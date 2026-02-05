@@ -1,0 +1,111 @@
+# Schema Builder Recipe
+# Page structure analysis -> extraction schema
+# Proactive schema generation for universal web extraction
+
+name: schema_builder
+role: schema_builder
+mode: null  # Sub-system, invoked by ProductPerceptionPipeline
+description: LLM-based extraction schema generation for unknown websites
+
+# System prompts for Schema Builder
+prompt_fragments:
+  - apps/prompts/schema_builder/core.md  # ~1500 tokens: Core instructions
+
+# Input documents Schema Builder receives
+input_docs:
+  - path: page_state.json
+    description: Captured page state with DOM summary and OCR text
+    max_tokens: 4000
+    required: true
+    extract: full
+
+  - path: context.md
+    description: Page type hint and extraction goal
+    max_tokens: 200
+    required: true
+    extract: preferences_only
+
+  - path: prior_schema.json
+    description: Previous schema if recalibrating (optional)
+    max_tokens: 300
+    required: false
+    path_type: registry
+
+# Output documents Schema Builder creates
+output_docs:
+  - site_schema.json  # The learned schema with selectors
+
+# Token budget enforcement
+token_budget:
+  total: 6000
+  prompt: 1500      # Fixed cost of prompt fragments
+  input_docs: 3800  # DOM summary (4000) + context (200) + prior (300)
+  output: 700       # Schema JSON output
+  buffer: 0
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: intelligent_truncate
+  priority:
+    - truncate: page_state.dom_summary  # Keep first 3500 chars
+    - keep: page_state.ocr_text         # Always keep OCR text (validation)
+    - keep: context                     # Always keep extraction goal
+    - keep: prior_schema                # Keep if recalibrating
+
+# Output schema types by page_type
+output_schema:
+  listing: LISTING_SCHEMA
+  pdp: PDP_SCHEMA
+  search_results: SEARCH_RESULTS_SCHEMA
+
+# Quality gates
+quality_gates:
+  min_confidence: 0.5        # Below this, use vision fallback
+  listing:
+    require_product_card_selector: true
+    require_wait_selector: true
+  pdp:
+    require_price_selector: true
+    require_title_selector: true
+  search_results:
+    require_result_container_selector: true
+    require_result_link_selector: true
+
+# Validation (optional, can be enabled per-call)
+validation:
+  test_selectors: true       # Try selectors on page after generation
+  min_elements: 1            # At least 1 element must match
+  timeout_ms: 3000           # Validation timeout
+
+# Integration
+integration:
+  invoked_by:
+    - product_perception.pipeline._ensure_schema
+    - site_calibrator.calibrate
+  invocation_point: before_extraction_when_no_valid_schema
+  input_from: page_capture (DOM + OCR via Playwright)
+  output_consumers:
+    - site_schema_registry    # Persists the schema
+    - product_perception      # Uses schema for extraction
+    - smart_waiter            # Uses wait_selector for smart wait
+
+# Flow description
+# This role sits at the START of extraction, ensuring schema exists.
+#
+# Flow:
+#   Page Visit → Check Schema Registry
+#                     ↓
+#               Schema missing/stale?
+#                     ↓ YES
+#   Schema Builder (THIS) ← page_state.json (DOM + OCR)
+#                     ↓
+#   site_schema.json → Schema Registry (persist)
+#                     ↓
+#   SmartWaiter (use wait_selector)
+#                     ↓
+#   Extraction Pipeline (use selectors)
+
+# Recalibration triggers (defined in site_schema_registry.py)
+# - 3+ consecutive extraction failures
+# - Success rate < 50% (with 10+ data points)
+# - Schema method success rate = 0% (with 3+ attempts)

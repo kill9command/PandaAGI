@@ -4,7 +4,7 @@ import { browser } from '$app/environment';
 const PROFILE_KEY = 'pandora.profile';
 const PROFILES_KEY = 'pandora.profileList';
 const REMEMBER_KEY = 'pandora.profileRemember';
-const DEFAULT_PROFILES = ['default', 'user1', 'user2'];
+const DEFAULT_PROFILES = ['default', 'user2', 'user3'];
 
 function getStored<T>(key: string, fallback: T): T {
   if (!browser) return fallback;

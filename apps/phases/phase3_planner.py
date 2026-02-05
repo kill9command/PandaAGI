@@ -3,7 +3,7 @@
 Architecture Reference:
     architecture/main-system-patterns/phase3-planner.md
 
-Role: MIND (MIND model @ temp=0.5)
+Role: MIND (MIND model @ temp=0.6)
 Token Budget: ~5,750 total
 
 Question: "What needs to be done and how?"
@@ -42,7 +42,7 @@ class Planner(BasePhase[TaskPlan]):
     """
     Phase 3: Create task plan.
 
-    Uses MIND role (MIND model with temp=0.5) for reasoning
+    Uses MIND role (MIND model with temp=0.6) for reasoning
     about what needs to be done.
 
     Key Principle: LLM-driven routing based on context sufficiency,

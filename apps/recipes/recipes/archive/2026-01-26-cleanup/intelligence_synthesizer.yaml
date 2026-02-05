@@ -1,0 +1,81 @@
+# Intelligence Synthesizer Recipe
+# Phase 1 raw findings → structured intelligence brief
+
+name: intelligence_synthesizer
+role: intelligence_synthesizer
+mode: null  # Sub-system within Research pipeline
+description: Transform Phase 1 raw research findings into actionable intelligence brief
+
+# System prompts for Intelligence Synthesizer
+prompt_fragments:
+  - apps/prompts/intelligence_synthesizer/core.md  # ~1200 tokens: Core instructions
+
+# Input documents Intelligence Synthesizer receives
+input_docs:
+  - path: phase1_raw_findings.md
+    description: Full content extracted from Phase 1 sources (forums, guides, reviews)
+    max_tokens: 4000
+    required: true
+    extract: full
+
+  - path: phase1_sources.md
+    description: Summary table of sources for quick reference
+    max_tokens: 300
+    required: true
+    extract: full
+
+# Output documents Intelligence Synthesizer creates
+output_docs:
+  - phase1_intelligence.md  # Coherent synthesis with JSON block
+
+# Token budget enforcement
+token_budget:
+  total: 6500
+  prompt: 1200     # Fixed cost of prompt fragments
+  input_docs: 4300  # Raw findings + sources
+  output: 1000      # Intelligence brief (~800-1200 tokens)
+  buffer: 0
+
+# Trimming strategy if budget exceeded
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: phase1_raw_findings  # Keep first N sources if too long
+    - keep: phase1_sources           # Always keep source summary
+
+# Output schema reference
+output_schema: INTELLIGENCE_BRIEF
+# Defined in io_contracts.md:
+#   - User intent analysis
+#   - Hard/soft requirements
+#   - Vendor recommendations
+#   - Price intelligence
+#   - JSON block for programmatic use
+
+# Quality gates
+quality_gates:
+  min_vendors: 1              # At least 1 vendor recommendation (if any mentioned)
+  require_price_range: true   # Must include price expectations
+  require_json_block: true    # Must include structured JSON at end
+  max_contradictions: 3       # Flag if too many unresolved contradictions
+
+# Integration
+integration:
+  invoked_by: research_orchestrator
+  invocation_point: after_phase1_collection
+  output_consumers:
+    - phase2_planner        # Uses intelligence for search planning
+    - research_role         # Uses intelligence for targeted queries
+    - viability_filter      # Uses price/spec requirements
+
+# Description
+# This role sits between Phase 1 raw data collection and Phase 2 planning.
+# It transforms verbose forum posts and guide content into a structured
+# intelligence brief that enables targeted, intelligent product search.
+#
+# Flow:
+#   Phase 1 Crawler → phase1_raw_findings.md
+#                   ↓
+#   Intelligence Synthesizer (THIS)
+#                   ↓
+#   phase1_intelligence.md → Phase 2 Planner → phase2_search_plan.md

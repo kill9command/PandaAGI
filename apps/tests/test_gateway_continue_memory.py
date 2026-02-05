@@ -6,13 +6,13 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from apps.services.orchestrator.memory_store import reset_memory_store_cache
+from apps.services.tool_server.memory_store import reset_memory_store_cache
 from libs.gateway.app import (
     app as gateway_app,
     RUNTIME_POLICY,
     GUIDE_URL,
     COORDINATOR_URL,
-    ORCH_URL,
+    TOOL_SERVER_URL,
     RECENT_SHORT_TERM,
     TRANSCRIPTS_DIR,
 )
@@ -92,7 +92,7 @@ def test_continue_flow_injects_recent_summary(monkeypatch, tmp_path):
         if url == COORDINATOR_URL:
             call_state["coordinator"] += 1
             return DummyResp(_coordinator_payload())
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory_query"] += 1
             return DummyResp({"items": []})
         return DummyResp({"ok": True})

@@ -1,254 +1,162 @@
-# PandaAI Architecture
+# Pandora
 
-Version: 6.1
-Updated: 2026-02-02
-Hardware Target: RTX 3090 Server (24GB VRAM)
+Version: 7.0 | Updated: 2026-02-03 | Hardware: RTX 3090 (24GB VRAM)
 
----
-
-## Overview
-
-PandaAI is a context-orchestrated LLM stack built around a **single-model multi-role system**
-with an 9-phase document pipeline. One model handles all text tasks using different
-temperatures for different roles. All state flows through a single `context.md` document
-per turn.
-
-**Key Features:**
-- Single model architecture: Qwen3-Coder-30B-AWQ handles all roles
-- Web-accessible via FastAPI + Cloudflare tunnel
-- 9-phase pipeline with document-based IO
-- **Workflow-centric execution**: Declarative tool sequences replace ad-hoc decisions
-- **V2 prompt style**: Concise, abstract examples, table-driven
-- OCR-based vision (EasyOCR), with EYES model planned for future
+**Full documentation index:** [`architecture/INDEX.md`](INDEX.md)
+**Design workflow:** [`ActualDesignInstructions.md`](../ActualDesignInstructions.md)
 
 ---
 
-## System Summary
+## Goal
 
-### Single-Model Architecture
+Pandora is a self-adapting agent that interfaces with all digital systems on behalf of its user. It reads documents, writes files, searches the web, manages email, navigates calendars, builds tools it doesn't have yet, and improves itself by learning from every interaction. It runs locally on consumer hardware.
 
-| Component | Model | Server | VRAM | Notes |
-|-----------|-------|--------|------|-------|
-| ALL ROLES | Qwen3-Coder-30B-AWQ | vLLM (8000) | ~20GB | Single model, all text tasks |
-| Vision | EasyOCR | CPU | 0 | OCR-based extraction |
-| Embedding | all-MiniLM-L6-v2 | CPU | 0 | Semantic search |
+The end state is an agent that can handle any task a human does at a computer — not by having every tool pre-built, but by understanding what's needed and building or adapting to get it done.
 
-**Text Roles (all use the same model via temperature):**
+---
+
+## How It Gets There
+
+Pandora reaches that goal through three capabilities, built in order:
+
+1. **Reliable pipeline** — A multi-phase document pipeline that takes a user query, gathers context, plans an approach, executes tools, synthesizes a response, validates it, and saves state. Every phase has a defined contract. If the pipeline produces incorrect output, the architecture is wrong and gets fixed before the code.
+
+2. **Tool breadth** — The ability to interface with the digital systems people actually use: files, spreadsheets, documents, PDFs, email, calendars, web browsers, APIs, code execution. Each tool family has a defined interface. Missing tool families are built by the system itself when possible.
+
+3. **Self-adaptation** — The system creates new tools and workflows when existing ones can't handle a task. It plans from the original query, backtracks when goals fail, and learns from failures. Over time it accumulates capabilities without human intervention.
+
+---
+
+## Current Architecture
+
+### Single-Model System
+
+One LLM (Qwen3-Coder-30B-AWQ) plays all roles. Behavior is controlled by temperature and system prompts, not by switching models.
 
 | Role | Temperature | Purpose |
 |------|-------------|---------|
-| REFLEX | 0.3 | Classification, binary decisions |
-| NERVES | 0.1 | Compression (low creativity) |
-| MIND | 0.5 | Reasoning, planning |
-| VOICE | 0.7 | User dialogue (more natural) |
+| NERVES | 0.3 | Compression, summarization |
+| REFLEX | 0.4 | Classification, binary decisions |
+| MIND | 0.6 | Reasoning, planning |
+| VOICE | 0.7 | User dialogue |
 
-### vLLM Configuration
+| Component | Model | Server | Notes |
+|-----------|-------|--------|-------|
+| All text roles | Qwen3-Coder-30B-AWQ | vLLM (:8000) | Single model |
+| Vision | EasyOCR | CPU | OCR-based extraction |
+| Embedding | all-MiniLM-L6-v2 | CPU | Semantic search |
 
-```bash
-python -m vllm.entrypoints.openai.api_server \
-  --model models/qwen3-coder-30b-awq4 \
-  --served-model-name qwen3-coder \
-  --gpu-memory-utilization 0.90 \
-  --max-model-len 8192
-```
+### 8-Phase Pipeline (Phase 2 Split into 2.1/2.2)
 
-### Future: EYES Vision Model
+Every user query flows through this pipeline. Each phase reads the accumulated `context.md` document, does its work, and writes its section for the next phase.
 
-Once the system is stable, we plan to add the EYES vision model for complex
-image understanding tasks that OCR cannot handle (charts, diagrams, photos).
-
----
-
-## Web Access
-
-PandaAI is accessible via web browser through Cloudflare tunnel:
-
-```
-User Browser
-    │
-    ▼
-Cloudflare Tunnel (HTTPS)
-    │
-    ▼
-Gateway (port 9000) ─── FastAPI webapp
-    │
-    ├── Orchestrator (port 8090) ─── Tool execution
-    │
-    └── vLLM (port 8000) ─── LLM inference
-```
-
-**Access Methods:**
-- Local: `http://localhost:9000`
-- Remote: Via Cloudflare tunnel URL (configured in start.sh)
-
----
-
-## 9-Phase Pipeline
-
-| Phase | Name | Role/Temp | Purpose |
-|-------|------|-----------|---------|
-| 0 | Query Analyzer | REFLEX/0.3 | Classify intent, resolve references |
-| 1 | Reflection | REFLEX/0.3 | PROCEED or CLARIFY gate |
-| 2 | Context Gatherer | MIND/0.5 | Gather relevant context |
-| 3 | Planner | MIND/0.5 | Strategic: define goals and approach |
-| 4 | Executor | MIND/0.5 | Tactical: natural language commands |
-| 5 | Coordinator | MIND/0.4 | Tool Expert: translate commands to tool calls |
-| 6 | Synthesis | VOICE/0.7 | Generate user-facing response |
-| 7 | Validation | MIND/0.5 | Verify accuracy, approve or retry |
+| Phase | Name | Role | Purpose |
+|-------|------|------|---------|
+| 1 | Query Analyzer | REFLEX | Resolve references, capture user purpose + data requirements, validate analysis |
+| 2.1 | Context Retrieval | MIND | Identify relevant sources (turns, memory, cache) |
+| 2.2 | Context Synthesis | MIND | Compile gathered context into §2 |
+| 3 | Planner | MIND | Define goals and strategic approach |
+| 4 | Executor | MIND | Produce tactical commands |
+| 5 | Coordinator | REFLEX | Translate commands to tool calls, execute tools |
+| 6 | Synthesis | VOICE | Generate user-facing response |
+| 7 | Validation | MIND | Verify accuracy, approve or retry |
 | 8 | Save | Procedural | Persist turn, update indexes |
 
-**Note:** All phases use the same Qwen3-Coder-30B model. Role behavior is controlled
-by temperature and system prompts.
+**Validation helpers:** Phase 1 and Phase 2 each include lightweight validator sub-phases:
+- **Phase 1.5** Query Analyzer Validator (coherence + ambiguity check)
+- **Phase 2.5** Context Gathering Validator (completeness + constraint coverage)
 
----
+**Normalization policy:** Phase 1 outputs canonical fields directly; Phase 1.5 validates coherence and completeness.
 
-## Services
+### Document-Based IO
+
+All state flows through documents per turn:
+
+- `context.md` — Accumulated document. Each phase reads prior sections, writes its own.
+- `plan_state.json` — Goals and execution progress.
+- `toolresults.md` — Full tool outputs for synthesis and validation.
+
+### Services
 
 | Service | Port | Purpose |
 |---------|------|---------|
 | Gateway | 9000 | FastAPI webapp, pipeline orchestration |
-| vLLM | 8000 | LLM inference (Qwen3-Coder-30B-AWQ) |
-| Orchestrator | 8090 | Tool execution (file, git, research, memory) |
+| vLLM | 8000 | LLM inference |
+| Orchestrator | 8090 | Tool execution |
 
-**Optional Services (Docker):**
-| Service | Port | Purpose |
-|---------|------|---------|
-| Qdrant | 6333 | Vector database |
-| PostgreSQL | 5432 | Relational database |
+### Workflow System
 
----
+Declarative workflow definitions replace ad-hoc tool selection. The Planner selects a workflow, the Executor follows its steps, and the Coordinator translates each step to tool calls. When no workflow exists for a task, the system can build one.
 
-## Document-Based IO
+### Tool Family Specs (Contracts)
 
-- `context.md` is the single accumulated document for each turn
-- Each phase reads previous sections and writes its own section
-- `toolresults.md` stores full tool outputs for Synthesis and Validation
+Tool family specs define **the contract** for each capability family (spreadsheet, document, PDF, email, calendar, etc.).  
+They are **not** the same as workflows. A workflow is a sequence; a tool family spec is the required interface.
 
----
+**Rule:** a tool family spec must exist **before or alongside** the first tool/workflow that uses it.  
+If missing, the system must create the family spec as part of self‑extension.
 
-## Workflow System
+### Self-Extension
 
-The Phase 4 Executor uses a workflow-centric execution model where **workflows define
-predictable tool sequences** instead of ad-hoc tool selection.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Phase 4 Executor                                            │
-│                                                              │
-│  Command ──▶ WorkflowMatcher ──▶ WorkflowExecutor           │
-│                    │                    │                    │
-│                    │ no match           │ match              │
-│                    ▼                    ▼                    │
-│              Coordinator          Execute workflow          │
-│              (fallback)           steps in sequence         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Built-in Workflows:**
-- `intelligence_search` - Phase 1 informational research
-- `product_search` - Phase 1 + Phase 2 commerce research
-- `create_workflow` - Meta-workflow for self-extension
-
-**See:** `architecture/main-system-patterns/WORKFLOW_SYSTEM.md`
+Pandora can create new tools and workflows at runtime:
+- Generate a tool spec (inputs, outputs, constraints)
+- Generate implementation code
+- Validate in a sandbox
+- Register for use in future turns
 
 ---
 
-## Read Order
+## Design Principles
 
-Start with `architecture/INDEX.md` for a complete map of all architecture docs.
-
-### Core References
-
-- `architecture/LLM-ROLES/llm-roles-reference.md` - Model and role specs
-- `architecture/main-system-patterns/phase*.md` - Phase documentation
-- `architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md` - context.md schema
-- `architecture/mcp-tool-patterns/internet-research-mcp/` - Research tool
-
-### Services
-
-- `architecture/services/orchestrator-service.md` - Tool execution service
+1. **Design before code** — Architecture docs are written first. Code implements the docs. If code doesn't match docs, fix one or the other until they agree.
+2. **Single model** — One model handles all roles. Complexity comes from the pipeline, not the model stack.
+3. **Document-based IO** — All phase communication goes through `context.md`. No hidden state.
+4. **Quality over speed** — Correct answers matter more than fast answers.
+5. **Context discipline** — Pass original queries to any LLM that makes decisions. Fix prompts, not code, when the LLM makes bad choices.
+6. **Requirement-aware** — The original query carries all user requirements. Each phase reads §0 and interprets requirements naturally.
+7. **Self-building** — The system creates tools and workflows it doesn't have yet.
 
 ---
 
-## Directory Structure
+## Benchmark Milestones
 
-### Architecture Documentation
+These benchmarks measure progress toward the ultimate goal. They are not the goal.
 
-```
-architecture/
-├── README.md                     # This file
-├── INDEX.md                      # Complete doc index
-├── LLM-ROLES/                    # Model roles and decision schemas
-├── main-system-patterns/         # Phase docs and system patterns
-├── DOCUMENT-IO-SYSTEM/           # Document IO specifications
-├── mcp-tool-patterns/            # Tool architecture patterns
-├── services/                     # Service documentation
-└── Implementation/               # Implementation guides
-```
+| Milestone | Target | Purpose |
+|-----------|--------|---------|
+| M1 | Self-extension | Tool and workflow creation at runtime |
+| M2 | APEX tool families | Breadth across spreadsheet, document, PDF, email, calendar |
+| M3 | Benchmark harness | Automated scoring and regression gates |
+| M4 | DeepPlanning | Multi-step planning with backtracking and domain APIs |
 
-### Code Structure
-
-```
-apps/
-├── phases/                       # Phase 0-8 executors
-├── services/
-│   ├── gateway/                  # FastAPI webapp (port 9000)
-│   └── orchestrator/             # Tool execution (port 8090)
-├── prompts/                      # LLM prompts (V2 style)
-├── recipes/                      # YAML recipes
-└── workflows/                    # Declarative workflow definitions
-    ├── research/                 # Research workflows
-    └── meta/                     # Meta-workflows
-
-libs/
-├── core/                         # Config, models, exceptions
-├── llm/                          # LLM client and routing
-├── gateway/                      # Pipeline implementation
-├── document_io/                  # Context and turn management
-└── compression/                  # Smart summarization
-
-panda_system_docs/                # Runtime data
-├── users/default/
-│   ├── turns/                    # Turn documents
-│   ├── transcripts/              # Session transcripts
-│   └── sessions/                 # Session data
-└── shared_state/                 # Shared state (caches, etc.)
-```
+**See:** `BENCHMARK_ALIGNMENT.md` for detailed gap analysis.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Start all services
-./scripts/start.sh
-
-# Stop all services
-./scripts/stop.sh
-
-# Check service health
-./scripts/health_check.sh
+./scripts/start.sh        # Start all services
+./scripts/stop.sh         # Stop all services
+./scripts/health_check.sh # Check service health
 ```
 
-**Environment Variables (in .env):**
-```bash
-SOLVER_URL=http://127.0.0.1:8000/v1/chat/completions
-SOLVER_MODEL_ID=qwen3-coder
-TUNNEL_ENABLE=1  # Enable Cloudflare tunnel for remote access
-```
+Access: `http://localhost:9000` (local) or via Cloudflare tunnel (remote).
 
 ---
 
-## Design Principles
+## Documentation Map
 
-1. **Single model simplicity** - One powerful model handles all roles
-2. **Document-based IO** - All state flows through context.md
-3. **Web-first** - Accessible via browser, not just CLI
-4. **Context discipline** - Pass original queries to decision-making LLMs
-5. **Recipe-driven** - Budgets and schemas defined in YAML recipes
-6. **Workflow-centric** - Declarative tool sequences, not ad-hoc decisions
-7. **Abstract prompts** - V2 style with placeholders, not concrete examples
+| Need | Go To |
+|------|-------|
+| Full doc index | `architecture/INDEX.md` |
+| Debugging protocol | `DEBUG.md` |
+| Agent rules | `CLAUDE.md` |
+| Design workflow | `ActualDesignInstructions.md` |
+| Phase specifications | `main-system-patterns/phase*.md` |
+| Concept docs | `concepts/*.md` |
+| Benchmark gaps | `BENCHMARK_ALIGNMENT.md` |
 
 ---
 
-Last Updated: 2026-02-02
+Last Updated: 2026-02-04

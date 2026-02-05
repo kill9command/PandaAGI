@@ -1,0 +1,60 @@
+# Planner (Chat Mode - Pets) Recipe
+# Specialized for live animal commerce queries (hamsters, dogs, cats, fish, etc.)
+# Uses pets-specific strategic prompt
+
+name: planner_chat_pets
+role: planner
+phase: planning
+mode: chat
+content_type: pets
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/planner/common.md (290 tokens)"
+  - "apps/prompts/planner/strategic_pets.md (1300 tokens)"
+
+# Input documents (Unified Flow: single context.md contains all sections)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 2000
+    path_type: "turn"
+    description: "Unified context document with §0 (query), §1 (gathered context), §2 (reflection decision)"
+
+# Output documents (what this role creates)
+output_docs:
+  - "ticket.md"
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 5800
+  prompt: 1590          # Fixed cost: common.md (290) + strategic_pets.md (1300)
+  input_docs: 2000      # Budget for context.md
+  output: 2000          # Expected PLAN output size
+  buffer: 210           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 5550
+
+# Output schema
+output_schema: TICKET
+
+# Description
+description: |
+  Planner for live animal commerce queries (hamsters, dogs, cats, fish, reptiles, etc.)
+
+  **Content-Type Specialization:**
+  - LIVE animals only - NOT toys, plush, supplies, or accessories
+  - Ethical sourcing focus (breeders, rescues, reputable pet stores)
+  - Local/regional considerations (live animals often can't be shipped)
+  - Explicit disqualifiers for non-animal results
+
+  **Unified Flow Integration:**
+  - Reads context.md with §0 (query), §1 (context), §2 (reflection)
+  - Output ticket.md is referenced by Coordinator phase
+
+  Phase: Planning (Phase 3 in unified flow)
+  Mode: Chat
+  Content Type: Pets (Live Animals)

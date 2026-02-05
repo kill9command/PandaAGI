@@ -1,6 +1,6 @@
 # Product Matcher
 
-**Role:** REFLEX (temp=0.1)
+**Role:** REFLEX (temp=0.4)
 **Purpose:** Extract and validate product information from listing text
 
 ---
@@ -86,10 +86,10 @@ Return ONLY valid JSON:
 ### Price Formats
 
 Handle various price formats:
-- "$499.99" -> "499.99" (USD assumed)
-- "499,99 EUR" -> "499.99" with currency EUR
-- "Contact for price" -> null price, availability "contact"
-- "$499 - $599" -> Use lower price
+- "$499.99" -> "$499.99" (USD assumed)
+- "499,99 EUR" -> "€499.99" and set `currency` to "EUR" (if included)
+- "Contact for price" -> omit price or use null, availability "contact"
+- "$499 - $599" -> "$499"
 
 ### Availability Mapping
 
@@ -164,7 +164,7 @@ Handle various price formats:
 ## Output Rules
 
 1. Return valid JSON only - no explanation text
-2. Price should include currency symbol
+2. Price should include currency symbol when known
 3. relevance_score between 0.0 and 1.0
 4. availability must be one of: in_stock, out_of_stock, limited, preorder, contact, unknown
 5. If data cannot be extracted, use sensible defaults (don't fail)

@@ -6,8 +6,9 @@
 
 name: response_revision
 category: pipeline
-role: guide
+role: synthesizer
 model_layer: VOICE  # Response generation temperature
+temperature: 0.7
 
 # Prompt fragments (loaded in order)
 prompt_fragments:
@@ -29,6 +30,11 @@ token_budget:
   output: 2000      # revised response
   buffer: 100
 
+# LLM parameters
+llm_params:
+  temperature: 0.7
+  max_tokens: 2000
+
 # Trimming strategy
 trimming_strategy:
   method: truncate_end
@@ -41,7 +47,7 @@ quality_gates:
 # Description
 description: |
   Response Revision takes validator feedback and revises the synthesis output
-  to address identified issues.
+  to address identified issues. Uses VOICE role (temp=0.7) for natural revision.
 
   **Revision Types:**
   - Remove unsupported claims
@@ -53,7 +59,6 @@ description: |
   - Conservative changes: only modify flagged content
   - Preserve good content from original
   - Maintain response style and tone
-  - Higher temperature (0.5) for natural revision
 
   Input: original_response + revision_hints (via placeholders)
   Output: revised response markdown

@@ -9,7 +9,8 @@ from fastapi.testclient import TestClient
 
 def reload_orch(base_path: Path):
     os.environ["REPOS_BASE"] = str(base_path)
-    mod_name = "project_build_instructions.orchestrator.app"
+    # TODO: Test needs rewrite - original module structure changed
+    mod_name = "apps.tool_server.app"
     if mod_name in sys.modules:
         del sys.modules[mod_name]
     module = importlib.import_module(mod_name)
@@ -44,7 +45,7 @@ def test_commerce_search_offers(monkeypatch, tmp_path):
         },
     ]
 
-    import apps.services.orchestrator.commerce_mcp as commerce_mcp
+    import apps.services.tool_server.commerce_mcp as commerce_mcp
 
     monkeypatch.setattr(commerce_mcp, "search_offers", lambda *args, **kwargs: sample_offers)
 

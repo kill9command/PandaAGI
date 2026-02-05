@@ -1,4 +1,4 @@
-"""vLLM HTTP client for PandaAI v2."""
+"""Pandora vLLM HTTP client."""
 
 import asyncio
 from dataclasses import dataclass
@@ -100,6 +100,9 @@ class LLMClient:
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "top_p": 0.8,
+            "stop": ["<|im_end|>", "<|endoftext|>"],
+            "repetition_penalty": 1.05,
         }
 
         try:
@@ -158,6 +161,9 @@ class LLMClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
             "stream": True,
+            "top_p": 0.8,
+            "stop": ["<|im_end|>", "<|endoftext|>"],
+            "repetition_penalty": 1.05,
         }
 
         try:

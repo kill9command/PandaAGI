@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Pandora Start Script
-# Starts vLLM, Orchestrator, Gateway, and optional Cloudflare tunnel
+# Starts vLLM, Tool Server, Gateway, and optional Cloudflare tunnel
 #
 
 set -e
@@ -18,24 +18,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration (can be overridden by .env)
-CONDA_ENV="${CONDA_ENV:-pandaai}"
-MODEL_PATH="${MODEL_PATH:-$ROOT_DIR/models/qwen3-coder-30b-awq4}"
-VLLM_PORT="${VLLM_PORT:-8000}"
-ORCHESTRATOR_PORT="${ORCHESTRATOR_PORT:-8090}"
-GATEWAY_PORT="${GATEWAY_PORT:-9000}"
-GATEWAY_HOST="${GATEWAY_HOST:-127.0.0.1}"
-
-VLLM_START="${VLLM_START:-1}"
-TUNNEL_ENABLE="${TUNNEL_ENABLE:-0}"
-TUNNEL_NAME="${TUNNEL_NAME:-pandora}"
-TUNNEL_CONFIG="${TUNNEL_CONFIG:-$HOME/.cloudflared/config.yml}"
-TUNNEL_BIN="${TUNNEL_BIN:-cloudflared}"
-
-# Create directories
-mkdir -p "$PID_DIR" "$LOG_DIR"
-
-# Load .env without clobbering existing exports
+# Load .env FIRST (before defaults, so .env values take precedence)
 if [ -f "$ROOT_DIR/.env" ]; then
     while IFS='=' read -r key val; do
         [[ -z "$key" || "$key" =~ ^\s*# ]] && continue || true
@@ -50,8 +33,25 @@ if [ -f "$ROOT_DIR/.env" ]; then
     done < <(grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$ROOT_DIR/.env")
 fi
 
+# Configuration (defaults applied AFTER .env is loaded)
+CONDA_ENV="${CONDA_ENV:-pandaai}"
+MODEL_PATH="${MODEL_PATH:-$ROOT_DIR/models/qwen3-coder-30b-awq4}"
+VLLM_PORT="${VLLM_PORT:-8000}"
+TOOL_SERVER_PORT="${TOOL_SERVER_PORT:-8090}"
+GATEWAY_PORT="${GATEWAY_PORT:-9000}"
+GATEWAY_HOST="${GATEWAY_HOST:-127.0.0.1}"
+
+VLLM_START="${VLLM_START:-1}"
+TUNNEL_ENABLE="${TUNNEL_ENABLE:-0}"
+TUNNEL_NAME="${TUNNEL_NAME:-pandora}"
+TUNNEL_CONFIG="${TUNNEL_CONFIG:-$HOME/.cloudflared/config.yml}"
+TUNNEL_BIN="${TUNNEL_BIN:-cloudflared}"
+
+# Create directories
+mkdir -p "$PID_DIR" "$LOG_DIR"
+
 # Export defaults for services
-export ORCH_URL="${ORCH_URL:-http://127.0.0.1:8090}"
+export TOOL_SERVER_URL="${TOOL_SERVER_URL:-http://127.0.0.1:8090}"
 export SOLVER_URL="${SOLVER_URL:-http://127.0.0.1:8000/v1/chat/completions}"
 export THINK_URL="${THINK_URL:-http://127.0.0.1:8000/v1/chat/completions}"
 export SOLVER_MODEL_ID="${SOLVER_MODEL_ID:-qwen3-coder}"
@@ -87,9 +87,12 @@ check_model() {
 wait_http_ok() {
     local url="$1"
     local timeout="${2:-30}"
+    local auth_header="${3:-}"
     local start=$SECONDS
+    local curl_cmd="curl -fsS"
+    [ -n "$auth_header" ] && curl_cmd="$curl_cmd -H \"Authorization: Bearer $auth_header\""
     while true; do
-        if curl -fsS "$url" >/dev/null 2>&1; then
+        if eval $curl_cmd "\"$url\"" >/dev/null 2>&1; then
             return 0
         fi
         if (( SECONDS - start > timeout )); then
@@ -110,7 +113,7 @@ check_port() {
 
 # ========== vLLM ==========
 check_vllm_running() {
-    curl -fsS "http://127.0.0.1:$VLLM_PORT/v1/models" >/dev/null 2>&1
+    curl -fsS -H "Authorization: Bearer $SOLVER_API_KEY" "http://127.0.0.1:$VLLM_PORT/v1/models" >/dev/null 2>&1
 }
 
 start_vllm() {
@@ -153,7 +156,7 @@ start_vllm() {
     fi
 
     echo -e "${YELLOW}Waiting for vLLM (may take 1-3 minutes for 30B model)...${NC}"
-    if wait_http_ok "http://127.0.0.1:$VLLM_PORT/v1/models" 180; then
+    if wait_http_ok "http://127.0.0.1:$VLLM_PORT/v1/models" 180 "$SOLVER_API_KEY"; then
         echo -e "\n${GREEN}vLLM started successfully${NC}"
         return 0
     else
@@ -203,16 +206,16 @@ start_novnc() {
     fi
 }
 
-# ========== Orchestrator ==========
-check_orchestrator_running() {
-    curl -fsS "http://127.0.0.1:$ORCHESTRATOR_PORT/health" >/dev/null 2>&1
+# ========== Tool Server ==========
+check_tool_server_running() {
+    curl -fsS "http://127.0.0.1:$TOOL_SERVER_PORT/health" >/dev/null 2>&1
 }
 
-start_orchestrator() {
-    echo -e "${YELLOW}Starting Orchestrator...${NC}"
+start_tool_server() {
+    echo -e "${YELLOW}Starting Tool Server...${NC}"
 
-    if [ -f "$PID_DIR/orchestrator.pid" ] && kill -0 "$(cat "$PID_DIR/orchestrator.pid")" 2>/dev/null; then
-        echo -e "${GREEN}Orchestrator already running (pid $(cat "$PID_DIR/orchestrator.pid"))${NC}"
+    if [ -f "$PID_DIR/tool_server.pid" ] && kill -0 "$(cat "$PID_DIR/tool_server.pid")" 2>/dev/null; then
+        echo -e "${GREEN}Tool Server already running (pid $(cat "$PID_DIR/tool_server.pid"))${NC}"
         return 0
     fi
 
@@ -220,12 +223,12 @@ start_orchestrator() {
         SOLVER_URL="$SOLVER_URL" \
         SOLVER_MODEL_ID="$SOLVER_MODEL_ID" \
         SOLVER_API_KEY="$SOLVER_API_KEY" \
-        uvicorn apps.orchestrator.app:app \
-        --host 127.0.0.1 --port $ORCHESTRATOR_PORT \
-        > "$LOG_DIR/orchestrator.log" 2>&1 &
+        uvicorn apps.tool_server.app:app \
+        --host 127.0.0.1 --port $TOOL_SERVER_PORT \
+        > "$LOG_DIR/tool_server.log" 2>&1 &
 
-    echo $! > "$PID_DIR/orchestrator.pid"
-    echo -e "${GREEN}Orchestrator started on port $ORCHESTRATOR_PORT${NC}"
+    echo $! > "$PID_DIR/tool_server.pid"
+    echo -e "${GREEN}Tool Server started on port $TOOL_SERVER_PORT${NC}"
 }
 
 # ========== Gateway ==========
@@ -244,7 +247,7 @@ start_gateway() {
 
     nohup env \
         DISPLAY=:99 \
-        ORCH_URL="$ORCH_URL" \
+        TOOL_SERVER_URL="$TOOL_SERVER_URL" \
         SOLVER_URL="$SOLVER_URL" \
         THINK_URL="$THINK_URL" \
         SOLVER_MODEL_ID="$SOLVER_MODEL_ID" \
@@ -329,11 +332,11 @@ show_status() {
         echo -e "vLLM:         ${YELLOW}Not running${NC}"
     fi
 
-    # Orchestrator
-    if check_port $ORCHESTRATOR_PORT; then
-        echo -e "Orchestrator: ${GREEN}Running on port $ORCHESTRATOR_PORT${NC}"
+    # Tool Server
+    if check_port $TOOL_SERVER_PORT; then
+        echo -e "Tool Server:  ${GREEN}Running on port $TOOL_SERVER_PORT${NC}"
     else
-        echo -e "Orchestrator: ${YELLOW}Not running${NC}"
+        echo -e "Tool Server:  ${YELLOW}Not running${NC}"
     fi
 
     # Gateway
@@ -371,7 +374,7 @@ show_help() {
     echo "  logs        Tail all logs"
     echo "  logs-vllm   Tail vLLM logs"
     echo "  logs-gw     Tail Gateway logs"
-    echo "  logs-orch   Tail Orchestrator logs"
+    echo "  logs-ts     Tail Tool Server logs"
     echo "  help        Show this help"
     echo ""
 }
@@ -393,14 +396,14 @@ case "${1:-start}" in
         echo ""
         build_ui
         echo ""
-        start_orchestrator
+        start_tool_server
         start_gateway
         echo ""
         start_tunnel
         echo ""
         echo -e "${GREEN}Pandora is running!${NC}"
         echo "  vLLM:         http://127.0.0.1:$VLLM_PORT"
-        echo "  Orchestrator: http://127.0.0.1:$ORCHESTRATOR_PORT"
+        echo "  Tool Server:  http://127.0.0.1:$TOOL_SERVER_PORT"
         echo "  Gateway:      http://$GATEWAY_HOST:$GATEWAY_PORT"
         echo "  noVNC:        http://localhost:6080/vnc_lite.html"
         echo ""
@@ -426,8 +429,8 @@ case "${1:-start}" in
     logs-gw)
         tail -f "$LOG_DIR/gateway.log"
         ;;
-    logs-orch)
-        tail -f "$LOG_DIR/orchestrator.log"
+    logs-ts)
+        tail -f "$LOG_DIR/tool_server.log"
         ;;
     help|--help|-h)
         show_help

@@ -1,0 +1,74 @@
+# Planner (Code Mode) Recipe
+# Creates Task Tickets for code operations
+# Updated for Unified Flow: uses single context.md with sections
+
+name: planner_code
+role: planner
+phase: planning
+mode: code
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/planner/common.md (325 tokens)"
+  - "apps/prompts/planner/code_strategic.md (1062 tokens)"
+
+# Input documents (Unified Flow: single context.md contains all sections)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 2000
+    path_type: "turn"
+    description: "Unified context document with §0 (query), §1 (gathered context + repo state), §2 (reflection decision)"
+
+# Output documents (what this role creates)
+output_docs:
+  - "ticket.md"
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 5500
+  prompt: 1400          # Fixed cost: common.md (325) + code_strategic.md (1062)
+  input_docs: 2000      # Budget for context.md (includes query, context, reflection)
+  output: 2000          # Expected TICKET output size
+  buffer: 100           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 5500
+
+# Output schema
+output_schema: TICKET  # Reference to schema in io_contracts.md
+
+# Description
+description: |
+  Planner (Code Mode) creates Task Tickets for code operations.
+
+  **Unified Flow Integration:**
+  - Reads context.md which contains:
+    - §0: User Query (the question)
+    - §1: Gathered Context (repo state, branch, modified files)
+    - §2: Reflection Decision (PROCEED/GATHER_MORE/CLARIFY)
+  - Output ticket.md is referenced by Coordinator phase
+
+  Code-Specific Responsibilities:
+  - Analyze repository context (from §1)
+  - Plan file operations (create, edit, delete)
+  - Plan git operations (commit, branch, push)
+  - Plan test execution
+  - Identify approval requirements
+
+  Safety Considerations:
+  - Destructive operations require approval
+  - Force push to main/master blocked by default
+  - Large file deletions flagged
+
+  Output: TICKET JSON with:
+    - goal: What the user wants to accomplish
+    - subtasks: Ordered list of operations
+    - constraints: Safety limits, approval requirements
+    - target_role: "coordinator"
+    - mode: "code"
+
+  Phase: Planning (Phase 3 in unified flow)
+  Mode: Code (file operations, git, bash)

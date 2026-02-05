@@ -12,16 +12,16 @@ prompt_fragments:
 
 input_docs:
   - path: "context.md"
-    sections: ["0", "1"]
+    sections: ["0"]
     path_type: "turn"
     optional: false
     max_tokens: 1200
-    description: "Section 0 (user query) and Section 1 (gathered context)"
+    description: "Section 0 (user query) — reflection runs before context gathering"
 
 output_doc:
   path: "context.md"
-  section: "2"
-  description: "Writes section 2 with PROCEED/CLARIFY decision"
+  section: "1"
+  description: "Writes section 1 with PROCEED/CLARIFY decision"
 
 token_budget:
   total: 2500

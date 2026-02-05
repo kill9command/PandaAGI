@@ -1,0 +1,62 @@
+# Phase 2 Results Search Recipe
+# Finds specific results from targeted sources
+# Part of the Research Role Integration architecture
+
+name: phase2_results
+role: phase2_results_search
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/phase2_results/core.md"
+  - "apps/prompts/phase2_results/query_generation.md"
+  - "apps/prompts/phase2_results/extraction.md"
+  - "apps/prompts/phase2_results/viability.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 800
+    path_type: "turn"
+    description: "User query + preferences"
+  - path: "research_plan.md"
+    optional: false
+    max_tokens: 400
+    path_type: "turn"
+    description: "Research plan with Phase 2 strategy"
+  - path: "phase1_intelligence.md"
+    optional: true
+    max_tokens: 800
+    path_type: "turn"
+    description: "Phase 1 findings (if Phase 1 ran)"
+
+# Output documents
+output_docs:
+  - "phase2_results.md"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 1500
+  input_docs: 2000
+  output: 1200
+  buffer: 300
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 4700
+
+# Output schema
+output_schema: RESULTS_DOC
+
+# Description
+description: |
+  Phase 2 Results Search finds specific items from targeted sources:
+  - For products: finds items with prices, availability, links
+  - For information: finds authoritative sources, detailed guides
+  - Uses Phase 1 intelligence to inform search (when available)
+
+  Input: context.md + research_plan.md + optional phase1_intelligence.md
+  Output: phase2_results.md with full findings

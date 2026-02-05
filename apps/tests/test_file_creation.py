@@ -19,11 +19,11 @@ def test_file_creation():
     payload = {
         "model": "qwen3-coder",
         "mode": "continue",  # Code mode
-        "repo": ".",
+        "repo": "/path/to/project",
         "messages": [
             {
                 "role": "user",
-                "content": "Create a simple test file called test_example.py with a hello world function in the repo ."
+                "content": "Create a simple test file called test_example.py with a hello world function in the repo /path/to/project"
             }
         ]
     }

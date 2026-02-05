@@ -4,35 +4,34 @@
 
 name: phase2_reflection
 category: pipeline
-phase: 2
+phase: 1
 role: REFLEX
-temperature: 0.3
+temperature: 0.4
 
 prompt_fragments:
   - "apps/prompts/pipeline/phase2_reflection.md"
 
 input_docs:
   - path: "context.md"
-    sections: ["0", "1"]
+    sections: ["0"]
     path_type: "turn"
     optional: false
     max_tokens: 1200
-    description: "Section 0 (query analysis) and Section 1 (gathered context)"
+    description: "Section 0 (query analysis) — reflection runs before context gathering"
 
 output_doc:
   path: "context.md"
-  section: "2"
-  description: "Writes section 2 with PROCEED/CLARIFY decision"
+  section: "1"
+  description: "Writes section 1 with PROCEED/CLARIFY decision"
 
 token_budget:
-  total: 3500
-  prompt: 1500
-  input_docs: 1500
-  output: 300
-  buffer: 200
+  total: 2200
+  prompt: 600
+  input_docs: 1200
+  output: 400
 
 llm_params:
-  temperature: 0.3
+  temperature: 0.4
   max_tokens: 400
 
 output_schema: REFLECTION_DECISION
@@ -40,7 +39,7 @@ output_schema: REFLECTION_DECISION
 description: |
   Phase 2: Reflection (Binary Gate)
 
-  Uses REFLEX role (temp=0.3) for fast, deterministic classification.
+  Uses REFLEX role (temp=0.4) for fast, deterministic classification.
   This is the PROCEED/CLARIFY gate before proceeding to Planner.
 
   **Core Question:** "Can we answer this query?"

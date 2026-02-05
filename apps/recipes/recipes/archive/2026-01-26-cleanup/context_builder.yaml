@@ -1,0 +1,87 @@
+# Context Builder Recipe (Memory Read Layer)
+# Assembles relevant memories into focused context.md
+
+name: context_builder
+role: context_builder
+mode: null  # Unified for both chat and code
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/context_builder/core.md (500 tokens)"
+
+# Input documents
+input_docs:
+  - path: "user_query.md"
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+    description: "What is the user asking? (guides memory selection)"
+
+  - path: "prior_turn_summary.json"
+    optional: true
+    max_tokens: 300
+    path_type: "turn"
+    description: "Previous turn context for conversation continuity"
+
+  - path: "memory_index.json"
+    optional: false
+    max_tokens: 200
+    path_type: "session"
+    description: "List of available memory documents"
+
+  # Memory documents are loaded dynamically based on query relevance
+  # These are read from panda_system_docs/memory/
+
+# Output documents (what this role creates)
+output_docs:
+  - "context.md"  # Assembled, summarized context for downstream roles
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 4000
+  prompt: 500           # Fixed cost: context_builder/core.md
+  input_docs: 1800      # Budget for query + prior_turn + memory_index + memories
+  output: 1500          # Expected context.md output
+  buffer: 200           # Safety margin (~5%)
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 3900
+
+# Output schema
+output_schema: CONTEXT  # Markdown document
+
+# Description
+description: |
+  Context Builder (Memory Read Layer) assembles relevant context.
+
+  This role runs FIRST in every turn, before Reflection.
+  It reads from persistent memory storage and creates context.md
+  that all downstream roles consume.
+
+  Input Sources:
+  - user_query.md: What the user is asking (guides memory selection)
+  - prior_turn_summary.json: Previous turn (if follow-up query)
+  - Memory storage (panda_system_docs/memory/):
+    - user_preferences.md: Budget, brand preferences, locations
+    - user_facts.md: Personal info user has shared
+    - system_learnings.md: System knowledge (retailer info, etc.)
+    - domain_knowledge.md: Reusable facts from research
+    - lessons/: Specific patterns that worked/failed
+
+  Memory Selection Strategy:
+  1. ALWAYS include: prior_turn_summary.json (if exists)
+  2. Query-relevant: user preferences related to query domain
+  3. User facts: if query references "my" or personal context
+  4. System learnings: if relevant to query type
+  5. EXCLUDE: unrelated domains, stale information
+
+  Why LLM-Driven (not mechanical retrieval):
+  - Understands "user asking about drones" -> retrieve "user prefers DJI"
+  - Can compress multiple memories into coherent summary
+  - Decides what's NOT relevant (cooking prefs not needed for drone query)
+
+  Output: context.md consumed by Reflection, Planner, Coordinator
+
+  Phase: Context Building (Phase 2 in canonical flow)

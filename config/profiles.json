@@ -7,49 +7,38 @@
     },
     "memory_user": "default",
     "conversation_id": "default",
-    "allowed_tools": []
-  },
-  "user1": {
-    "id": "user1",
-    "prompts": {
-      "chat": "solver_system_chat.md",
-      "continue": "solver_system_code.md"
-    },
-    "memory_user": "user1",
-    "conversation_id": "user1",
-    "shared_user": "family",
     "allowed_tools": ["code.apply_patch", "git.commit", "tasks.run"]
   },
-  "spouse": {
-    "id": "spouse",
+  "user2": {
+    "id": "user2",
     "prompts": {
       "chat": "solver_system_chat.md",
       "continue": "solver_system_code.md"
     },
-    "memory_user": "spouse",
-    "conversation_id": "spouse",
-    "shared_user": "family",
+    "memory_user": "user2",
+    "conversation_id": "user2",
+    "shared_user": "shared",
     "allowed_tools": ["code.apply_patch"]
   },
-  "child": {
-    "id": "child",
+  "user3": {
+    "id": "user3",
     "prompts": {
       "chat": "solver_system_chat.md",
       "continue": "solver_system_code.md"
     },
-    "memory_user": "child",
-    "conversation_id": "child",
-    "shared_user": "family",
+    "memory_user": "user3",
+    "conversation_id": "user3",
+    "shared_user": "shared",
     "allowed_tools": []
   },
-  "family": {
-    "id": "family",
+  "shared": {
+    "id": "shared",
     "prompts": {
       "chat": "solver_system_chat.md",
       "continue": "solver_system_code.md"
     },
-    "memory_user": "family",
-    "conversation_id": "family",
+    "memory_user": "shared",
+    "conversation_id": "shared",
     "allowed_tools": ["code.apply_patch", "git.commit", "tasks.run"]
   }
 }

@@ -1,0 +1,191 @@
+# Phase I/O Contracts - Machine-readable spec for phases 0-8
+#
+# Each phase lists required inputs, outputs, and schemas.
+# Used by contract tests to verify pipeline correctness.
+
+version: "1.0"
+description: "Per-phase I/O contracts for Pandora pipeline"
+
+schemas:
+  constraints:
+    file: constraints.json
+    required_fields:
+      - constraints  # array of constraint objects
+    constraint_fields:
+      - id
+      - type
+    optional_fields:
+      - query
+      - extraction_source
+
+  plan_state:
+    file: plan_state.json
+    required_fields:
+      - goals       # array of goal objects
+      - constraints # array of constraint refs
+      - violations  # array of violation objects
+      - last_updated_phase
+    goal_fields:
+      - id
+      - description
+      - status
+
+  tool_results:
+    file: toolresults.md
+    format: markdown
+    required_sections:
+      - "Tool Results"
+
+  response:
+    file: response.md
+    format: markdown
+    min_length: 10
+
+  metrics:
+    file: metrics.json
+    required_fields:
+      - turn_number
+      - timestamp
+      - phases_completed
+    optional_fields:
+      - total_duration_ms
+      - token_usage
+      - quality_score
+
+  artifact_manifest:
+    file: artifact_manifest.json
+    required_fields:
+      - turn_id
+      - artifacts
+      - total_artifacts
+      - created_at
+
+phases:
+  phase_0:
+    name: "Query Analyzer"
+    description: "Parse user query into structured analysis"
+    inputs:
+      - user_query  # raw text from user
+    outputs:
+      context_doc:
+        section: "§0 User Query"
+        required_fields:
+          - intent        # classified intent
+          - complexity     # simple/moderate/complex
+          - mode          # chat/code/research
+        optional_fields:
+          - entities
+          - keywords
+          - domain
+
+  phase_1:
+    name: "Reflection"
+    description: "Decide whether to reflect on previous turns"
+    inputs:
+      - context_doc   # with §0 populated
+    outputs:
+      context_doc:
+        section: "§2 Reflection Decision"
+        required_fields:
+          - decision    # reflect/skip
+          - reason
+        optional_fields:
+          - relevant_turns
+
+  phase_2:
+    name: "Context Gathering"
+    description: "Gather context from memory, research, and constraints"
+    inputs:
+      - context_doc    # with §0, §2
+    outputs:
+      context_doc:
+        section: "§1 Gathered Context"
+        required_fields:
+          - sources
+      files:
+        - constraints.json   # always written
+
+  phase_3:
+    name: "Planner"
+    description: "Generate strategic plan with goals"
+    inputs:
+      - context_doc     # with §0, §1, §2
+      - constraints.json
+    outputs:
+      context_doc:
+        section: "§3 Task Plan"
+        required_fields:
+          - strategy
+          - goals
+      files:
+        - ticket.md        # task ticket
+        - plan_state.json  # initialized with goals + constraints
+
+  phase_4:
+    name: "Coordinator"
+    description: "Coordinate tool execution"
+    inputs:
+      - context_doc       # with §0-§3
+      - plan_state.json
+    outputs:
+      context_doc:
+        section: "§4 Tool Execution"
+      files:
+        - toolresults.md   # when tools are executed
+
+  phase_5:
+    name: "Executor"
+    description: "Execute tool calls with constraint enforcement"
+    inputs:
+      - tool_plan         # from coordinator
+      - constraints.json
+      - plan_state.json
+    outputs:
+      files:
+        - toolresults.md   # tool execution results
+      side_effects:
+        - constraint_violation_recording
+        - plan_state_updates
+
+  phase_6:
+    name: "Synthesis"
+    description: "Synthesize response from all gathered context and results"
+    inputs:
+      - context_doc       # with §0-§4
+      - toolresults.md    # if tools were executed
+    outputs:
+      context_doc:
+        section: "§6 Synthesis"
+      files:
+        - response.md      # user-facing response
+        - artifact_manifest.json  # if artifacts generated
+
+  phase_7:
+    name: "Validation"
+    description: "Validate response quality and constraint adherence"
+    inputs:
+      - context_doc       # with §0-§6
+      - response.md
+      - plan_state.json
+    outputs:
+      context_doc:
+        section: "§7 Validation"
+        required_fields:
+          - decision       # APPROVE/REVISE/REJECT
+          - checks
+      side_effects:
+        - plan_state_violation_recording
+
+  phase_8:
+    name: "Save"
+    description: "Persist turn data and update indexes"
+    inputs:
+      - context_doc       # complete
+      - response.md
+    outputs:
+      files:
+        - metadata.json    # turn metadata
+        - metrics.json     # performance metrics
+      side_effects:
+        - turn_index_update
+        - memory_persistence

@@ -1,0 +1,80 @@
+# Freshness Analyzer Recipe
+# Background analysis to detect when new research contradicts prior data
+# Runs AFTER response is sent to user (Phase 7 background task)
+
+name: freshness_analyzer
+role: freshness_analyzer
+mode: null  # Works for all modes
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/freshness_analyzer/core.md (800 tokens)"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 2500
+    path_type: "turn"
+    description: "Unified context with §0 (query), §2 (prior context), §4 (new findings), §5 (response)"
+  - path: "prior_findings.md"
+    optional: true
+    max_tokens: 1000
+    path_type: "turn"
+    description: "Extracted claims from prior turns that might be outdated"
+
+# Output schema
+output_schema: FRESHNESS_ANALYSIS
+
+# Token budget (smaller since this is background work)
+token_budget:
+  total: 4500
+  prompt: 800
+  input_docs: 3500
+  output: 400
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 4000
+
+# Description
+description: |
+  Freshness Analyzer detects when new research invalidates prior information.
+
+  **When it runs:**
+  - AFTER the response is sent to the user (Phase 7 background task)
+  - Only for commerce/research queries (not greetings/preferences)
+  - Only when new research was conducted (internet.research was called)
+
+  **What it detects:**
+  - availability_change: Product no longer available
+  - price_change: Price differs by >15%
+  - product_removed: Product from prior turn not found
+  - spec_correction: Specs/details changed
+  - retailer_change: Product no longer at stated retailer
+
+  **What it outputs:**
+  {
+    "_type": "FRESHNESS_ANALYSIS",
+    "contradictions_found": true,
+    "contradictions": [
+      {
+        "prior_claim": "MSI GF63 @ $699 at Newegg",
+        "prior_turn": 112,
+        "new_finding": "MSI GF63 not found in Newegg search",
+        "contradiction_type": "availability_change",
+        "confidence": 0.9,
+        "reasoning": "Direct search found no matching products"
+      }
+    ]
+  }
+
+  **What happens next:**
+  - TurnIndexDB.degrade_quality() reduces prior turn quality_score
+  - ResearchIndexDB marks old research as superseded
+  - Future retrievals will prefer fresh data over stale data
+
+  Phase: Save (Phase 7 background task)
+  Mode: Unified

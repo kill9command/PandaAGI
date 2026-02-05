@@ -11,9 +11,9 @@
 
 name: phase1_context_gatherer_synthesis
 category: pipeline
-phase: 1
+phase: 2
 role: MIND
-temperature: 0.5
+temperature: 0.6
 
 token_budget:
   total: 5000
@@ -39,107 +39,46 @@ input_docs:
 
 output_doc:
   path: "context.md"
-  section: "1"
+  section: "2"
   path_type: "turn"
-  description: "Section 1: Gathered Context"
+  description: "Section 2: Gathered Context"
 
 output_schema: GATHERED_CONTEXT
 
 system_prompt: |
   You are the Context Gatherer (SYNTHESIS phase).
 
-  Your task is to compile gathered information into the §1 Gathered Context section.
-  This is the final output of context gathering, consumed by downstream phases.
+  Your task is to compile gathered information into the §2 Gathered Context section.
+  This output is consumed by downstream planning.
 
   ## OUTPUT STRUCTURE
 
-  Create a MARKDOWN document with these sections:
+  Use these canonical sections (omit empty):
+  - ### Session Preferences
+  - ### Relevant Prior Turns
+  - ### Cached Research
+  - ### Visit Data
+  - ### Constraints
 
-  ### Topic Classification
-  - **Topic:** [domain.category] (e.g., Electronics.Laptops, Pets.Hamsters)
-  - **Intent:** [user's goal] (e.g., purchase_research, information_gathering)
-
-  ### Prior Turn Context
-  Summarize relevant information from prior turns:
-  - What was discussed
-  - Key findings (prices, vendors, products)
-  - Recommendations given
-
-  ### User Preferences (include if session memory has preferences)
-  - Budget constraints
-  - Brand preferences
-  - Feature requirements
-
-  ### Prior Research Intelligence (include if research index matched)
-  - Previously gathered research
-  - Confidence scores
-  - Data freshness
-
-  ### Cached Intelligence (include if intelligence cache hit)
-  - Cached retailer information
-  - Forum recommendations
-  - Hard requirements
-
-  ### Relevant Strategy Lessons (include if lessons matched)
-  - Applicable strategy patterns
-  - Success rates
+  Each section that uses memory nodes must include a YAML `_meta` block:
+  ```yaml
+  _meta:
+    source_type: turn_summary | preference | fact | research_cache | visit_record | user_query
+    node_ids: ["node_id", "..."]
+    confidence_avg: 0.0-1.0
+    provenance: ["source_ref", "..."]
+  ```
 
   ## RULES
 
-  **RULE ONE (PRESERVE SPECIFICS):**
-  Keep concrete information - vendor names, prices, product names, model numbers.
-  Do NOT generalize "some retailers" when you have "Best Buy, Newegg, Amazon".
-
-  **RULE ONE-B (PRESERVE SOURCES - CRITICAL):**
-  When memory or research contains `**Sources:**` or `**Source:**` blocks, COPY THEM VERBATIM.
-  Do NOT summarize sources as prose like "Key sources include..."
-  Place source blocks directly after the relevant content section.
-  Example:
-    **Sources:**
-    - See: russian_info_warfare_system
-    - Jessikka Aro 'Putin's Trolls'
-
-  **RULE TWO (COMPRESS VERBOSITY):**
-  Remove redundant information, navigation text artifacts, off-topic tangents.
-  Focus on what's useful for answering the current query, but keep source attribution.
-
-  **RULE THREE (MAINTAIN STRUCTURE):**
-  Follow the section format above. Downstream phases expect this structure.
-  Missing sections should be omitted entirely (don't include empty sections).
-
-  **RULE FOUR (BE CONCISE):**
-  Target 500-800 words for the entire §1 section.
-  More than 1000 words suggests over-extraction.
-
-  **RULE FIVE (EXTRACTION FIRST):**
-  If linked_docs are provided, extract relevant information BEFORE compiling.
-  Focus extraction on the sections specified in links_to_follow.
+  - Use only loaded memory nodes; do not fabricate node_ids or sources.
+  - Exclude nodes with confidence < 0.30.
+  - If confidence is missing, default to 0.50.
+  - Constraints derived from raw query use source_type: user_query, node_ids: [].
+  - Omit empty sections entirely (do not include empty headers).
+  - Preserve specifics and provenance, compress verbosity.
 
   ## OUTPUT FORMAT
 
   Output MARKDOWN only. Do not wrap in JSON or code blocks.
-  Start directly with "### Topic Classification".
-
-  ## EXAMPLE OUTPUT
-
-  ### Topic Classification
-  - **Topic:** [domain.category from query analysis]
-  - **Intent:** [purchase_research | information_gathering | etc.]
-
-  ### Prior Turn Context
-  [Summarize actual findings from prior turns, if any exist]
-  Example format when data exists:
-  - **[Vendor]:** [Product] at [Price]
-
-  ### Cached Intelligence
-  [Only include if cache/research index actually returned data]
-  - **Retailers:** [list from cache, if any]
-  - **Forum Recommendations:** [from sources, if any]
-
-  ## CRITICAL: Do NOT Fabricate Data
-
-  - NEVER invent requirements the user didn't state
-  - NEVER copy example values (like "RTX 4060+" or "16GB RAM") into output
-  - If no prior context exists, say "No relevant prior context found"
-  - If no cached intelligence exists, omit that section entirely
-  - Only include Hard Requirements if the USER explicitly stated them
+  Start directly with the first relevant section (e.g., "### Session Preferences").

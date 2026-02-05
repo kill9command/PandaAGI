@@ -93,7 +93,7 @@ def setup_logging(
 
         # In Orchestrator startup:
         from libs.core.logging_config import setup_logging
-        setup_logging(service_name="orchestrator")
+        setup_logging(service_name="tool_server")
     """
     global _logging_configured, _file_handler
 

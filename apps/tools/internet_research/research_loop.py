@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from libs.gateway.turn_manager import TurnDirectory
+    from libs.gateway.persistence.turn_manager import TurnDirectory
 
 from .state import (
     ResearchState,
@@ -271,8 +271,8 @@ class ResearchLoop:
                 state.write_to_turn(self.turn_dir)
 
                 # Load recipe and build prompt
-                from libs.gateway.recipe_loader import load_recipe
-                from libs.gateway.doc_pack_builder import DocPackBuilder
+                from libs.gateway.llm.recipe_loader import load_recipe
+                from libs.gateway.context.doc_pack_builder import DocPackBuilder
 
                 recipe = load_recipe("research/research_planner")
                 builder = DocPackBuilder(use_smart_compression=True)
@@ -307,6 +307,9 @@ class ResearchLoop:
                         "messages": messages,
                         "temperature": 0.5,  # MIND temperature for reasoning/planning
                         "max_tokens": 500,
+                        "top_p": 0.8,
+                        "stop": ["<|im_end|>", "<|endoftext|>"],
+                        "repetition_penalty": 1.05,
                     },
                     headers={"Authorization": f"Bearer {self.llm_api_key}"},
                 )
@@ -493,6 +496,9 @@ JSON:"""
                         ],
                         "temperature": 0.3,  # REFLEX temperature
                         "max_tokens": 1000,
+                        "top_p": 0.8,
+                        "stop": ["<|im_end|>", "<|endoftext|>"],
+                        "repetition_penalty": 1.05,
                     },
                     headers={"Authorization": f"Bearer {self.llm_api_key}"},
                 )
@@ -585,6 +591,9 @@ Output as JSON:"""
                         ],
                         "temperature": 0.5,  # MIND temperature
                         "max_tokens": 1500,
+                        "top_p": 0.8,
+                        "stop": ["<|im_end|>", "<|endoftext|>"],
+                        "repetition_penalty": 1.05,
                     },
                     headers={"Authorization": f"Bearer {self.llm_api_key}"},
                 )
@@ -724,7 +733,7 @@ async def execute_research(
     turn_dir = None
     if turn_dir_path:
         try:
-            from libs.gateway.turn_manager import TurnDirectory
+            from libs.gateway.persistence.turn_manager import TurnDirectory
             turn_dir = TurnDirectory(Path(turn_dir_path))
         except Exception as e:
             logger.warning(f"[execute_research] Could not load turn_dir: {e}")

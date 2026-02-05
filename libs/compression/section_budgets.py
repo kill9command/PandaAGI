@@ -4,29 +4,39 @@ Defines the maximum word counts for each section of context.md.
 When a section exceeds its budget, NERVES auto-compression is triggered.
 
 Reference: architecture/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md Section 3
+
+Architecture context.md sections (8-phase pipeline):
+  §0: Original Query (Phase 1 input)
+  §1: Query Analysis (Phase 1 output)
+  §2: Gathered Context (Phase 2 output)
+  §3: Plan/Goals (Phase 3 output)
+  §4: Tool Results (Phase 4/5 output - accumulates)
+  §5: Response (Phase 6 output)
+  §6: Validation (Phase 7 output)
+  Note: Phase 8 (Save) is procedural, doesn't add to context.md
 """
 
 from typing import Optional
 import re
 
 
-# Section budgets from architecture spec
-# | Section | Max Words | Typical Content |
-# | §0 | 500 | User query (rarely exceeds) |
-# | §1 | 300 | Reflection decision |
+# Section budgets for context.md
+# | Section | Max Words | Content |
+# | §0 | 500 | Original query (rarely exceeds) |
+# | §1 | 300 | Query analysis |
 # | §2 | 2000 | Gathered context |
-# | §3 | 1000 | Task plan |
-# | §4 | 3000 | Tool execution (accumulates) |
-# | §5 | 2000 | Synthesis response |
+# | §3 | 1000 | Plan/goals |
+# | §4 | 3000 | Tool results (accumulates) |
+# | §5 | 2000 | Response |
 # | §6 | 500 | Validation decision |
 
 SECTION_BUDGETS: dict[int, int] = {
-    0: 500,   # User query - rarely exceeds
-    1: 300,   # Reflection decision
+    0: 500,   # Original query - rarely exceeds
+    1: 300,   # Query analysis
     2: 2000,  # Gathered context
-    3: 1000,  # Task plan
-    4: 3000,  # Tool execution - most likely to trigger compression
-    5: 2000,  # Synthesis response
+    3: 1000,  # Plan/goals
+    4: 3000,  # Tool results - most likely to trigger compression
+    5: 2000,  # Response
     6: 500,   # Validation decision
 }
 

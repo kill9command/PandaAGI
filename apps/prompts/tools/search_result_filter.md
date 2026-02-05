@@ -1,6 +1,6 @@
 # Search Result Filter
 
-**Role:** REFLEX (temp=0.1)
+**Role:** REFLEX (temp=0.4)
 **Purpose:** Filter search results to keep only items matching the user's goal
 
 ---

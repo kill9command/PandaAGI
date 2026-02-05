@@ -3,7 +3,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from apps.services.orchestrator import context_ranker
+from apps.services.tool_server import context_ranker
 
 
 @dataclass

@@ -1,0 +1,70 @@
+# Synthesizer (Code Mode) Recipe
+# Code-aware response generation with technical context
+# Updated for Unified Flow: uses single context.md with sections §0-§4
+
+name: synthesizer_code
+role: synthesizer
+phase: synthesis
+mode: code
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/synthesizer/common.md (290 tokens)"
+  - "apps/prompts/synthesizer/code_synthesis.md (840 tokens)"
+
+# Input documents (Unified Flow: single context.md contains all sections)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 3500
+    path_type: "turn"
+    description: "Unified context document with §0 (query), §1 (gathered context + repo state), §2 (reflection), §3 (plan), §4 (tool results)"
+
+# Output documents (what this role creates)
+output_docs:
+  - "response.md"        # Draft response (appended to context.md as §5)
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 8000
+  prompt: 1130          # Fixed cost: common.md (290) + code_synthesis.md (840)
+  input_docs: 3500      # Budget for context.md (includes all sections)
+  output: 3100          # Expected answer size
+  buffer: 270           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 7500
+
+# Output schema
+output_schema: ANSWER  # Code-aware response
+
+# Description
+description: |
+  Synthesizer creates code-aware responses (code mode).
+
+  **Unified Flow Integration:**
+  - Reads context.md which contains:
+    - §0: User Query (the question)
+    - §1: Gathered Context (repo state, branch, modified files)
+    - §2: Reflection Decision
+    - §3: Task Plan
+    - §4: Tool Results (file ops, git status, test results)
+  - Output is appended to context.md as §5 by unified flow
+
+  Responsibilities:
+  - Synthesize code operation results into clear explanations
+  - Provide technical context (from §1 repo state)
+  - Explain code changes, test results, linting output
+  - Surface approval requests to user
+  - Suggest next steps (commit, test, refactor)
+
+  Response Patterns:
+  - Code operation summaries with file paths and line numbers
+  - Git status and diff explanations
+  - Test results with pass/fail counts
+  - Linting/diagnostic summaries with severity levels
+
+  Phase: Synthesis (Phase 5 in unified flow)
+  Mode: Code (technical responses with file/git context)

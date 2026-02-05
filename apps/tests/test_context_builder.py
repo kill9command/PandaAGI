@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from apps.services.orchestrator.context_builder import (
+from apps.services.tool_server.context_builder import (
     WorkingMemoryConfig,
     compile_capsule,
     update_working_memory,
 )
-from apps.services.orchestrator.shared_state import (
+from apps.services.tool_server.shared_state import (
     ArtifactStore,
     ClaimRegistry,
     DistilledCapsule,
@@ -15,7 +15,7 @@ from apps.services.orchestrator.shared_state import (
     RawBundleItem,
     BundleUsage,
 )
-from apps.services.orchestrator.shared_state.schema import TaskTicket, CapsuleClaim
+from apps.services.tool_server.shared_state.schema import TaskTicket, CapsuleClaim
 
 
 def test_compile_capsule_extracts_pricing_claim(tmp_path: Path) -> None:

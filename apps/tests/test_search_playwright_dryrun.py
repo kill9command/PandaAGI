@@ -1,9 +1,9 @@
 import pytest
 from pathlib import Path
 try:
-    from apps.orchestrator.context_builder import perform_search_request, build_chunk_ranges_for_path
+    from apps.tool_server.context_builder import perform_search_request, build_chunk_ranges_for_path
 except Exception:
-    from apps.services.orchestrator.context_builder import perform_search_request, build_chunk_ranges_for_path
+    from apps.services.tool_server.context_builder import perform_search_request, build_chunk_ranges_for_path
 
 """
 Playwright dry-run test
@@ -21,10 +21,10 @@ It reuses existing staged raw.html fixtures under panda_system_docs/scrape_stagi
 def test_playwright_fetch_staged_file():
     # Skip if Playwright wrapper (or Playwright) isn't available
     try:
-        from apps.orchestrator import playwright_mcp  # noqa: F401
+        from apps.tool_server import playwright_mcp  # noqa: F401
     except Exception:
         try:
-            from apps.services.orchestrator import playwright_mcp  # noqa: F401
+            from apps.services.tool_server import playwright_mcp  # noqa: F401
         except Exception:
             pytest.skip("Playwright not available in environment; skipping Playwright dry-run test")
 

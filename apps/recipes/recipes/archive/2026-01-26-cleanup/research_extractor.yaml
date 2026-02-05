@@ -1,0 +1,66 @@
+# Research Content Extractor Recipe
+# Extracts relevant information from page content
+# Part of the Research Loop - MIND role for reasoning/extraction
+
+name: research_extractor
+role: content_extractor
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/research/content_extractor.md"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+    description: "Query and intent from §0"
+
+  - path: "research_state.md"
+    optional: true
+    max_tokens: 400
+    path_type: "turn"
+    description: "Current research state (helps avoid redundant extraction)"
+
+# Output documents
+output_docs:
+  - "page_findings.json"
+
+# Token budget
+token_budget:
+  total: 5000
+  prompt: 500       # content_extractor.md prompt
+  input_docs: 3800  # context.md (300) + research_state.md (400) + page_content (~3000)
+  output: 600       # Extracted findings JSON
+  buffer: 100       # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 4800
+
+# Output schema
+output_schema: PAGE_FINDINGS
+
+# Description
+description: |
+  Content Extractor reads page text and extracts relevant information.
+
+  This is a MIND role (temperature 0.5) for reasoning and extraction.
+
+  **Input:**
+  - context.md §0: Query with user priority signals
+  - research_state.md: What we've already found (avoid redundancy)
+  - Page content: Text from visited page
+
+  **Output:**
+  JSON with extracted findings:
+  - For informational: key_facts, recommendations
+  - For commerce: recommended_products, price_expectations, specs, warnings, vendors
+
+  Always includes:
+  - relevance: 0.0-1.0 how relevant was this page
+  - confidence: 0.0-1.0 how confident in extracted info
+  - summary: 1-2 sentence summary

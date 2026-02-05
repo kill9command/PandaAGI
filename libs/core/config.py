@@ -53,7 +53,7 @@ class ServerSettings(BaseSettings):
     """Remote SERVER model settings (Qwen3-Coder-30B)."""
 
     endpoint: str = Field(default="http://localhost:8001", alias="SERVER_ENDPOINT")
-    model: str = Field(default="Qwen/Qwen3-Coder-30B", alias="SERVER_MODEL")
+    model: str = Field(default="Qwen/Qwen3-Coder-30B-AWQ", alias="SERVER_MODEL")
     timeout: int = Field(default=120, alias="SERVER_TIMEOUT")
 
 
@@ -72,7 +72,7 @@ class ModelSettings(BaseSettings):
 
     # Model paths (local)
     reflex_path: str = Field(default="models/Qwen3-0.6B", alias="REFLEX_PATH")
-    mind_path: str = Field(default="models/Qwen3-4B-Instruct-2507-AWQ", alias="MIND_PATH")
+    mind_path: str = Field(default="models/Qwen3-Coder-30B-AWQ", alias="MIND_PATH")
     eyes_path: str = Field(default="models/Qwen3-VL-2B-Instruct", alias="EYES_PATH")
 
 
@@ -84,16 +84,16 @@ class GatewaySettings(BaseSettings):
     workers: int = Field(default=1, alias="GATEWAY_WORKERS")
 
 
-class OrchestratorSettings(BaseSettings):
-    """Orchestrator service settings."""
+class ToolServerSettings(BaseSettings):
+    """Tool Server service settings."""
 
-    host: str = Field(default="0.0.0.0", alias="ORCHESTRATOR_HOST")
-    port: int = Field(default=8090, alias="ORCHESTRATOR_PORT")
-    workers: int = Field(default=1, alias="ORCHESTRATOR_WORKERS")
+    host: str = Field(default="0.0.0.0", alias="TOOL_SERVER_HOST")
+    port: int = Field(default=8090, alias="TOOL_SERVER_PORT")
+    workers: int = Field(default=1, alias="TOOL_SERVER_WORKERS")
 
     @property
     def base_url(self) -> str:
-        """Get Orchestrator base URL."""
+        """Get Tool Server base URL."""
         return f"http://{self.host}:{self.port}"
 
 
@@ -138,7 +138,7 @@ class Settings(BaseSettings):
     models: ModelSettings = Field(default_factory=ModelSettings)
     server: ServerSettings = Field(default_factory=ServerSettings)
     gateway: GatewaySettings = Field(default_factory=GatewaySettings)
-    orchestrator: OrchestratorSettings = Field(default_factory=OrchestratorSettings)
+    tool_server: ToolServerSettings = Field(default_factory=ToolServerSettings)
     research: ResearchSettings = Field(default_factory=ResearchSettings)
     browser_config: BrowserSettings = Field(default_factory=BrowserSettings)
 

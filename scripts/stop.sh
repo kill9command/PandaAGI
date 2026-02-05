@@ -24,7 +24,7 @@ FORCE_TIMEOUT=5
 
 # Ports
 VLLM_PORT="${VLLM_PORT:-8000}"
-ORCHESTRATOR_PORT="${ORCHESTRATOR_PORT:-8090}"
+TOOL_SERVER_PORT="${TOOL_SERVER_PORT:-8090}"
 GATEWAY_PORT="${GATEWAY_PORT:-9000}"
 
 echo -e "${BLUE}=== Stopping Pandora Services ===${NC}"
@@ -47,7 +47,7 @@ verify_process() {
     local cmdline=$(ps -p "$pid" -o comm= 2>/dev/null)
 
     case "$name" in
-        gateway|orchestrator)
+        gateway|tool_server)
             [[ "$cmdline" =~ ^(python|uvicorn|gunicorn) ]] && return 0
             ;;
         vllm)
@@ -177,8 +177,8 @@ stop_service() {
             gateway)
                 pkill -f "uvicorn.*gateway.app" 2>/dev/null && echo -e "  ${GREEN}Killed stray gateway${NC}" && stopped=true || true
                 ;;
-            orchestrator)
-                pkill -f "uvicorn.*orchestrator.app" 2>/dev/null && echo -e "  ${GREEN}Killed stray orchestrator${NC}" && stopped=true || true
+            tool_server)
+                pkill -f "uvicorn.*tool_server.app" 2>/dev/null && echo -e "  ${GREEN}Killed stray tool_server${NC}" && stopped=true || true
                 ;;
         esac
     fi
@@ -212,8 +212,8 @@ pkill -f "cloudflared.*tunnel.*run" 2>/dev/null && echo -e "  ${GREEN}Killed str
 # Stop Gateway
 stop_service "gateway" "$GATEWAY_PORT"
 
-# Stop Orchestrator
-stop_service "orchestrator" "$ORCHESTRATOR_PORT"
+# Stop Tool Server
+stop_service "tool_server" "$TOOL_SERVER_PORT"
 
 # Stop vLLM
 echo -e "${YELLOW}Stopping vLLM...${NC}"
@@ -272,11 +272,11 @@ else
     echo -e "Gateway:      ${RED}still running on port $GATEWAY_PORT${NC}"
 fi
 
-# Check orchestrator
-if [ -z "$(lsof -ti:"$ORCHESTRATOR_PORT" 2>/dev/null)" ]; then
-    echo -e "Orchestrator: ${GREEN}stopped${NC}"
+# Check Tool Server
+if [ -z "$(lsof -ti:"$TOOL_SERVER_PORT" 2>/dev/null)" ]; then
+    echo -e "Tool Server:  ${GREEN}stopped${NC}"
 else
-    echo -e "Orchestrator: ${RED}still running on port $ORCHESTRATOR_PORT${NC}"
+    echo -e "Tool Server:  ${RED}still running on port $TOOL_SERVER_PORT${NC}"
 fi
 
 # Check vLLM

@@ -19,7 +19,7 @@ All prompts are loaded through the recipe system. Each prompt has a correspondin
 
 ```
 apps/prompts/
-├── pipeline/          # Main 8-phase flow (13 prompts)
+├── pipeline/          # Main 9-phase flow (13 prompts)
 │   ├── phase0_query_analyzer.md
 │   ├── phase1_context_gatherer.md
 │   ├── phase1_context_gatherer_retrieval.md

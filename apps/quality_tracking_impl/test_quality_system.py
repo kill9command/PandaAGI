@@ -1,3 +1,4 @@
+# STATUS: Demo script, not a real test. Needs rewrite as pytest.
 """
 Integration Test: Quality Tracking System
 

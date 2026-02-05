@@ -1,0 +1,59 @@
+# Planner (Chat Mode - Electronics) Recipe
+# Specialized for electronics commerce queries (laptops, phones, GPUs, etc.)
+# Uses electronics-specific strategic prompt
+
+name: planner_chat_electronics
+role: planner
+phase: planning
+mode: chat
+content_type: electronics
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/planner/common.md (290 tokens)"
+  - "apps/prompts/planner/strategic_electronics.md (1400 tokens)"
+
+# Input documents (Unified Flow: single context.md contains all sections)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 2000
+    path_type: "turn"
+    description: "Unified context document with §0 (query), §1 (gathered context), §2 (reflection decision)"
+
+# Output documents (what this role creates)
+output_docs:
+  - "ticket.md"
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 5900
+  prompt: 1690          # Fixed cost: common.md (290) + strategic_electronics.md (1400)
+  input_docs: 2000      # Budget for context.md
+  output: 2000          # Expected PLAN output size
+  buffer: 210           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 5650
+
+# Output schema
+output_schema: TICKET
+
+# Description
+description: |
+  Planner for electronics commerce queries (laptops, phones, GPUs, monitors, etc.)
+
+  **Content-Type Specialization:**
+  - Price comparison focus (users want cheapest option meeting specs)
+  - Specs-driven search optimization (exact GPU/CPU models matter)
+  - Major retailers coverage (manufacturer sites, Amazon, Best Buy, Newegg)
+
+  **Unified Flow Integration:**
+  - Reads context.md with §0 (query), §1 (context), §2 (reflection)
+  - Output ticket.md is referenced by Coordinator phase
+
+  Phase: Planning (Phase 3 in unified flow)
+  Mode: Chat
+  Content Type: Electronics

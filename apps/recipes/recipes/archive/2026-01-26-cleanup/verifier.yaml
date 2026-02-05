@@ -1,0 +1,74 @@
+# Verifier Recipe
+# Evidence evaluation and claim creation (unified for both chat and code modes)
+
+name: verifier
+role: verifier
+mode: null  # Unified for both chat and code
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/verifier/core.md (2934 tokens)"
+
+# Input documents (structured format with explicit budgets)
+input_docs:
+  - path: "bundle.json"
+    optional: false
+    max_tokens: 600
+    path_type: "turn"
+
+  - path: "ticket.md"
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+
+  - path: "user_query.md"
+    optional: false
+    max_tokens: 200
+    path_type: "turn"
+
+  - path: "context.md"
+    optional: true
+    max_tokens: 300
+    path_type: "turn"
+
+# Output documents (what this role creates)
+output_docs:
+  - "capsule.json"       # Claim registry data (internal use)
+  # NOTE (2025-12-02): Claims are appended to context.md via append_fresh_claims_to_context()
+  # capsule.md is no longer created - context.md is the single flowing document
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 10000
+  prompt: 2934          # Fixed cost: verifier/core.md
+  input_docs: 5500      # Budget for bundle + ticket + query + context
+  output: 1400          # Expected CAPSULE output
+  buffer: 166           # Safety margin (~1.7%)
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 4990
+
+# Output schema
+output_schema: CAPSULE  # Reference to schema in io_contracts.md
+
+# Description
+description: |
+  Verifier evaluates evidence and creates distilled claims.
+
+  Responsibilities:
+  - Evidence-based claim creation (confidence, TTL, provenance)
+  - Quality scoring (intent alignment, evidence strength)
+  - Claim confidence: 0.0-1.0 based on evidence quality
+  - TTL assignment: pricing (6h), facts (24h), research (12h)
+
+  Quality Metrics:
+  - Intent alignment: Does evidence match user's goal?
+  - Evidence strength: How credible are the sources?
+
+  Input: BUNDLE (tool results) + TICKET (intent) + query + context
+  Output: Fresh Claims appended to context.md + capsule.json for registry
+
+  Phase: Claim Extraction (Phase 5 in canonical flow)
+  Mode: Unified (works for both chat and code)

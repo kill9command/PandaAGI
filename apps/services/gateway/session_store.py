@@ -5,7 +5,7 @@ Provides simple create/get/list/revoke/extend helpers and a small
 "allows_tool" helper to check whether a session permits a named tool.
 
 DB location (default):
-  project_build_instructions/db/sessions.db
+  apps/db/sessions.db
 
 This module ensures the DB and table exist on import.
 """
@@ -21,7 +21,7 @@ import threading
 from typing import Optional, List, Dict, Any
 
 # Config: DB path can be overridden via SESSION_DB_PATH env var
-DB_DIR = os.path.join(os.getcwd(), "project_build_instructions", "db")
+DB_DIR = os.path.join(os.getcwd(), "apps", "db")
 DB_PATH = os.getenv("SESSION_DB_PATH", os.path.join(DB_DIR, "sessions.db"))
 os.makedirs(DB_DIR, exist_ok=True)
 

@@ -1,7 +1,7 @@
 """Phase 5: Synthesis - Generate user response.
 
 Architecture Reference:
-    architecture/main-system-patterns/phase5-synthesis.md
+    architecture/main-system-patterns/phase6-synthesis.md
 
 Role: VOICE (MIND model @ temp=0.7) - User Dialogue
 Token Budget: ~10,000 total
@@ -168,8 +168,8 @@ Use ONLY information from the context above."""
             validation_checklist=checklist,
         )
 
-        # Write to section 5
-        context.write_section_5(result, attempt)
+        # Write to section 6
+        context.write_section_6(result, attempt)
 
         # Write full response to response.md
         response_path = context.turn_dir / "response.md"

@@ -1,0 +1,78 @@
+# Simplified Reflection Recipe
+# 2-decision gate: PROCEED or CLARIFY
+# ARCHITECTURAL DECISION (2025-12-30): Reduced from 5 decisions to 2
+
+name: reflection
+role: reflection
+mode: null  # Unified for both chat and code
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/reflection/unified.md (600 tokens)"
+
+# Input documents
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 1200
+    path_type: "turn"
+    description: "Unified context document with §0 (query) and §1 (gathered context)"
+
+# Output documents
+output_docs:
+  - "context.md §2"  # Reflection decision appended by unified flow
+
+# Token budget
+token_budget:
+  total: 2200
+  prompt: 600           # unified.md prompt (reduced)
+  input_docs: 1200      # context.md (§0 + §1)
+  output: 200           # JSON decision output (simpler)
+  buffer: 200           # Safety margin
+
+# LLM parameters
+llm_params:
+  temperature: 0.1      # Low for consistent decisions
+  max_tokens: 200       # Reduced - simpler output
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 2000
+
+# Output schema
+output_schema: REFLECTION_UNIFIED
+
+# Description
+description: |
+  Simplified Reflection gate with only 2 decisions.
+
+  **Features:**
+  - Query type detection (RETRY, ACTION, RECALL, INFORMATIONAL, CLARIFICATION)
+  - Pronoun resolution from context
+  - Confidence scoring (0.0-1.0)
+  - Document-driven (context.md §2)
+  - Strategy hints from lessons
+
+  **Decisions (simplified from 5 to 2):**
+  1. PROCEED - Continue to Planner (confidence >= 0.4)
+  2. CLARIFY - Ask user for clarification (confidence < 0.4)
+
+  **Removed decisions (handled elsewhere):**
+  - GATHER_MORE: Planner handles gaps via memory tools
+  - NEED_INFO: Planner handles via memory.search tool
+  - CACHED: Response cache checked at gateway level before reflection
+
+  **Output JSON:**
+  ```json
+  {
+    "_type": "REFLECTION_UNIFIED",
+    "decision": "PROCEED|CLARIFY",
+    "confidence": 0.0-1.0,
+    "reasoning": "Brief explanation",
+    "query_type": "RETRY|ACTION|RECALL|INFORMATIONAL|CLARIFICATION",
+    "action_verbs": ["find", "search"],
+    "clarification_question": "Question if CLARIFY",
+    "strategy_hint": {...}
+  }
+  ```

@@ -1,10 +1,10 @@
-# Phase 1: Context Gatherer
+# Phase 2: Context Gatherer
 
 Gather relevant context from memory, prior turns, and cached data.
 
 Uses **Plan-Act-Review** pattern:
 1. **RETRIEVAL**: Identify relevant sources
-2. **SYNTHESIS**: Extract and compile into Section 1
+2. **SYNTHESIS**: Extract and compile into Section 2
 
 ---
 
@@ -16,29 +16,45 @@ Uses **Plan-Act-Review** pattern:
 QUERY ANALYSIS (from Section 0):
 {query_analysis_json}
 
-AVAILABLE SOURCES:
-- Turn Summaries (last 20)
-- Memory Headers
-- Research Cache
-- Forever Memory
+UNIFIED MEMORY INDEX (memory graph nodes):
+[
+  {
+    "node_id": "turn:<id>",
+    "source_type": "turn_summary | preference | fact | research_cache | visit_record",
+    "summary": "<short preview>",
+    "confidence": 0.0-1.0,
+    "timestamp": "<iso or age>",
+    "source_ref": "<path to full doc>",
+    "links": ["node_id", "..."]
+  }
+]
 ```
 
-### Output
+### Output (RetrievalPlan JSON)
 
 ```json
 {
-  "relevant_turns": [N, N-1],
-  "turn_relevance": {"N": {"relevance": "high", "reason": "[reason]"}},
-  "relevant_memory_keys": ["[key1]", "[key2]"],
-  "research_cache_match": {
-    "matched": true | false,
-    "topic": "[category.subcategory]",
-    "freshness": "[N] hours",
-    "quality": 0.0-1.0,
-    "reuse_recommendation": "full | partial | refresh"
+  "selected_nodes": {
+    "turn_summary": ["node_id", "..."],
+    "preference": ["node_id", "..."],
+    "fact": ["node_id", "..."],
+    "research_cache": ["node_id", "..."],
+    "visit_record": ["node_id", "..."]
   },
-  "forever_memory_relevant": ["[document.md]"],
-  "reasoning": "[explanation]"
+  "selection_reasons": {
+    "turn_summary": "string",
+    "preference": "string",
+    "fact": "string",
+    "research_cache": "string",
+    "visit_record": "string"
+  },
+  "coverage": {
+    "has_prior_turns": true | false,
+    "has_memory": true | false,
+    "has_cached_research": true | false,
+    "has_visit_data": true | false
+  },
+  "reasoning": "short narrative rationale"
 }
 ```
 
@@ -46,57 +62,59 @@ AVAILABLE SOURCES:
 
 ## SYNTHESIS Phase
 
-### Output
-
-```json
-{
-  "session_preferences": {"[key]": "[value]"},
-  "prior_turns": [
-    {"turn": N, "relevance": "high", "summary": "[summary]", "key_facts": ["[fact]"]}
-  ],
-  "cached_research": {
-    "topic": "[category.subcategory]",
-    "quality": 0.0-1.0,
-    "age_hours": N,
-    "summary": "[summary]",
-    "top_results": [{"product": "[name]", "price": "$[N]", "source": "[site]"}]
-  },
-  "forever_memory": {
-    "documents": ["[doc.md]"],
-    "key_facts": ["[fact]"]
-  },
-  "source_references": ["[1] [path]"]
-}
-```
-
----
-
-## Section 1 Format
+### Output (Section 2 with `_meta`)
 
 ```markdown
-## 1. Gathered Context
+## 2. Gathered Context
 
-### User Preferences
-| Preference | Value | Source |
-|------------|-------|--------|
-| [key] | [value] | Turn [N] |
+### Session Preferences
+```yaml
+_meta:
+  source_type: preference
+  node_ids: ["node_id", "..."]
+  confidence_avg: 0.0-1.0
+  provenance: ["source_ref", "..."]
+```
+- [preference_key]: [value]
 
 ### Relevant Prior Turns
-| Turn | Relevance | Summary | Key Facts |
-|------|-----------|---------|-----------|
-| [N] | high | [summary] | [facts] |
+```yaml
+_meta:
+  source_type: turn_summary
+  node_ids: ["node_id", "..."]
+  confidence_avg: 0.0-1.0
+  provenance: ["source_ref", "..."]
+```
+- [turn_summary_line]
 
-### Cached Research Intelligence
-**Topic:** [category.subcategory]
-**Quality:** [score] | **Age:** [N] hours
+### Cached Research
+```yaml
+_meta:
+  source_type: research_cache
+  node_ids: ["node_id", "..."]
+  confidence_avg: 0.0-1.0
+  provenance: ["source_ref", "..."]
+```
+- [research_summary_line]
 
-| Product | Price | Source |
-|---------|-------|--------|
-| [name] | $[N] | [site] |
+### Visit Data
+```yaml
+_meta:
+  source_type: visit_record
+  node_ids: ["node_id", "..."]
+  confidence_avg: 0.0-1.0
+  provenance: ["source_ref", "..."]
+```
+- [visit_summary_line]
 
-### Context Assessment
-**Quality:** [score]
-**Gaps:** [identified gaps or "None"]
+### Constraints
+```yaml
+_meta:
+  source_type: [preference, user_query]
+  node_ids: ["node_id", "..."]
+  provenance: ["§0.raw_query", "source_ref"]
+```
+- [constraint_key]: [value]
 ```
 
 ---

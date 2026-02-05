@@ -28,8 +28,8 @@ input_docs:
 
 output_doc:
   path: "context.md"
-  section: "5"
-  description: "Writes section 5 with response preview and validation checklist"
+  section: "6"
+  description: "Writes section 6 with response preview and validation checklist"
 
 secondary_output:
   path: "response.md"
@@ -72,17 +72,18 @@ description: |
   | greeting | Friendly response, no elaboration |
 
   **Key Constraints:**
-  1. Capsule-Only: ONLY use data from context.md (no hallucinations)
-  2. URL Preservation: Convert URLs to clickable markdown links
+  1. Capsule-Only: ONLY use data from context.md/toolresults.md (no hallucinations)
+  2. URL Preservation: Prefer URLs from toolresults.md; convert to clickable links
   3. Intent-Aware: Format adapts to query intent
-  4. Section 4 Priority: Fresh tool data takes precedence over section 1
+  4. Section 4 Priority: Fresh tool data takes precedence over section 2
+  5. Source Metadata: Omit claims lacking `url` or `source_ref`
 
-  **Output to context.md section 5:**
+  **Output to context.md section 6:**
   ```markdown
-  ## 5. Synthesis
+  ## 6. Synthesis
 
   **Response Preview:**
-  Great news! I found 2 Syrian hamsters for sale...
+  Great news! I found <N> options for <item_type>...
 
   **Validation Checklist:**
   - [x] Claims match evidence

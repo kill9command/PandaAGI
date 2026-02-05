@@ -1,4 +1,4 @@
-"""LLM libraries for PandaAI v2."""
+"""Pandora LLM integration libraries."""
 
 from libs.llm.client import LLMClient, LLMRequest, LLMResponse, TokenUsage, get_llm_client
 from libs.llm.router import ModelLayer, ModelRouter, get_model_router, PHASE_MODEL_MAP

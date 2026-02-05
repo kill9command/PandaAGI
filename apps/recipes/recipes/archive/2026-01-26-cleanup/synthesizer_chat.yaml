@@ -1,0 +1,73 @@
+# Synthesizer (Chat Mode) Recipe
+# Natural language response generation from unified context
+# Updated for Unified Flow: uses single context.md with sections §0-§4
+
+name: synthesizer_chat
+role: synthesizer
+phase: synthesis
+mode: chat
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/synthesizer/common.md (290 tokens)"
+  - "apps/prompts/synthesizer/synthesis.md (920 tokens)"
+
+# Input documents (Unified Flow: context.md + toolresults.md for full data)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 2500
+    path_type: "turn"
+    description: "Unified context document with §0 (query), §1 (gathered context), §2 (reflection), §3 (plan), §4 (tool summary)"
+  - path: "toolresults.md"
+    optional: true
+    max_tokens: 3000
+    path_type: "turn"
+    description: "Full tool execution results with product details, prices, and URLs"
+
+# Output documents (what this role creates)
+output_docs:
+  - "response.md"        # Draft response (appended to context.md as §5)
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 9900
+  prompt: 1210          # Fixed cost: common.md (290) + synthesis.md (920)
+  input_docs: 5500      # Budget for context.md (2500) + toolresults.md (3000)
+  output: 2900          # Expected answer size
+  buffer: 290           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 9500
+
+# Output schema
+output_schema: ANSWER  # Natural language response
+
+# Description
+description: |
+  Synthesizer creates final natural language responses (chat mode).
+
+  **Unified Flow Integration:**
+  - Reads context.md which contains:
+    - §0: User Query (the question)
+    - §1: Gathered Context (preferences, memories, prior turns)
+    - §2: Reflection Decision
+    - §3: Task Plan
+    - §4: Tool Summary (brief overview)
+  - Reads toolresults.md for full product details, prices, and URLs
+  - Output is appended to context.md as §5 by unified flow
+
+  Responsibilities:
+  - Synthesize tool results into coherent natural language
+  - Personalize based on user preferences (from §1)
+  - Handle edge cases (no results, ambiguous queries, errors)
+
+  Response Patterns:
+  - Direct answers for informational queries
+  - Comparative analysis for transactional queries
+  - Explanations with sources for research queries
+
+  Phase: Synthesis (Phase 5 in unified flow)
+  Mode: Chat (conversational responses)

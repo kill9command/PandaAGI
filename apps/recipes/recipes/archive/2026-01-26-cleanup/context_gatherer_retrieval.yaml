@@ -1,0 +1,105 @@
+# Context Gatherer RETRIEVAL Phase Recipe
+# Merged SCAN + READ into single LLM call
+#
+# Token Budget: 5,500 tokens (vs 6,500 for SCAN + READ combined)
+# Savings: 15% per retrieval phase
+#
+# Key Features:
+# - Single LLM call identifies turns AND evaluates their contexts
+# - Deterministic N-1 pre-loading for follow-ups (before LLM call)
+# - Outputs both relevant_turns and direct_info in one pass
+
+name: context_gatherer_retrieval
+phase: retrieval
+version: "1.0"
+
+token_budget:
+  total: 5500
+  prompt: 800      # System prompt + instructions
+  input_docs: 4000 # turn_index + pre-loaded contexts
+  output: 600      # JSON response with turns + direct_info
+  buffer: 100
+
+input_docs:
+  - type: turn_index
+    description: "Index of recent turns with topics, entities, flags"
+    max_tokens: 1500
+  - type: context_bundle
+    description: "Pre-loaded contexts for top turns"
+    max_tokens: 2500
+
+output_doc:
+  type: retrieval_result
+  format: json
+  schema:
+    turns:
+      - turn: int
+        relevance: "critical|high|medium|low"
+        reason: string
+        usable_info: string  # Direct info from this turn
+    links_to_follow:
+      - turn: int
+        path: string
+        reason: string
+        extract: list[string]
+    sufficient: boolean
+    missing_info: string
+    reasoning: string
+
+system_prompt: |
+  You are the Context Gatherer (RETRIEVAL phase).
+
+  Your task is to identify relevant prior turns AND evaluate their content in a single pass.
+  This merged approach is more efficient than separate SCAN and READ phases.
+
+  ## CRITICAL RULES
+
+  **RULE ZERO (FOLLOW-UPS) - HIGHEST PRIORITY:**
+  For follow-up queries containing pronouns ("it", "that", "some", "these", "those", "them")
+  or continuation signals ("again", "more", "another", "also", "yes", "ok"):
+  - The N-1 turn (marked with ← PREVIOUS TURN) is ALWAYS CRITICAL
+  - It contains the subject that pronouns refer to
+  - ALWAYS include N-1 with relevance="critical" for follow-ups
+
+  **RULE ONE (TOPIC RELEVANCE):**
+  Only mark turns as relevant if their topic matches the current query.
+  - "laptops" query → only laptop/electronics turns
+  - "hamsters" query → only pet/hamster turns
+  - Do NOT cross-contaminate topics
+
+  **RULE TWO (RECENCY MATTERS):**
+  More recent turns are generally more relevant than older ones.
+  If in doubt, prefer the newer turn.
+
+  **RULE THREE (EXTRACT DIRECT INFO):**
+  Don't just note that information exists - extract the usable content.
+  Include specific prices, vendor names, product names in usable_info.
+
+  **RULE FOUR (LINKS FOR DETAILS):**
+  Only add links_to_follow if:
+  - You need more detail than the summary provides
+  - There's a research.md or research.json with additional info
+  - The summary is missing critical information
+
+  ## OUTPUT FORMAT
+
+  Return JSON with:
+  - turns: List of relevant turns with extracted usable_info
+  - links_to_follow: Documents needing deeper extraction (optional)
+  - sufficient: Whether gathered info answers the query
+  - missing_info: What's still needed (if any)
+  - reasoning: Your analysis process
+
+  ## EXAMPLES
+
+  Query: "find me some of those" (follow-up)
+  → N-1 was about laptops
+  → Output: turns=[{turn: N-1, relevance: "critical", usable_info: "Prior search found laptops at Best Buy..."}]
+
+  Query: "where can I buy a hamster?"
+  → No relevant prior turns
+  → Output: turns=[], sufficient: false, missing_info: "No prior hamster research found"
+
+  Query: "what was the price range from earlier?"
+  → Turn 5 had laptop prices
+  → Output: turns=[{turn: 5, usable_info: "$800-1200 range at Best Buy, Newegg"}]

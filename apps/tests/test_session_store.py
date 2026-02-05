@@ -4,8 +4,8 @@ import importlib
 
 def reload_session_store(tmp_db_path):
     os.environ["SESSION_DB_PATH"] = str(tmp_db_path)
-    if "project_build_instructions.gateway.session_store" in sys.modules:
-        del sys.modules["project_build_instructions.gateway.session_store"]
+    if "apps.services.gateway.session_store" in sys.modules:
+        del sys.modules["apps.services.gateway.session_store"]
     import libs.gateway.session_store as session_store
     importlib.reload(session_store)
     return session_store

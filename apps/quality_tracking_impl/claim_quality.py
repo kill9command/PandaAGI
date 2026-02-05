@@ -1,3 +1,4 @@
+# STATUS: Prototype - not wired into pipeline. Integration pending.
 """
 Claim Quality Scoring System
 

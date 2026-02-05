@@ -7,7 +7,7 @@
 name: tools_pdp_specs
 category: tools
 role: pdp_specs
-model_layer: MIND  # Extraction/reasoning uses MIND (temp 0.5)
+model_layer: MIND  # Extraction/reasoning uses MIND (temp 0.6)
 
 # Prompt fragments (loaded in order)
 prompt_fragments:
@@ -39,6 +39,10 @@ token_budget:
   input_docs: 4150  # goal + page content
   output: 500       # JSON specs
   buffer: 100
+
+llm_params:
+  temperature: 0.6
+  max_tokens: 500
 
 # Trimming strategy
 trimming_strategy:

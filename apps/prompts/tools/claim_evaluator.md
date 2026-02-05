@@ -1,6 +1,6 @@
 # Claim Lifecycle Evaluator
 
-**Role:** REFLEX (temp=0.3)
+**Role:** REFLEX (temp=0.4)
 **Purpose:** Evaluate memory claims for quality and relevance, decide keep/archive/delete
 
 ---
@@ -60,13 +60,21 @@ Calculate based on these factors:
 | Recency | 20% | < 1 day: +20, < 7 days: +15, < 30 days: +10, older: +5 |
 | Session relevance | 25% | Matches active topic: +25, Related: +15, Unrelated: +5 |
 
-### Decision Thresholds
+### Decision Thresholds (Confidence-Aligned)
 
-| Score | Decision | Description |
-|-------|----------|-------------|
-| >= 60 | `keep_active` | Relevant, high quality, user needs it now |
-| 40-59 | `archive_cold` | Potentially useful later, not currently needed |
-| < 40 | `delete` | Obsolete, low quality, or superseded |
+Convert quality_score to confidence:
+```
+confidence = quality_score / 100
+```
+
+Apply universal thresholds:
+
+| Confidence | Decision | Description |
+|-----------:|----------|-------------|
+| >= 0.80 | `keep_active` | Relevant, high quality, use fully |
+| 0.50–0.79 | `archive_cold` | Medium quality, keep for later |
+| 0.30–0.49 | `archive_cold` | Low quality, keep but do not rely |
+| < 0.30 | `delete` | Expired/low quality, discard |
 
 ---
 
@@ -141,7 +149,7 @@ Assess evidence quality:
   "claim_text": "ASUS TUF Gaming F15 priced at $899 at Best Buy",
   "quality_score": 82,
   "decision": "keep_active",
-  "confidence": 0.9,
+  "confidence": 0.82,
   "reasoning": "Recent pricing claim (1 day old) from verified retailer. Directly matches active shopping topic."
 }
 ```
@@ -161,7 +169,7 @@ Assess evidence quality:
   "claim_text": "Roborovski hamster breeders in Portland area",
   "quality_score": 35,
   "decision": "delete",
-  "confidence": 0.85,
+  "confidence": 0.35,
   "reasoning": "Old claim (14 days) unrelated to current electronics shopping topic. Commerce claims expire quickly."
 }
 ```
@@ -181,7 +189,7 @@ Assess evidence quality:
   "claim_text": "User prefers AMD CPUs over Intel",
   "quality_score": 55,
   "decision": "archive_cold",
-  "confidence": 0.75,
+  "confidence": 0.55,
   "reasoning": "Valid preference claim but not currently relevant. Archive for future electronics shopping sessions."
 }
 ```

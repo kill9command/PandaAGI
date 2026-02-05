@@ -1,7 +1,7 @@
 from pydantic import ValidationError
 import pytest
 
-from libs.gateway.schemas import (
+from apps.services.gateway.schemas import (
     GuideResponse,
     TaskTicket,
     RawBundle,

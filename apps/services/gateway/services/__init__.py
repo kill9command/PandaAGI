@@ -1,7 +1,7 @@
 """
 Gateway Service Modules
 
-Provides thinking visualization, orchestrator client, and job management services.
+Provides thinking visualization, tool_server client, and job management services.
 """
 
 from apps.services.gateway.services.thinking import (
@@ -30,8 +30,8 @@ from apps.services.gateway.services.jobs import (
     list_active_jobs,
 )
 
-from apps.services.gateway.services.orchestrator_client import (
-    call_orchestrator_with_circuit_breaker,
+from apps.services.gateway.services.tool_server_client import (
+    call_tool_server_with_circuit_breaker,
     create_research_event_callback,
 )
 
@@ -58,7 +58,7 @@ __all__ = [
     "cancel_job",
     "cancel_trace",
     "list_active_jobs",
-    # Orchestrator client
-    "call_orchestrator_with_circuit_breaker",
+    # Tool Server client
+    "call_tool_server_with_circuit_breaker",
     "create_research_event_callback",
 ]

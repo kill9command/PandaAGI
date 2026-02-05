@@ -119,7 +119,7 @@ async def memory_provider(query: str, profile_id: str, k: int = 3, **kwargs) -> 
     Returns:
         List of memory results with content, metadata, and structured preferences
     """
-    from apps.services.orchestrator.memory_manager import MemoryManager
+    from apps.services.tool_server.memory_manager import MemoryManager
 
     memory_mgr = MemoryManager()
 
@@ -169,7 +169,7 @@ async def quick_search_provider(query: str, max_results: int = 3, **kwargs) -> L
     """
     import aiohttp
 
-    # Call orchestrator search endpoint
+    # Call tool server search endpoint
     orch_url = kwargs.get("orch_url", "http://127.0.0.1:8090")
 
     try:
@@ -205,7 +205,7 @@ async def claims_provider(query: str, k: int = 3, **kwargs) -> List[Dict[str, An
     Returns:
         List of claims with content and confidence
     """
-    from apps.services.orchestrator.shared_state.claims import ClaimRegistry
+    from apps.services.tool_server.shared_state.claims import ClaimRegistry
 
     try:
         registry = ClaimRegistry()

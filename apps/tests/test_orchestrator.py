@@ -7,9 +7,10 @@ from fastapi.testclient import TestClient
 def reload_orch_module(base_path):
     os.environ["REPOS_BASE"] = str(base_path)
     # Ensure module reloaded with new env
-    if "project_build_instructions.orchestrator.app" in sys.modules:
-        del sys.modules["project_build_instructions.orchestrator.app"]
-    import apps.orchestrator.app as orch_mod
+    # TODO: Test needs rewrite - original module structure changed
+    if "apps.tool_server.app" in sys.modules:
+        del sys.modules["apps.tool_server.app"]
+    import apps.tool_server.app as orch_mod
     importlib.reload(orch_mod)
     return orch_mod.app
 

@@ -1,0 +1,111 @@
+# Viability Reasoning Recipe
+# LLM-driven product evaluation using requirements reasoning document
+# Replaces structured ProductRequirements filtering with flexible reasoning
+#
+# Called during Phase 2 (intelligent_vendor_search) for each vendor's products
+# Uses the requirements_reasoning document from the previous step
+
+name: viability_reasoning
+role: viability_reasoning
+phase: research
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/phase2_results/viability_reasoning.md"
+
+# Input documents
+input_docs:
+  - path: "query"
+    optional: false
+    max_tokens: 200
+    path_type: "runtime"
+    description: "User's original search query"
+  - path: "requirements_reasoning"
+    optional: false
+    max_tokens: 1200
+    path_type: "runtime"
+    description: "Requirements reasoning document from previous step"
+  - path: "products"
+    optional: false
+    max_tokens: 2000
+    path_type: "runtime"
+    description: "Extracted products to evaluate (up to 10)"
+
+# Output documents
+output_docs:
+  - "viability_evaluations.yaml"
+
+# Token budget (measured 2025-12-13)
+# Prompt template: ~1300 tokens, inputs: ~600-2000 tokens, output: ~1200 tokens
+token_budget:
+  total: 5000
+  prompt: 1500
+  input_docs: 2000
+  output: 1200
+  buffer: 300
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 4700
+
+# Output schema (informational - not enforced by code)
+# See output_format below for expected structure
+output_schema: null  # YAML document, not JSON schema
+
+# Description
+description: |
+  Viability Reasoning evaluates products against the requirements reasoning document:
+  - Checks if product is fundamentally the right TYPE (not just name matching)
+  - Reasons about user satisfaction (would they be disappointed?)
+  - Validates against validity_criteria and disqualifiers
+  - Outputs ACCEPT/REJECT/UNCERTAIN with reasoning chain
+
+  This enables accurate filtering of products like:
+  - Rejecting toy hamsters for live pet queries
+  - Rejecting laptop bags for laptop queries
+  - Accepting products that match fundamental requirements
+
+  Input: query + requirements_reasoning + products
+  Output: viability_evaluations.yaml with per-product decisions
+
+# Output format
+output_format: |
+  For each product:
+  ```yaml
+  product_index: 1
+  product_name: "[name]"
+  reasoning:
+    fundamental_check: "[Is this the right TYPE of product?]"
+    user_satisfaction: "[Would user be happy?]"
+    requirements_check: "[Meets requirements?]"
+  decision: "ACCEPT" | "REJECT" | "UNCERTAIN"
+  score: 0.0-1.0
+  rejection_reason: "[Only if rejected - specific reason]"
+  ```
+
+# Decision framework
+decision_framework: |
+  REJECT immediately if:
+  - Product is in wrong_category (toy when want live animal)
+  - Product has red_flags from disqualifiers
+  - Product fundamentally fails must_be criterion
+  - User would clearly be disappointed
+
+  ACCEPT with high score (0.8-1.0) if:
+  - Matches must_be criterion
+  - Has all must_have characteristics
+  - Meets user_stated specifications
+  - No disqualifiers present
+
+  UNCERTAIN when:
+  - Product description too vague
+  - Need more information to decide
+
+# When to use
+triggers:
+  - requirements_reasoning_available: true
+  - has_products_to_evaluate: true
+
+# Fallback
+fallback_to: "filter_viable_products"  # Original structured filter

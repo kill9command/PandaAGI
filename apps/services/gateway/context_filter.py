@@ -4,7 +4,7 @@ Context Injection Filter
 Prevents toxic Q&A pairs from polluting context.
 Only injects high-quality, intent-aligned metadata.
 
-Location: project_build_instructions/gateway/app.py (integrate into existing code)
+Location: apps/services/gateway/app.py (integrate into existing code)
 """
 
 from typing import Dict, List, Optional

@@ -1,0 +1,75 @@
+# Product Validator Recipe
+# Validates extracted products against requirements specifications
+# Sub-system within Researcher, invoked by GoalDirectedNavigator
+
+name: product_validator
+role: product_validator
+mode: null  # Sub-system, not mode-specific
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - apps/prompts/navigator/validate_products.md  # ~500 tokens
+
+# Input documents
+input_docs:
+  - path: requirements.md
+    description: Product requirements (specs, alternatives, deal_breakers)
+    max_tokens: 300
+    required: true
+    path_type: dynamic
+
+  - path: products.json
+    description: Extracted products with titles, prices, specs
+    max_tokens: 1200
+    required: true
+    path_type: dynamic
+
+# Output documents
+output_docs:
+  - validation_result.json  # {matches: [indices], rejected: [indices], reasons: {...}}
+
+# Token budget
+token_budget:
+  total: 2500
+  prompt: 500        # Fixed cost: validate_products.md
+  input_docs: 1500   # requirements.md (300) + products.json (1200)
+  output: 400        # JSON validation results
+  buffer: 100
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  priority:
+    - truncate: products  # Truncate product list if too long
+
+# Output schema
+output_schema: PRODUCT_VALIDATION
+
+# Description
+description: |
+  Product Validator checks extracted products against requirements to identify
+  which products match the user's criteria.
+
+  **Input Documents:**
+  - requirements.md: Product requirements with acceptable specs and deal breakers
+  - products.json: Array of extracted products with title, price, specs, url
+
+  **Validation Process:**
+  For each product:
+  1. Check if title/specs mention any acceptable_alternatives -> potential match
+  2. Check if title/specs mention any deal_breakers -> reject
+  3. Check if category is correct -> validate or reject
+
+  **Output:**
+  {
+    "matches": [0, 2, 4],        // Indices of matching products
+    "rejected": [1, 3],         // Indices of rejected products
+    "reasons": {
+      "0": "Found RTX 4060 in specs",
+      "1": "Deal breaker: integrated graphics",
+      ...
+    }
+  }
+
+  Phase: Embedded in Researcher
+  Invoked by: GoalDirectedNavigator._validate_extraction()

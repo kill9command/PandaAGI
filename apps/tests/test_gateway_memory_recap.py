@@ -4,12 +4,12 @@ import json
 import httpx
 from fastapi.testclient import TestClient
 
-from apps.services.orchestrator.memory_store import reset_memory_store_cache
+from apps.services.tool_server.memory_store import reset_memory_store_cache
 from libs.gateway.app import (
     app as gateway_app,
     RUNTIME_POLICY,
     GUIDE_URL,
-    ORCH_URL,
+    TOOL_SERVER_URL,
     RECENT_SHORT_TERM,
 )
 
@@ -75,7 +75,7 @@ def test_meta_recap_uses_injected_summary_and_guide(monkeypatch, tmp_path):
                     "tool_intent": None,
                 }
             ))
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             call_state["memory_query"] += 1
             return DummyResp({"items": []})
         return DummyResp({"ok": True})

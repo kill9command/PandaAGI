@@ -5,7 +5,7 @@
 name: guide_reflection
 category: reflection
 role: REFLEX
-temperature: 0.1
+temperature: 0.4
 
 prompt_fragments:
   - "apps/prompts/reflection/guide_reflection.md"
@@ -28,7 +28,7 @@ token_budget:
   buffer: 80
 
 llm_params:
-  temperature: 0.1
+  temperature: 0.4
   max_tokens: 80
 
 output_schema: META_REFLECTION
@@ -36,7 +36,7 @@ output_schema: META_REFLECTION
 description: |
   Guide Meta-Reflection Gate
 
-  Uses REFLEX role (temp=0.1) for fast classification.
+  Uses REFLEX role (temp=0.4) for fast classification.
   Classifies query type (RETRY/ACTION/RECALL/INFORMATIONAL/CLARIFICATION/METADATA)
   and evaluates confidence to proceed.
 

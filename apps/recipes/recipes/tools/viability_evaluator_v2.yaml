@@ -7,7 +7,7 @@
 name: tools_viability_evaluator_v2
 category: tools
 role: viability_evaluator
-model_layer: MIND  # Reasoning tasks use MIND (temp 0.5)
+model_layer: MIND  # Reasoning tasks use MIND (temp 0.6)
 
 # Prompt fragments (loaded in order)
 prompt_fragments:
@@ -45,6 +45,10 @@ token_budget:
   input_docs: 4000  # query + requirements + products
   output: 2000      # YAML evaluations for each product
   buffer: 100
+
+llm_params:
+  temperature: 0.6
+  max_tokens: 2000
 
 # Trimming strategy
 trimming_strategy:

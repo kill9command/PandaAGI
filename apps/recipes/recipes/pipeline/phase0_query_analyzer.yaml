@@ -1,12 +1,12 @@
-# Phase 0: Query Analyzer Recipe
-# Intent classification, reference resolution, mode detection
-# Architecture: architecture/main-system-patterns/phase0-query-analyzer.md
+# Phase 1: Query Analyzer Recipe
+# Reference resolution, user_purpose extraction, data requirements
+# Architecture: architecture/main-system-patterns/phase1-query-analyzer.md
 
 name: phase0_query_analyzer
 category: pipeline
 phase: 0
 role: REFLEX
-temperature: 0.3
+temperature: 0.4
 
 prompt_fragments:
   - "apps/prompts/pipeline/phase0_query_analyzer.md"
@@ -28,7 +28,7 @@ input_docs:
 output_doc:
   path: "context.md"
   section: "0"
-  description: "Writes section 0 with resolved query, intent, mode, content_reference"
+  description: "Writes section 0 with resolved query, user_purpose, data_requirements, reference_resolution, validation"
 
 token_budget:
   total: 1500
@@ -38,39 +38,30 @@ token_budget:
   buffer: 150
 
 llm_params:
-  temperature: 0.3
+  temperature: 0.4
   max_tokens: 200
 
 output_schema: QUERY_ANALYSIS
 
 description: |
-  Phase 0: Query Analyzer
+  Phase 1: Query Analyzer
 
-  Runs BEFORE Reflection (Phase 1). Uses REFLEX role (temp=0.3) for fast,
-  deterministic classification.
+  Runs before context retrieval (Phase 2.1). Uses REFLEX role (temp=0.4) for fast,
+  deterministic extraction.
 
   **Responsibilities:**
   - Resolve pronoun and reference expressions to explicit entities
-  - Classify query intent (commerce, informational, recall, etc.)
-  - Detect operating mode (chat vs code)
+  - Capture user purpose in natural language (2-4 sentences)
+  - Identify data requirements (prices, live data, freshness)
   - Identify references to prior conversation content
-  - Correct spelling/terminology using authoritative sources
-
-  **Intent Classification:**
-  - Chat: greeting, preference, recall, query, commerce, navigation, site_search, informational
-  - Code: edit, create, git, test, refactor
 
   **Output:**
   ```json
   {
     "resolved_query": "string",
-    "reference_resolution": {
-      "status": "not_needed|resolved|failed",
-      "original_references": ["string"],
-      "resolved_to": "string|null"
-    },
-    "query_type": "specific_content|general_question|followup|new_topic",
-    "intent": "greeting|preference|recall|...",
+    "user_purpose": "Natural language statement (2-4 sentences)",
+    "data_requirements": {"needs_current_prices": bool, ...},
+    "reference_resolution": {"status": "not_needed|resolved|failed", ...},
     "mode": "chat|code",
     "content_reference": {...},
     "reasoning": "string"

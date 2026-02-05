@@ -13,7 +13,7 @@ import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from apps.services.gateway.research_ws_manager import research_ws_manager
+from apps.services.gateway.dependencies import get_research_ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,30 @@ router = APIRouter(tags=["websockets"])
 
 
 async def forward_intervention_response(session_id: str, message: dict):
-    """Forward intervention response to orchestrator."""
-    # TODO: Implement proper forwarding to orchestrator
-    logger.info(f"[WebSocket] Forwarding intervention response for {session_id}: {message}")
+    """Forward intervention response to orchestrator via captcha_intervention module."""
+    try:
+        from apps.services.tool_server.captcha_intervention import (
+            get_pending_intervention,
+            remove_pending_intervention,
+        )
+
+        intervention_id = message.get("intervention_id")
+        if not intervention_id:
+            logger.warning(f"[WebSocket] No intervention_id in response: {message}")
+            return
+
+        intervention = get_pending_intervention(intervention_id)
+        if not intervention:
+            logger.warning(f"[WebSocket] Intervention {intervention_id} not found")
+            return
+
+        remove_pending_intervention(intervention_id)
+        action = message.get("action", "resolved")
+        logger.info(f"[WebSocket] Resolved intervention {intervention_id}: {action}")
+    except ImportError:
+        logger.error("[WebSocket] captcha_intervention module not available")
+    except Exception as e:
+        logger.error(f"[WebSocket] Error forwarding intervention: {e}")
 
 
 @router.websocket("/ws/research/{session_id}")
@@ -33,7 +54,8 @@ async def research_websocket(websocket: WebSocket, session_id: str):
 
     Clients connect to receive live events during web research operations.
     """
-    await research_ws_manager.connect(websocket, session_id)
+    ws_manager = get_research_ws_manager()
+    await ws_manager.connect(websocket, session_id)
     try:
         # Keep connection alive and listen for client messages
         while True:
@@ -50,7 +72,7 @@ async def research_websocket(websocket: WebSocket, session_id: str):
             except json.JSONDecodeError:
                 logger.warning(f"[ResearchWS] Invalid JSON from {session_id}: {data}")
     except WebSocketDisconnect:
-        await research_ws_manager.disconnect(websocket, session_id)
+        await ws_manager.disconnect(websocket, session_id)
     except Exception as e:
         logger.error(f"[ResearchWS] Error: {e}")
-        await research_ws_manager.disconnect(websocket, session_id)
+        await ws_manager.disconnect(websocket, session_id)

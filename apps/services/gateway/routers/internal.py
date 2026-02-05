@@ -1,11 +1,11 @@
 """
 Internal Router - Endpoints for inter-service communication.
 
-Provides endpoints that the Orchestrator calls to send events to the Gateway,
+Provides endpoints that the Tool Server calls to send events to the Gateway,
 which then broadcasts them to connected WebSocket clients.
 
 Endpoints:
-    POST /internal/research_event - Receive research events from Orchestrator
+    POST /internal/research_event - Receive research events from Tool Server
     POST /internal/browser_frame - Receive browser frames (optional, for live view)
 """
 
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/internal", tags=["internal"])
 @router.post("/research_event")
 async def receive_research_event(event: Dict[str, Any]):
     """
-    Internal endpoint for Orchestrator to send research events.
+    Internal endpoint for Tool Server to send research events.
     Broadcasts events to connected WebSocket clients.
 
     Event types include:
@@ -54,7 +54,7 @@ async def receive_research_event(event: Dict[str, Any]):
 @router.post("/browser_frame")
 async def receive_browser_frame(frame_data: Dict[str, Any]):
     """
-    Internal endpoint for Orchestrator to send browser frames.
+    Internal endpoint for Tool Server to send browser frames.
     Used for live browser view in research monitor.
     """
     session_id = frame_data.get("session_id", "default")

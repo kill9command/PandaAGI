@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from apps.services.orchestrator.shared_state import (
+from apps.services.tool_server.shared_state import (
     ArtifactStore,
     SessionLedger,
     ClaimRegistry,
@@ -10,7 +10,7 @@ from apps.services.orchestrator.shared_state import (
     CapsuleClaim,
     CapsuleArtifact,
 )
-from apps.services.orchestrator.context_builder import WorkingMemoryConfig, update_working_memory
+from apps.services.tool_server.context_builder import WorkingMemoryConfig, update_working_memory
 
 
 def test_artifact_store_deduplicates_and_resolves(tmp_path: Path) -> None:

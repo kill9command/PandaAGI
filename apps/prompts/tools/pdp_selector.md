@@ -38,9 +38,8 @@ Respond with ONLY a JSON object (no markdown):
 
 1. Use the EXACT selectors from the discovered elements above
 2. For price, prefer elements with the actual price text, not containers
-3. For Amazon, use ".a-offscreen" or ".a-price .a-offscreen" (hidden accessible price)
-4. If multiple prices, choose the one closest to the cart button (lowest Y position near buttons)
-5. Return empty string "" if you can't determine a selector
-6. NEVER use CSS-in-JS hashed class names like "-sc-abc123" or "css-xyz789" - these change between deployments!
-7. PREFER: [data-testid="..."], #id, or semantic class names like ".product-price"
-8. AVOID: Classes with hash suffixes like "Price-sc-663c57fc-1" or "styled__Component-abc123"
+3. If multiple prices, choose the one closest to the cart button (lowest Y position near buttons)
+4. Return empty string "" if you can't determine a selector
+5. NEVER use CSS-in-JS hashed class names like "-sc-abc123" or "css-xyz789" - these change between deployments!
+6. PREFER: [data-testid="..."], #id, or semantic class names like ".product-price"
+7. AVOID: Classes with hash suffixes like "Price-sc-663c57fc-1" or "styled__Component-abc123"

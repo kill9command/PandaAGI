@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from apps.orchestrator.app import app as orch_app
+from apps.tool_server.app import app as orch_app
 
 
 def test_purchasing_lookup_endpoint(monkeypatch):

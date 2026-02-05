@@ -1,0 +1,65 @@
+# Phase 1.5: Query Analyzer Validator Recipe
+# Validation helper for Phase 1 output
+# Architecture: architecture/main-system-patterns/phase1.5-query-analyzer-validator.md
+
+name: phase1_5_query_analyzer_validator
+category: pipeline
+phase: 1.5
+role: REFLEX
+temperature: 0.4
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase1_5_query_analyzer_validator.md"
+
+input_docs:
+  - path: "raw_query"
+    sections: ["raw_query"]
+    path_type: "input"
+    optional: false
+    max_tokens: 100
+    description: "Original user query"
+  - path: "query_analysis"
+    sections: ["analysis"]
+    path_type: "input"
+    optional: false
+    max_tokens: 600
+    description: "Phase 1 QueryAnalysis JSON"
+
+output_doc:
+  path: "context.md"
+  section: "0"
+  description: "Embeds validation object into Phase 1 output"
+
+token_budget:
+  total: 900
+  prompt: 300
+  input_docs: 450
+  output: 100
+  buffer: 50
+
+llm_params:
+  temperature: 0.4
+  max_tokens: 150
+
+output_schema: QUERY_ANALYSIS_VALIDATION
+
+description: |
+  Phase 1.5: Query Analyzer Validator
+
+  Runs immediately after Phase 1 to validate coherence and completeness.
+
+  **Responsibilities:**
+  - Validate required fields are present
+  - Detect contradictions between resolved_query and reference_resolution
+  - Decide pass / retry / clarify
+
+  **Output:**
+  ```json
+  {
+    "status": "pass|retry|clarify",
+    "confidence": 0.0-1.0,
+    "issues": ["string"],
+    "retry_guidance": ["string"],
+    "clarification_question": "string | null"
+  }
+  ```

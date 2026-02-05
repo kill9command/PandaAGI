@@ -1,7 +1,7 @@
 """Base class for all pipeline phases.
 
 Architecture Reference:
-    architecture/Implementation/05-PIPELINE-PHASES.md
+    architecture/main-system-patterns/phase*.md
 
 Design Principles:
     - All phases inherit from BasePhase
@@ -38,12 +38,13 @@ class BasePhase(ABC, Generic[T]):
 
     The ModelRouter automatically selects the correct model and temperature
     based on the phase number:
-    - Phases 0-1: REFLEX role (temp=0.3)
-    - Phases 2-4, 6: MIND role (temp=0.5)
-    - Phase 5: VOICE role (temp=0.7)
+    - Phases 0-1: REFLEX role (temp=0.4)
+    - Phases 2-5, 7: MIND role (temp=0.6)
+    - Phase 6: VOICE role (temp=0.7)
+    - Phase 8: Save (procedural, no LLM call)
     """
 
-    # Phase number (0-6) - override in subclasses
+    # Phase number (0-8) - override in subclasses
     PHASE_NUMBER: int = -1
 
     # Phase name for logging
@@ -169,7 +170,7 @@ class BasePhase(ABC, Generic[T]):
         """Get the LLM role name for this phase."""
         if self.PHASE_NUMBER in (0, 1):
             return "REFLEX"
-        elif self.PHASE_NUMBER == 5:
+        elif self.PHASE_NUMBER == 6:
             return "VOICE"
         else:
             return "MIND"

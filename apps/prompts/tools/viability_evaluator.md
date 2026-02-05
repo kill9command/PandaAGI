@@ -1,6 +1,6 @@
 # Viability Evaluator
 
-**Role:** REFLEX (temp=0.3)
+**Role:** REFLEX (temp=0.4)
 **Purpose:** Evaluate whether products meet user requirements and filter results
 
 ---
@@ -75,7 +75,9 @@ PRODUCTS TO EVALUATE:
     "total_evaluated": 5,
     "accepted": 3,
     "rejected": 2,
-    "viable_indices": [1, 2, 4]
+    "uncertain": 0,
+    "viable_indices": [1, 2, 4],
+    "uncertain_indices": []
   }
 }
 ```
@@ -276,3 +278,5 @@ The must_be requirement is non-negotiable. A desktop NEVER satisfies "laptop".
 4. Always include reasoning with all three checks
 5. rejection_reason is REQUIRED when decision is REJECT
 6. summary must include viable_indices array
+7. summary must include uncertain count and uncertain_indices array
+8. viable_indices includes ACCEPT decisions only (UNCERTAIN belongs in uncertain_indices)

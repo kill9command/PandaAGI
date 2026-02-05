@@ -11,21 +11,18 @@ from pydantic import BaseModel, Field
 # Enums
 # =============================================================================
 
-class QueryType(str, Enum):
-    """Query type classification."""
+class ActionNeeded(str, Enum):
+    """Phase 0 action classification (replaces old Intent enum).
 
-    SPECIFIC_CONTENT = "specific_content"
-    GENERAL_QUESTION = "general_question"
-    FOLLOWUP = "followup"
-    NEW_TOPIC = "new_topic"
+    See: architecture/main-system-patterns/phase1-query-analyzer.md §4
+    """
 
-
-class Intent(str, Enum):
-    """Query intent classification."""
-
-    TRANSACTIONAL = "transactional"
-    INFORMATIONAL = "informational"
-    NAVIGATIONAL = "navigational"
+    LIVE_SEARCH = "live_search"
+    RECALL_MEMORY = "recall_memory"
+    ANSWER_FROM_CONTEXT = "answer_from_context"
+    NAVIGATE_TO_SITE = "navigate_to_site"
+    EXECUTE_CODE = "execute_code"
+    UNCLEAR = "unclear"
 
 
 class ReflectionDecision(str, Enum):
@@ -51,7 +48,7 @@ class PlannerAction(str, Enum):
 
 
 class ValidationDecision(str, Enum):
-    """Phase 6 validation decisions."""
+    """Phase 7 validation decisions."""
 
     APPROVE = "APPROVE"
     REVISE = "REVISE"
@@ -74,28 +71,44 @@ class GoalStatus(str, Enum):
 # =============================================================================
 
 class ContentReference(BaseModel):
-    """Reference to prior content."""
+    """Reference to prior content.
+
+    All fields except title and content_type are nullable — the LLM may
+    not be able to resolve all fields for every reference.
+    """
 
     title: str
-    content_type: str  # "thread", "article", "product", etc.
-    site: str
-    source_turn: int
+    content_type: str  # "thread", "article", "product", "video", "post"
+    site: Optional[str] = None
+    source_turn: Optional[int] = None
     prior_findings: Optional[str] = None
     source_url: Optional[str] = None
-    has_webpage_cache: bool = False
-    webpage_cache_path: Optional[str] = None
+    has_visit_record: bool = False
+    visit_record_path: Optional[str] = None
 
 
 class QueryAnalysis(BaseModel):
-    """Phase 0 output: Query analysis result."""
+    """Phase 1 output: Query analysis result.
 
-    original_query: str
+    Schema matches the active dataclass in libs/gateway/context/query_analyzer.py.
+    See: architecture/main-system-patterns/phase1-query-analyzer.md §7
+    See: architecture/contracts/phase_contracts.yaml Phase 0
+    """
+
+    original_query: str = ""
     resolved_query: str
+    user_purpose: str = ""
+    action_needed: Optional[str] = None  # ActionNeeded enum value for turn indexing
+    data_requirements: dict[str, Any] = Field(default_factory=dict)
+    reference_resolution: dict[str, Any] = Field(default_factory=dict)
+    prior_context: dict[str, Any] = Field(default_factory=dict)  # Context from prior turns
+    mode: str = "chat"  # "chat" | "code"
     was_resolved: bool = False
-    query_type: QueryType
-    intent: Optional[Intent] = None
     content_reference: Optional[ContentReference] = None
-    reasoning: str
+    reasoning: str = ""
+    validation: dict[str, Any] = Field(default_factory=dict)
+    is_multi_task: bool = False
+    task_breakdown: Optional[list[dict[str, Any]]] = None
 
 
 # =============================================================================
@@ -216,7 +229,7 @@ class SynthesisResult(BaseModel):
 
 
 # =============================================================================
-# Phase 6: Validation
+# Phase 7: Validation
 # =============================================================================
 
 class ValidationCheck(BaseModel):
@@ -244,7 +257,7 @@ class GoalValidation(BaseModel):
 
 
 class ValidationResult(BaseModel):
-    """Phase 6 output: Validation result.
+    """Phase 7 output: Validation result.
 
     Includes best-seen tracking fields (Poetiq pattern) to preserve the
     highest-quality response across validation attempts, returning it on
@@ -276,7 +289,7 @@ class TurnMetadata(BaseModel):
     session_id: str
     timestamp: datetime = Field(default_factory=datetime.now)
     topic: Optional[str] = None
-    intent: Optional[Intent] = None
+    action_needed: Optional[str] = None  # ActionNeeded enum value from Phase 0
     quality: Optional[float] = Field(ge=0.0, le=1.0, default=None)
     turn_dir: str
     embedding_id: Optional[str] = None

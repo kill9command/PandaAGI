@@ -1,28 +1,30 @@
-# Phase 5: Coordinator (Tool Expert)
+# Phase 5: Coordinator (Workflow Handler)
 
 **Status:** SPECIFICATION
-**Version:** 3.0
+**Version:** 3.4
 **Created:** 2026-01-04
-**Updated:** 2026-01-24
-**Layer:** MIND role (Qwen3-Coder-30B-AWQ @ temp=0.4)
+**Updated:** 2026-02-05
+**Layer:** REFLEX role (Qwen3-Coder-30B-AWQ @ temp=0.4)
+
+**Related Concepts:** See §13 (Concept Alignment)
 
 ---
 
 ## 1. Overview
 
-The Coordinator is the **Tool Expert** that translates natural language commands from the Executor into specific tool calls. It answers the question: **"Which tool best accomplishes this command?"**
+The Coordinator is the **Workflow Handler** that translates natural language commands from the Executor into workflow selections and executions. It answers the question: **"Which workflow best accomplishes this command?"**
 
 Given:
 - A natural language command from the Executor
 - The current context (sections 0-4)
 
 Do:
-- Select the appropriate tool from the catalog
-- Determine tool parameters
-- Execute the tool
+- Select the appropriate workflow from the catalog
+- Determine workflow inputs
+- Execute the workflow (tools are embedded in the workflow)
 - Return structured results
 
-**Key Design Principle:** The Coordinator owns the complete tool catalog. The Executor does NOT know tool signatures - it issues natural language commands like "search for laptops" and the Coordinator translates that to `internet.research(query="laptops", mode="commerce")`.
+**Key Design Principle:** The Coordinator owns the complete workflow catalog. The Executor does NOT know tool signatures - it issues natural language commands like "run research workflow for <topic>" and the Coordinator executes the workflow with embedded tools.
 
 ---
 
@@ -31,85 +33,131 @@ Do:
 ```
 Phase 4: Executor (Tactical) → Natural language command
     ↓
-Phase 5: Coordinator (Tool Expert) → Tool selection + execution
+Phase 5: Coordinator (Workflow Handler) → Workflow selection + execution
     ↓
-Results back to Executor (loop) or Phase 6: Synthesis
+Results back to Executor (loop). Executor COMPLETE returns to Phase 3, which routes to Synthesis.
 ```
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    COORDINATOR (TOOL EXPERT)                     │
+│                   COORDINATOR (WORKFLOW HANDLER)                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  Input: Natural language command from Executor                   │
-│  "Search for cheap laptops with good reviews"                    │
+│  "Run research workflow for <item> under <budget>"               │
 │                                                                  │
 │                            ↓                                     │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │ TOOL SELECTION (LLM)                                        │ │
+│  │ WORKFLOW SELECTION (LLM)                                    │ │
 │  │                                                             │ │
-│  │ Command: "Search for cheap laptops with good reviews"       │ │
+│  │ Command: "Run research workflow for <item> under <budget>"  │ │
 │  │                                                             │ │
-│  │ → Match to: internet.research                               │ │
-│  │ → Args: {query: "cheap laptops good reviews", mode: "commerce"} │
+│  │ → Match to: <workflow_name>                                 │ │
+│  │ → Args: {query: "<item> under <budget>", mode: "<mode>"}    │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                            ↓                                     │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │ TOOL EXECUTION                                              │ │
+│  │ WORKFLOW EXECUTION                                          │ │
 │  │                                                             │ │
-│  │ Call MCP server with selected tool                          │ │
+│  │ Execute workflow (embedded tools)                           │ │
 │  │ Receive results                                             │ │
 │  │ Extract claims/evidence                                     │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                            ↓                                     │
 │                                                                  │
 │  Output: COORDINATOR_RESULT                                      │
-│  {command, tool_selected, status, result, claims}                │
+│  {command, workflow_selected, status, result, claims}            │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Input/Output Specification
+## 3. Input/Output Specification
 
-### 2.1 Input: Natural Language Command
+### 3.1 Input: Natural Language Command
 
 The Coordinator receives a command from the Executor:
 
 ```json
 {
-  "command": "Search for cheap laptops with good reviews",
+  "command": "Run research workflow for <item> under <budget> with <constraint>",
   "context": {
     "goal_focus": "GOAL_1",
-    "intent": "commerce",
-    "original_query": "find me a cheap laptop"
+    "workflow_hint": "<workflow_name_or_intent>",
+    "original_query": "<original_query>"
   }
+  // Note: workflow_hint is optional and should not override user constraints.
 }
 ```
 
-### 2.2 Output: COORDINATOR_RESULT
+### 3.2 Output: COORDINATOR_SELECTION (LLM Output)
+
+The Coordinator LLM returns a **selection** (no execution):
+
+```json
+{
+  "_type": "COORDINATOR_SELECTION",
+  "command_received": "Run research workflow for <item> under <budget> with <constraint>",
+  "workflow_selected": "<workflow_name>",
+  "workflow_args": {
+    "<arg>": "<value>",
+    "original_query": "<original_query>"
+  },
+  "status": "selected | needs_more_info | blocked",
+  "missing": ["<required_input_1>", "<required_input_2>"],
+  "message": "Need <required_input_1> and <required_input_2> to continue",
+  "error": "Workflow not allowed in current mode"
+}
+```
+
+Only include `missing`, `message`, or `error` when status requires them.
+
+### 3.3 Output: COORDINATOR_RESULT (System Output)
+
+After selection, the system executes the workflow and returns:
 
 ```json
 {
   "_type": "COORDINATOR_RESULT",
-  "command_received": "Search for cheap laptops with good reviews",
-  "tool_selected": "internet.research",
-  "tool_args": {
-    "query": "cheap laptops good reviews",
-    "mode": "commerce",
-    "original_query": "find me a cheap laptop"
+  "command_received": "Run research workflow for <item> under <budget> with <constraint>",
+  "workflow_selected": "<workflow_name>",
+  "workflow_args": {
+    "query": "<item> under <budget> with <constraint>",
+    "mode": "<workflow_mode>",
+    "original_query": "<original_query>"
   },
   "status": "success" | "error" | "blocked",
   "result": {
     "findings": [...],
-    "sources_visited": 5
+    "sources_visited": <N>
   },
   "claims": [
-    {"claim": "HP Victus @ $649", "confidence": 0.90, "source": "walmart.com"},
-    {"claim": "Lenovo LOQ @ $697", "confidence": 0.92, "source": "bestbuy.com"}
+    {
+      "claim": "<item> @ <$price>",
+      "confidence": 0.90,
+      "source_name": "<source_name>",
+      "source_domain": "<source_domain>",
+      "url": "<url>",
+      "title": "<title_or_null>",
+      "source_type": "web",
+      "source_ref": "<source_reference>"
+    },
+    {
+      "claim": "<item> @ <$price>",
+      "confidence": 0.92,
+      "source_name": "<source_name>",
+      "source_domain": "<source_domain>",
+      "url": "<url>",
+      "title": "<title_or_null>",
+      "source_type": "web",
+      "source_ref": "<source_reference>"
+    }
+  ],
+  "tool_runs": [
+    {"tool": "<tool_name>", "status": "success", "duration_ms": <N>}
   ],
   "error": null
 }
@@ -117,179 +165,125 @@ The Coordinator receives a command from the Executor:
 
 ---
 
-## 3. Tool Catalog
+## 4. Workflow Catalog (Dynamic)
 
-The Coordinator owns the complete tool catalog. This is the single source of truth for available tools.
+The Coordinator owns the complete workflow catalog. This is the single source of truth for available workflows. Each workflow embeds the tools it needs.
 
-### 3.1 Chat Mode Tools
+### 4.1 Catalog Injection
 
-| Tool | MCP Server | When to Select |
-|------|------------|----------------|
-| `internet.research` | internet-research-mcp | "search", "find", "look up", web queries |
-| `memory.search` | memory-mcp | "recall", "what did I say", "my preferences" |
-| `memory.save` | memory-mcp | "remember", "save", "store" |
-| `memory.delete` | memory-mcp | "forget", "remove", "delete from memory" |
-| `file.read` | filesystem-mcp | "read file", "show contents", "what's in" |
-| `file.glob` | filesystem-mcp | "find files", "list files matching" |
-| `file.grep` | filesystem-mcp | "search in files", "find text in" |
+The workflow catalog is injected into the Coordinator prompt at runtime. The Coordinator **must** select from this list and may not invent workflows.
 
-### 3.2 Code Mode Tools (Additional)
+### 4.2 Workflow Definition Contract (Abstract)
 
-| Tool | MCP Server | When to Select |
-|------|------------|----------------|
-| `file.write` | filesystem-mcp | "create file", "write to" |
-| `file.edit` | filesystem-mcp | "edit", "modify", "change", "update file" |
-| `file.delete` | filesystem-mcp | "delete file", "remove file" |
-| `repo.scope_discover` | code-mcp | "find related files", "discover structure" |
-| `file.read_outline` | code-mcp | "show structure", "outline of" |
-| `git.status` | git-mcp | "git status", "what changed" |
-| `git.diff` | git-mcp | "show diff", "what's different" |
-| `git.commit_safe` | git-mcp | "commit", "save changes to git" |
-| `git.push` | git-mcp | "push", "upload changes" |
-| `bash.execute` | shell-mcp | "run command", "execute" |
-| `test.run` | testing-mcp | "run tests", "verify", "check tests" |
-| `code.verify_suite` | code-mcp | "run test suite", "verify all tests" |
-
-### 3.3 Tool Signatures
-
-Each tool has a defined signature. The Coordinator knows these:
-
-```yaml
-internet.research:
-  args:
-    query: string (required) - search query
-    mode: string (optional) - "commerce", "informational", "navigation"
-    original_query: string (optional) - user's original query for context
-
-memory.save:
-  args:
-    type: string - "preference", "fact", "instruction"
-    content: string - what to remember
-
-file.read:
-  args:
-    file_path: string - path to file
-    offset: int (optional) - line to start from
-    limit: int (optional) - max lines to read
-
-file.edit:
-  args:
-    file_path: string - path to file
-    old_string: string - text to find
-    new_string: string - text to replace with
-    replace_all: bool (optional) - replace all occurrences
-```
+Each workflow defines:
+- **Triggers** (pattern or intent)
+- **Inputs** (required/optional)
+- **Steps** (embedded tools)
+- **Outputs** (fields returned)
+- **Success criteria** (validation)
 
 ---
 
-## 4. Command Translation Examples
+## 5. Command Translation Templates
 
-### 4.1 Research Commands
+### 5.1 Abstract Translation Patterns
 
-| Natural Language Command | Tool Selection |
-|--------------------------|----------------|
-| "Search for cheap laptops" | `internet.research(query="cheap laptops", mode="commerce")` |
-| "Find information about hamster care" | `internet.research(query="hamster care guide", mode="informational")` |
-| "Go to Best Buy and check laptop prices" | `internet.research(query="Best Buy laptop prices", mode="navigation")` |
-| "Look up the latest RTX 4090 reviews" | `internet.research(query="RTX 4090 reviews 2024", mode="informational")` |
-
-### 4.2 Memory Commands
-
-| Natural Language Command | Tool Selection |
-|--------------------------|----------------|
-| "Remember that I prefer RTX GPUs" | `memory.save(type="preference", content="prefers RTX GPUs")` |
-| "What's my favorite hamster breed?" | `memory.search(query="favorite hamster")` |
-| "Forget that I like AMD" | `memory.delete(query="AMD preference")` |
-| "Save that my budget is $1000" | `memory.save(type="fact", content="budget is $1000")` |
-
-### 4.3 File Commands
-
-| Natural Language Command | Tool Selection |
-|--------------------------|----------------|
-| "Read the auth.py file" | `file.read(file_path="src/auth.py")` |
-| "Find Python files in the src folder" | `file.glob(pattern="src/**/*.py")` |
-| "Search for TODO comments in the code" | `file.grep(pattern="TODO", glob="**/*.py")` |
-| "Show the structure of the main module" | `file.read_outline(file_path="src/main.py")` |
-
-### 4.4 Code Operations
-
-| Natural Language Command | Tool Selection |
-|--------------------------|----------------|
-| "Add a new function to auth.py" | `file.edit(file_path="src/auth.py", ...)` |
-| "Run the test suite" | `test.run(target="tests/")` or `code.verify_suite(target="tests/")` |
-| "Commit the changes with message 'Fix login bug'" | `git.commit_safe(message="Fix login bug")` |
-| "Show what files have changed" | `git.status()` |
+| Command Pattern | Workflow Selection Pattern |
+|----------------|----------------------------|
+| "Run <category> workflow for <goal>" | Select a workflow whose triggers match `<category>` and `<goal>` |
+| "Run <workflow_name> for <goal>" | Use `<workflow_name>` if present in catalog |
+| "Run <workflow> with <constraints>" | Map `<constraints>` into `workflow_args` |
 
 ---
 
-## 5. Tool Selection Process
+## 6. Workflow Selection Process
 
-### 5.1 Selection Algorithm
+### 6.1 Selection Algorithm
 
 1. **Parse command intent** - What is the user trying to accomplish?
-2. **Match to tool category** - Research? Memory? File? Git?
-3. **Select specific tool** - Which tool in that category?
-4. **Extract parameters** - What values from the command?
-5. **Validate mode** - Is this tool allowed in current mode (chat/code)?
+2. **Match to workflow category** - Use catalog triggers.
+3. **Select specific workflow** - Choose the best match.
+4. **Extract parameters** - Populate `workflow_args`.
+5. **Validate mode** - Is this workflow allowed in current mode (chat/code)?
 
-### 5.2 Mode Enforcement
+### 6.2 Mode Enforcement
 
-| Mode | Allowed Tools |
-|------|---------------|
-| Chat | internet.research, memory.*, file.read, file.glob, file.grep |
-| Code | All chat tools + file.write, file.edit, file.delete, git.*, bash.*, test.*, code.* |
+The catalog specifies what workflows are allowed by mode. If a workflow is not permitted in the current mode, return `blocked`.
 
-If the Executor issues a command that requires a code-mode tool while in chat mode:
+If the Executor issues a command that requires a code-mode workflow while in chat mode:
 
 ```json
 {
   "_type": "COORDINATOR_RESULT",
-  "command_received": "Edit the auth.py file",
+  "command_received": "Run edit workflow for <file>",
   "status": "blocked",
-  "error": "file.edit requires code mode - currently in chat mode"
+  "error": "file_write_edit workflow requires code mode - currently in chat mode"
 }
 ```
 
 ---
 
-## 6. Result Format
+## 7. Result Format
 
-### 6.1 Success Result
+### 7.1 Success Result
 
 ```json
 {
   "_type": "COORDINATOR_RESULT",
-  "command_received": "Search for cheap laptops with RTX GPU",
-  "tool_selected": "internet.research",
-  "tool_args": {
-    "query": "cheap laptops RTX GPU",
-    "mode": "commerce"
+  "command_received": "Run research workflow for <item> under <budget> with <constraint>",
+  "workflow_selected": "<workflow_name>",
+  "workflow_args": {
+    "query": "<item> under <budget> with <constraint>",
+    "mode": "<workflow_mode>"
   },
   "status": "success",
   "result": {
     "findings": [
-      {"product": "HP Victus 15", "price": "$649", "url": "https://..."},
-      {"product": "Lenovo LOQ 15", "price": "$697", "url": "https://..."}
+      {"item": "<item_name>", "price": "<price>", "url": "<url>"},
+      {"item": "<item_name>", "price": "<price>", "url": "<url>"}
     ],
-    "sources_visited": 8,
-    "duration_ms": 12500
+    "sources_visited": <N>,
+    "duration_ms": <N>
   },
   "claims": [
-    {"claim": "HP Victus 15 @ $649", "confidence": 0.90, "source": "walmart.com", "ttl": "6h"},
-    {"claim": "Lenovo LOQ 15 @ $697", "confidence": 0.92, "source": "bestbuy.com", "ttl": "6h"}
+    {
+      "claim": "<item> @ <price>",
+      "confidence": 0.90,
+      "source_name": "<source_name>",
+      "source_domain": "<source_domain>",
+      "url": "<url>",
+      "title": "<title_or_null>",
+      "source_type": "web",
+      "source_ref": "<source_reference>",
+      "ttl": "<ttl>"
+    },
+    {
+      "claim": "<item> @ <price>",
+      "confidence": 0.92,
+      "source_name": "<source_name>",
+      "source_domain": "<source_domain>",
+      "url": "<url>",
+      "title": "<title_or_null>",
+      "source_type": "web",
+      "source_ref": "<source_reference>",
+      "ttl": "<ttl>"
+    }
+  ],
+  "tool_runs": [
+    {"tool": "<tool_name>", "status": "success", "duration_ms": <N>}
   ]
 }
 ```
 
-### 6.2 Error Result
+### 7.2 Error Result
 
 ```json
 {
   "_type": "COORDINATOR_RESULT",
-  "command_received": "Read the secret config file",
-  "tool_selected": "file.read",
-  "tool_args": {
-    "file_path": "/etc/secrets/config"
+  "command_received": "Run file read workflow for <restricted_path>",
+  "workflow_selected": "file_read",
+  "workflow_args": {
+    "file_path": "<restricted_path>"
   },
   "status": "error",
   "error": "Permission denied: cannot read protected file",
@@ -298,47 +292,73 @@ If the Executor issues a command that requires a code-mode tool while in chat mo
 }
 ```
 
-### 6.3 Blocked Result
+### 7.3 Blocked Result
 
 ```json
 {
   "_type": "COORDINATOR_RESULT",
-  "command_received": "Delete all test files",
+  "command_received": "Run delete workflow for <path>",
   "status": "blocked",
   "error": "Destructive operation requires explicit user approval",
   "requires_approval": true
 }
 ```
 
+### 7.4 Needs‑More‑Info Result
+
+```json
+{
+  "_type": "COORDINATOR_RESULT",
+  "command_received": "Run research workflow for <item> under <budget>",
+  "status": "needs_more_info",
+  "missing": ["<required_input_1>", "<required_input_2>"],
+  "message": "Need <required_input_1> and <required_input_2> to continue"
+}
+```
+
+### 7.5 Missing Source Metadata (Blocked)
+
+If a workflow result lacks required source metadata (`url` or `source_ref`), the Coordinator must return a blocked result so the Executor can retry with a more precise command:
+
+```json
+{
+  "_type": "COORDINATOR_RESULT",
+  "command_received": "Run research workflow for <item> under <budget>",
+  "status": "blocked",
+  "error": "Missing source metadata in workflow results",
+  "requires_retry": true
+}
+```
+
 ---
 
-## 7. Section 4 Contribution
+## 8. Section 4 Contribution
 
 The Coordinator's results are formatted and appended to section 4 by the Orchestrator:
 
 ```markdown
 ### Executor Iteration 3
 **Action:** COMMAND
-**Command:** "Search for cheap laptops with RTX GPU"
-**Coordinator:** internet.research → "cheap laptops RTX GPU"
-**Result:** SUCCESS - 5 products found
+**Command:** "Run research workflow for <item> under <budget> with <constraint>"
+**Coordinator:** <workflow_name> → "<query>"
+**Result:** SUCCESS - <N> results found
 **Claims:**
 | Claim | Confidence | Source | TTL |
 |-------|------------|--------|-----|
-| HP Victus 15 @ $649 | 0.90 | walmart.com | 6h |
-| Lenovo LOQ 15 @ $697 | 0.92 | bestbuy.com | 6h |
-| Acer Nitro V @ $749 | 0.88 | newegg.com | 6h |
+| <item> @ <price> | 0.90 | <source_domain> | <ttl> |
+| <item> @ <price> | 0.92 | <source_domain> | <ttl> |
+| <item> @ <price> | 0.88 | <source_domain> | <ttl> |
 ```
 
 ---
 
-## 8. Token Budget
+## 9. Token Budget
 
 **Total Budget:** ~2,500 tokens per invocation
 
 | Component | Tokens | Purpose |
 |-----------|--------|---------|
-| Tool catalog | 800 | All tool signatures |
+| Workflow catalog | 800 | Workflow definitions and embedded tool signatures |
 | Command + context | 500 | Input from Executor |
 | Selection reasoning | 200 | Tool choice |
 | Output | 1,000 | Result JSON |
@@ -347,18 +367,18 @@ The Coordinator's results are formatted and appended to section 4 by the Orchest
 
 ---
 
-## 9. Error Handling
+## 10. Error Handling
 
-### 9.1 Tool Errors
+### 10.1 Workflow Errors
 
 | Error Type | Coordinator Response |
 |------------|---------------------|
-| Tool not found | status: "error", error: "Unknown tool" |
+| Workflow not found | status: "error", error: "Unknown workflow" |
 | Invalid parameters | status: "error", error: "Missing required parameter: X" |
-| Execution timeout | status: "error", error: "Tool execution timed out" |
+| Execution timeout | status: "error", error: "Workflow execution timed out" |
 | Network failure | status: "error", error: "Network error: ..." |
 
-### 9.2 Recovery
+### 10.2 Recovery
 
 The Coordinator does NOT retry. It returns errors to the Executor, which decides whether to:
 - Issue a different command
@@ -367,7 +387,7 @@ The Coordinator does NOT retry. It returns errors to the Executor, which decides
 
 ---
 
-## 10. Ambiguous Command Handling
+## 11. Ambiguous Command Handling
 
 When a command is ambiguous, the Coordinator asks for clarification:
 
@@ -379,9 +399,9 @@ When a command is ambiguous, the Coordinator asks for clarification:
   "command_received": "Get the thing",
   "status": "needs_clarification",
   "clarification_options": [
-    {"interpretation": "Read a file", "would_select": "file.read"},
-    {"interpretation": "Search the web", "would_select": "internet.research"},
-    {"interpretation": "Retrieve from memory", "would_select": "memory.search"}
+    {"interpretation": "Read a file", "would_select": "file_read"},
+    {"interpretation": "Search the web", "would_select": "research_web"},
+    {"interpretation": "Retrieve from memory", "would_select": "memory_query"}
   ]
 }
 ```
@@ -390,29 +410,51 @@ The Executor can then issue a more specific command.
 
 ---
 
-## 11. Key Principles
+## 12. Key Principles
 
-1. **Single Responsibility:** Translate commands to tools, nothing else
-2. **Complete Catalog Ownership:** Only the Coordinator knows tool signatures
+1. **Single Responsibility:** Translate commands to workflows, nothing else
+2. **Complete Catalog Ownership:** Only the Coordinator knows workflow definitions and embedded tools
 3. **No Planning:** Don't decide what to do, just how to do it
-4. **Transparent Translation:** Always report what tool was selected and why
+4. **Transparent Translation:** Always report what workflow was selected and why
 5. **Mode Enforcement:** Respect chat vs code mode restrictions
 6. **Clean Results:** Return structured data with extracted claims
+7. **Self‑Extension Execution:** CREATE_TOOL / CREATE_WORKFLOW actions are executed via workflows, sandbox, and tool registration (see SELF_BUILDING_SYSTEM)
+8. **Constraint Enforcement:** Block workflow executions that violate constraints and report the violation to the Executor
+9. **Plan State Updates:** Record constraint violations/satisfaction in plan state
+10. **Workflow Registration:** Validate and register new workflow specs before activation
 
 ---
 
-## 12. Related Documents
+## 13. Concept Alignment
 
-- `architecture/main-system-patterns/phase4-executor.md` - Prior phase (issues commands)
-- `architecture/main-system-patterns/phase6-synthesis.md` - After execution complete
-- `architecture/main-system-patterns/PLANNER_EXECUTOR_COORDINATOR_LOOP.md` - Full loop specification
-- `architecture/mcp-tool-patterns/` - Individual tool specifications
-- `architecture/mcp-tool-patterns/internet-research-mcp/` - Research tool details
-- `architecture/services/orchestrator-service.md` - Tool execution service
+This section maps Phase 5's responsibilities to the cross-cutting concept documents.
+
+| Concept | Document | Phase 5 Relevance |
+|---------|----------|--------------------|
+| **Tool System** | `concepts/tools_workflows_system/TOOL_SYSTEM.md` | The Coordinator OWNS the workflow catalog — this is its primary responsibility. It knows workflow definitions, embedded tool families, signatures, parameters, and MCP servers. Adding new tools typically requires updating workflow definitions. |
+| **Execution System** | `concepts/system_loops/EXECUTION_SYSTEM.md` | Phase 5 is the **mechanical tier** of the 3-tier architecture. It operates in a loop with the Executor (Phase 4). The Coordinator translates commands to workflows — it does not plan or decide what to do. |
+| **Code Mode** | `concepts/code_mode/code-mode-architecture.md` | Mode enforcement is a core Coordinator responsibility. Chat mode restricts to read-only, research, and memory workflows. Code mode adds write/edit, git, test, and shell workflows. Mode violations return structured error responses. |
+| **Self-Building System** | `concepts/self_building_system/SELF_BUILDING_SYSTEM.md` | Executes CREATE_TOOL and CREATE_WORKFLOW actions from the Executor. Validates specs, runs in sandbox, and registers new tools/workflows. The Coordinator is where self-built tools enter the workflow catalog. |
+| **Document IO** | `concepts/DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md` | Workflow results are formatted and appended to §4 (Execution Progress) by the Orchestrator. Each result includes the command received, workflow selected, status, findings, and extracted claims. |
+| **Recipe System** | `concepts/recipe_system/RECIPE_SYSTEM.md` | Executed as a REFLEX recipe, ~2,500 tokens per invocation. The workflow catalog is a significant portion of the prompt. Invoked once per command, not once per turn — token usage scales with Executor iterations. |
+| **Confidence System** | `concepts/confidence_system/UNIVERSAL_CONFIDENCE_SYSTEM.md` | Claims extracted from workflow results include confidence scores and TTL. These feed into Validation (Phase 7) quality checks and the Executor's ANALYZE decisions. |
+| **Error Handling** | `concepts/error_and_improvement_system/ERROR_HANDLING.md` | The Coordinator does NOT retry on workflow errors. It returns structured error responses (workflow not found, invalid parameters, timeout, permission denied) to the Executor, which decides recovery strategy. |
+| **LLM Roles** | `LLM-ROLES/llm-roles-reference.md` | Uses the REFLEX role (temp=0.4) for deterministic workflow selection. Workflow matching is a classification task — it maps natural language commands to workflow definitions, requiring consistency over creativity. |
+| **Prompt Management** | `concepts/recipe_system/PROMPT_MANAGEMENT_SYSTEM.md` | The workflow catalog is embedded in the Coordinator's prompt. This is the only phase whose prompt scales with the number of registered workflows. The natural language command interface means Executor prompts stay small. |
 
 ---
 
-## 13. Changelog
+## 14. Related Documents
+
+- `architecture/main-system-patterns/phase4-executor.md` — Prior phase (issues commands)
+- `architecture/main-system-patterns/phase6-synthesis.md` — After execution complete
+- `architecture/concepts/system_loops/EXECUTION_SYSTEM.md` — Full loop specification
+- `architecture/main-system-patterns/workflows/internet-research-mcp/` — Research workflow architecture
+- `architecture/main-system-patterns/services/tool-execution-service.md` — Workflow/tool execution service
+
+---
+
+## 15. Changelog
 
 | Version | Date | Changes |
 |---------|------|---------|
@@ -420,7 +462,10 @@ The Executor can then issue a more specific command.
 | 2.0 | 2026-01-05 | Simplified scope - Coordinator is tool registry/executor only |
 | 2.1 | 2026-01-05 | Added Layer header, converted YAML/Python code to tables |
 | 3.0 | 2026-01-24 | **Major revision:** Changed to Tool Expert role. Now receives natural language commands from Executor instead of structured tickets. Added command translation examples. Updated to Phase 5 (new Executor is Phase 4). |
+| 3.1 | 2026-02-03 | Added §13 Concept Alignment. Fixed temperature (0.5 → 0.4 per LLM Roles reference). Fixed duplicate §2 numbering. Abstracted `plan_state.json` and `workflow.register` references. Fixed Related Documents paths. Removed stale Concept Implementation Touchpoints and Benchmark Gaps sections. |
+| 3.2 | 2026-02-04 | Shifted from tool selection to workflow handling. Updated catalogs, templates, results, and mode enforcement to be workflow-centric. |
+| 3.3 | 2026-02-04 | Added required source metadata fields in claims and explicit missing-source handling. |
 
 ---
 
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-02-04

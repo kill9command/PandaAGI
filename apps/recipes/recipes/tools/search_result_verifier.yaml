@@ -1,14 +1,35 @@
 name: search_result_verifier
 role: verifier
+model_layer: REFLEX
+temperature: 0.4
 description: Verifies if search result HTML matches user query intent
 
 prompt_fragments:
   - "apps/prompts/tools/search_result_verifier.md"
 
-input_docs: []
+input_docs:
+  - path: "query"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 200
+    description: "User query"
+  - path: "html_content"
+    path_type: "runtime"
+    optional: false
+    max_tokens: 3000
+    description: "HTML content to verify"
 
 token_budget:
-  total: 500
-  prompt: 400
-  input_docs: 0
+  total: 1500
+  prompt: 300
+  input_docs: 1000
   output: 100
+  buffer: 100
+
+llm_params:
+  temperature: 0.4
+  max_tokens: 5
+
+quality_gates:
+  schema_validation: false
+  max_retries: 1

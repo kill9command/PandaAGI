@@ -104,7 +104,7 @@ async def list_turns(
                 params["user_id"] = user_id
 
             response = await client.get(
-                f"{config.orchestrator_url}/turns",
+                f"{config.tool_server_url}/turns",
                 params=params,
             )
 
@@ -121,10 +121,10 @@ async def list_turns(
             )
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )
 
 
@@ -146,7 +146,7 @@ async def get_turn(turn_id: int) -> TurnDetail:
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.get(
-                f"{config.orchestrator_url}/turns/{turn_id}",
+                f"{config.tool_server_url}/turns/{turn_id}",
             )
 
             if response.status_code == 404:
@@ -163,8 +163,8 @@ async def get_turn(turn_id: int) -> TurnDetail:
             return TurnDetail(**data)
 
     except httpx.ConnectError:
-        logger.error("Cannot connect to Orchestrator")
+        logger.error("Cannot connect to Tool Server")
         raise HTTPException(
             status_code=503,
-            detail={"error": "Orchestrator service unavailable"},
+            detail={"error": "Tool Server service unavailable"},
         )

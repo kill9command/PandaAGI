@@ -1,18 +1,19 @@
 """Pipeline phases for PandaAI v2.
 
-This package implements the 8-phase pipeline:
+This package implements the 9-phase pipeline:
 
-Phase 0: Query Analyzer - Resolve references, classify query (REFLEX role)
-Phase 1: Reflection - Binary PROCEED/CLARIFY gate (REFLEX role)
-Phase 2: Context Gatherer - Retrieve relevant context (MIND role)
-Phase 3: Planner - Create task plan, route decision (MIND role)
-Phase 4: Coordinator - Execute tools via Orchestrator (MIND role)
-Phase 5: Synthesis - Generate user-facing response (VOICE role)
-Phase 6: Validation - Quality gate, APPROVE/REVISE/RETRY (MIND role)
-Phase 7: Save - Persist turn data (procedural, no LLM)
+Phase 0: Query Analyzer - Resolve references, classify query (REFLEX 0.4)
+Phase 1: Reflection - Binary PROCEED/CLARIFY gate (REFLEX 0.4)
+Phase 2: Context Gatherer - Retrieve relevant context (MIND 0.6)
+Phase 3: Planner - Create task plan, route decision (MIND 0.6)
+Phase 4: Executor - Tactical execution via natural language commands (MIND 0.6)
+         (lives in libs/gateway/orchestration/executor_loop.py)
+Phase 5: Coordinator - Tool Expert, translates commands to tool calls (MIND 0.6)
+Phase 6: Synthesis - Generate user-facing response (VOICE 0.7)
+Phase 7: Validation - Quality gate, APPROVE/REVISE/RETRY (MIND 0.6)
+Phase 8: Save - Persist turn data (procedural, no LLM)
 
 Architecture Reference:
-    architecture/Implementation/05-PIPELINE-PHASES.md
     architecture/main-system-patterns/phase*.md
 
 Usage:
@@ -21,6 +22,7 @@ Usage:
         Reflection,
         ContextGatherer,
         Planner,
+        # Phase 4 (Executor) lives in libs/gateway/orchestration/executor_loop.py
         Coordinator,
         Synthesis,
         Validation,
@@ -33,6 +35,7 @@ Usage:
         create_reflection,
         create_context_gatherer,
         create_planner,
+        # Phase 4 (Executor) lives in libs/gateway/orchestration/executor_loop.py
         create_coordinator,
         create_synthesis,
         create_validation,
@@ -61,6 +64,7 @@ __all__ = [
     "Reflection",
     "ContextGatherer",
     "Planner",
+    # Phase 4 (Executor) lives in libs/gateway/orchestration/executor_loop.py
     "Coordinator",
     "Synthesis",
     "Validation",
@@ -74,30 +78,39 @@ __all__ = [
     "create_synthesis",
     "create_validation",
     "create_save",
+    # Constants
+    "PHASE_NAMES",
+    "PHASE_CLASSES",
 ]
 
 # Phase number mapping for convenience
+# Note: Phase 4 (Executor) lives in libs/gateway/orchestration/executor_loop.py,
+# not in apps/phases/. It is intentionally absent from PHASE_CLASSES.
 PHASE_CLASSES = {
     0: QueryAnalyzer,
     1: Reflection,
     2: ContextGatherer,
     3: Planner,
-    4: Coordinator,
-    5: Synthesis,
-    6: Validation,
-    7: Save,
+    # 4: Executor — lives in libs/gateway/orchestration/executor_loop.py
+    5: Coordinator,
+    6: Synthesis,
+    7: Validation,
+    8: Save,
 }
 
-# Phase name mapping
+# Phase name mapping — single source of truth for the 9-phase pipeline.
+# All other modules should import from here:
+#   from apps.phases import PHASE_NAMES
 PHASE_NAMES = {
     0: "query_analyzer",
     1: "reflection",
     2: "context_gatherer",
     3: "planner",
-    4: "coordinator",
-    5: "synthesis",
-    6: "validation",
-    7: "save",
+    4: "executor",
+    5: "coordinator",
+    6: "synthesis",
+    7: "validation",
+    8: "save",
 }
 
 

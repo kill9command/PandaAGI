@@ -12,10 +12,10 @@ Structure:
     - config.py: All environment variables and constants
     - dependencies.py: Singleton instances with lazy initialization
     - lifespan.py: Application startup/shutdown handlers
-    - services/: Business logic (thinking, jobs, orchestrator_client)
+    - services/: Business logic (thinking, jobs, tool_server_client)
     - utils/: Utility functions (text, json_helpers, trace)
     - routers/: Internal API endpoints
-    - routes/: External API endpoints (proxy to Orchestrator)
+    - routes/: External API endpoints (proxy to Tool Server)
 """
 
 import logging
@@ -47,7 +47,7 @@ from apps.services.gateway.routers import (
     ui_router,
 )
 
-# External routers (proxy to Orchestrator)
+# External routers (proxy to Tool Server)
 from apps.services.gateway.routes import (
     chat_router,
     turns_router,
@@ -153,25 +153,25 @@ app.include_router(websockets_router)
 app.include_router(ui_router)
 
 # =============================================================================
-# External Routers (Proxy to Orchestrator)
+# External Routers (Proxy to Tool Server)
 # =============================================================================
 
-# Chat endpoints (proxy to Orchestrator)
+# Chat endpoints (proxy to Tool Server)
 app.include_router(chat_router, tags=["chat"])
 
-# Turn history endpoints (proxy to Orchestrator)
+# Turn history endpoints (proxy to Tool Server)
 app.include_router(turns_router, prefix="/turns", tags=["turns"])
 
-# Memory endpoints (proxy to Orchestrator)
+# Memory endpoints (proxy to Tool Server)
 app.include_router(memory_router, prefix="/memory", tags=["memory"])
 
-# Cache endpoints (proxy to Orchestrator)
+# Cache endpoints (proxy to Tool Server)
 app.include_router(cache_router, prefix="/cache", tags=["cache"])
 
-# Status endpoints (proxy to Orchestrator) - routes already have paths
+# Status endpoints (proxy to Tool Server) - routes already have paths
 app.include_router(status_router, tags=["status"])
 
-# Diff endpoints (proxy to Orchestrator)
+# Diff endpoints (proxy to Tool Server)
 app.include_router(diff_router, prefix="/diff", tags=["diff"])
 
 # =============================================================================

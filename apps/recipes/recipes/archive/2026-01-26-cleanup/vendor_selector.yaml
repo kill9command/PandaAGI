@@ -1,0 +1,86 @@
+# Source Selection Recipe
+# Selects actionable sources from search results based on user intent
+#
+# CONTEXT DISCIPLINE: This recipe requires §0 (original user query) to understand
+# what the user actually wants. The LLM uses this to make intelligent selections.
+# See: panda_system_docs/architecture/LLM-ROLES/CONTEXT_DISCIPLINE.md
+
+name: source_selector
+role: source_selector
+mode: null  # Used in both chat and code modes
+
+# Prompt fragments
+prompt_fragments:
+  - "apps/prompts/vendor_selector/core.md (600 tokens)"
+
+# Input documents - CONTEXT DISCIPLINE enforced here
+input_docs:
+  # Original user query - REQUIRED for understanding user intent
+  - path: "section_0"
+    optional: false
+    max_tokens: 200
+    description: "Original user query - what they actually asked for"
+
+  # Gathered context - optional but helpful
+  - path: "section_1"
+    optional: true
+    max_tokens: 300
+    description: "Additional context from prior research"
+
+  # Dynamic inputs (passed at call time)
+  - path: "search_results"
+    optional: false
+    max_tokens: 600
+    description: "Search results to select from"
+
+  - path: "search_query"
+    optional: false
+    max_tokens: 50
+    description: "Query used for search (may differ from original)"
+
+# Output documents
+output_docs:
+  - "source_selection.json"
+
+# Token budget
+token_budget:
+  total: 3200
+  prompt: 600         # core.md prompt
+  input_docs: 1000    # search results + context sections
+  output: 1400        # JSON response (increased again - was truncating at 800)
+  buffer: 200         # Safety margin
+
+# LLM parameters
+llm_params:
+  temperature: 0.1    # Low for consistent selections
+  max_tokens: 1400    # JSON output (increased to prevent truncation)
+
+# Output schema
+output_schema: SOURCE_SELECTION
+
+# Description
+description: |
+  Select sources from search results based on user intent.
+
+  **Context Discipline:**
+  - REQUIRES original user query to understand what they want
+  - The LLM interprets intent signals (cheap, best, fast, etc.)
+  - Selection and ranking are based on serving user's actual needs
+
+  **Generic Approach:**
+  - Works for any domain (shopping, services, information)
+  - LLM uses its knowledge to match sources to user intent
+  - No hardcoded priorities - reasoning is based on user's request
+
+  **Output JSON:**
+  ```json
+  {
+    "_type": "SOURCE_SELECTION",
+    "sources": [
+      {"index": 1, "domain": "...", "source_type": "...", "reasoning": "..."}
+    ],
+    "user_intent": "What the user wants",
+    "skipped": [{"index": 2, "reason": "..."}],
+    "summary": "..."
+  }
+  ```

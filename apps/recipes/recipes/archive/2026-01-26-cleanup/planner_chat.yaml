@@ -1,0 +1,57 @@
+# Planner (Chat Mode) Recipe
+# Creates Task Tickets for Coordinator
+# Updated for Unified Flow: uses single context.md with sections
+
+name: planner_chat
+role: planner
+phase: planning
+mode: chat
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/planner/common.md (290 tokens)"
+  - "apps/prompts/planner/strategic.md (1250 tokens)"
+
+# Input documents (Unified Flow: single context.md contains all sections)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 2000
+    path_type: "turn"
+    description: "Unified context document with §0 (query), §1 (gathered context), §2 (reflection decision)"
+
+# Output documents (what this role creates)
+output_docs:
+  - "ticket.md"
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 5750
+  prompt: 1540          # Fixed cost: common.md (290) + strategic.md (1250)
+  input_docs: 2000      # Budget for context.md (includes query, context, reflection)
+  output: 2000          # Expected PLAN output size
+  buffer: 210           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 5500
+
+# Output schema
+output_schema: TICKET  # Reference to schema in io_contracts.md
+
+# Description
+description: |
+  Planner creates Task Tickets for delegation to Coordinator.
+
+  **Unified Flow Integration:**
+  - Reads context.md which contains:
+    - §0: User Query (the question)
+    - §1: Gathered Context (preferences, memories, prior turns)
+    - §2: Reflection Decision (PROCEED/GATHER_MORE/CLARIFY)
+  - Output ticket.md is referenced by Coordinator phase
+
+  Output: TICKET JSON with goal, subtasks, constraints, target_role
+
+  Phase: Planning (Phase 3 in unified flow)
+  Mode: Chat (research, commerce, memory operations)

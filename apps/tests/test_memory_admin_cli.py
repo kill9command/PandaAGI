@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from apps.services.orchestrator.memory_store import get_memory_store, reset_memory_store_cache
+from apps.services.tool_server.memory_store import get_memory_store, reset_memory_store_cache
 
 
 @pytest.fixture()

@@ -7,14 +7,14 @@ and viewing tool execution metrics.
 Architecture Reference:
     architecture/Implementation/KNOWLEDGE_GRAPH_AND_UI_PLAN.md#Part 4: Coordinator Verification
     Task 4.2: Tool Registry Discovery Endpoint
-    architecture/services/orchestrator-service.md
+    architecture/main-system-patterns/services/tool-execution-service.md
 
 Endpoints:
     GET /v1/tools - List available tools for a mode (chat/code)
     GET /v1/tools/metrics - Get tool execution statistics
     GET /v1/tools/{tool_name} - Get details for a specific tool
     GET /v1/tools/{tool_name}/metrics - Get metrics for a specific tool
-    POST /tool/execute - Execute a single tool via Orchestrator
+    POST /tool/execute - Execute a single tool via Tool Server
 """
 
 import logging
@@ -29,7 +29,7 @@ from apps.services.gateway.config import (
     CHAT_ALLOWED,
     CONT_ALLOWED,
     MODEL_TIMEOUT,
-    ORCH_URL,
+    TOOL_SERVER_URL,
     is_tool_enabled,
 )
 
@@ -176,7 +176,10 @@ async def get_all_tool_metrics() -> Dict[str, Any]:
             ]
         }
     """
-    from libs.gateway.tool_metrics import get_tool_metrics
+    try:
+        from libs.gateway.execution.tool_metrics import get_tool_metrics
+    except ImportError:
+        raise HTTPException(503, "Tool metrics module not available")
 
     metrics = get_tool_metrics()
 
@@ -201,17 +204,11 @@ async def get_tool_details(tool_name: str) -> Dict[str, Any]:
 
     tool_router = get_tool_router()
     if not tool_router or not tool_router.catalog:
-        return {
-            "error": "Tool catalog not initialized",
-            "tool_name": tool_name,
-        }
+        raise HTTPException(503, "Tool catalog not initialized")
 
     tool = tool_router.catalog.get(tool_name)
     if not tool:
-        return {
-            "error": f"Tool '{tool_name}' not found",
-            "tool_name": tool_name,
-        }
+        raise HTTPException(404, f"Tool '{tool_name}' not found")
 
     # Build parameter list
     parameters = []
@@ -272,7 +269,10 @@ async def get_tool_specific_metrics(
             "recent": [...]
         }
     """
-    from libs.gateway.tool_metrics import get_tool_metrics
+    try:
+        from libs.gateway.execution.tool_metrics import get_tool_metrics
+    except ImportError:
+        raise HTTPException(503, "Tool metrics module not available")
 
     metrics = get_tool_metrics()
 
@@ -301,9 +301,9 @@ class ToolExecutePayload(BaseModel):
 @router.post("/tool/execute")
 async def tool_execute(payload: ToolExecutePayload) -> JSONResponse:
     """
-    Execute a single tool call via Orchestrator after permission validation.
+    Execute a single tool call via Tool Server after permission validation.
 
-    This endpoint proxies tool execution requests to the Orchestrator service,
+    This endpoint proxies tool execution requests to the Tool Server service,
     validating permissions first.
 
     Args:
@@ -316,9 +316,9 @@ async def tool_execute(payload: ToolExecutePayload) -> JSONResponse:
         }
 
     Returns:
-        Tool execution result from Orchestrator, or error response.
+        Tool execution result from Tool Server, or error response.
     """
-    from libs.gateway.permission_validator import get_validator, PermissionDecision
+    from libs.gateway.execution.permission_validator import get_validator, PermissionDecision
 
     tool = payload.tool
     args = payload.args.copy() if payload.args else {}
@@ -356,15 +356,15 @@ async def tool_execute(payload: ToolExecutePayload) -> JSONResponse:
     if not is_tool_enabled(tool):
         raise HTTPException(403, f"tool disabled: {tool}")
 
-    # Forward to Orchestrator
+    # Forward to Tool Server
     async with httpx.AsyncClient(timeout=MODEL_TIMEOUT) as client:
         try:
-            resp = await client.post(f"{ORCH_URL}/{tool}", json=args)
+            resp = await client.post(f"{TOOL_SERVER_URL}/{tool}", json=args)
             resp.raise_for_status()
             return JSONResponse(resp.json())
         except httpx.HTTPStatusError as e:
             raise HTTPException(
-                e.response.status_code, f"orchestrator error: {e}"
+                e.response.status_code, f"tool_server error: {e}"
             )
         except Exception as e:
             raise HTTPException(500, f"tool execute error: {e}")

@@ -1,0 +1,1 @@
+this folder contains overall concepts that we want the system to follow and adhere to during the design phase and for managing the debuging and planning processes for the system.

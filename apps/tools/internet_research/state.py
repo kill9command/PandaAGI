@@ -12,7 +12,7 @@ from typing import Optional, TYPE_CHECKING
 import json
 
 if TYPE_CHECKING:
-    from libs.gateway.turn_manager import TurnDirectory
+    from libs.gateway.persistence.turn_manager import TurnDirectory
 
 
 @dataclass

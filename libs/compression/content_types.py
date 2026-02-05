@@ -135,16 +135,21 @@ def detect_content_type(content: str, filename: Optional[str] = None) -> Content
     # Analyze content structure
     content_lower = content.lower()
 
-    # Check for context.md section markers
+    # Check for context.md section markers (current 8-phase pipeline)
     if any(
         marker in content
         for marker in [
-            "## 0. User Query",
-            "## 1. Reflection Decision",
+            "## 0. Original Query",
+            "## 0. User Query",  # Legacy marker
+            "## 1. Query Analysis",
+            "## 1. Reflection Decision",  # Legacy marker
             "## 2. Gathered Context",
-            "## 3. Task Plan",
-            "## 4. Tool Execution",
-            "## 5. Synthesis",
+            "## 3. Plan",
+            "## 3. Task Plan",  # Legacy marker
+            "## 4. Tool Results",
+            "## 4. Tool Execution",  # Legacy marker
+            "## 5. Response",
+            "## 5. Synthesis",  # Legacy marker
             "## 6. Validation",
         ]
     ):

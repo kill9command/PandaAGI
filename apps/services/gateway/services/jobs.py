@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from apps.services.gateway.config import API_KEY, MODEL_TIMEOUT
+from apps.services.gateway.config import API_KEY, GATEWAY_PORT, MODEL_TIMEOUT
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -71,7 +71,7 @@ async def run_chat_job(job_id: str, payload: dict):
     try:
         async with httpx.AsyncClient(timeout=MODEL_TIMEOUT) as client:
             resp = await client.post(
-                "http://127.0.0.1:9000/v1/chat/completions",
+                f"http://127.0.0.1:{GATEWAY_PORT}/v1/chat/completions",
                 json=payload,
                 headers=headers,
             )

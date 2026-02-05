@@ -33,21 +33,27 @@ Index of all LLM prompts needed for the system. Each entry describes what the pr
 
 | Prompt | Model | Purpose |
 |--------|-------|---------|
-| `planner` | MIND | Determine routing: coordinator (needs tools), synthesis (can answer from context), or clarify (query ambiguous). Classify intent. Create task plan and ticket.md. Detect memory patterns ("remember that..."). On RETRY, read §6 failure feedback and create new plan avoiding prior failures. |
+| `planner` | MIND | Determine routing: executor (needs tools), synthesis (can answer from context), or clarify (query ambiguous). Create STRATEGIC_PLAN with goals, approach, success criteria. On RETRY, read §7 failure feedback and create new plan avoiding prior failures. |
 
-### Phase 4: Coordinator
-
-| Prompt | Model | Purpose |
-|--------|-------|---------|
-| `coordinator` | MIND | Parse ticket.md, validate tool requests against registry, execute MCP tool calls, format results into §4 and toolresults.md. (Thin execution layer - most intelligence in tools themselves.) |
-
-### Phase 5: Synthesis
+### Phase 4: Executor
 
 | Prompt | Model | Purpose |
 |--------|-------|---------|
-| `synthesis` | VOICE | Generate user-facing response from §0-§4 context. Ground all claims in evidence from §4. Use appropriate hedging based on confidence scores. Format with markdown. On REVISE, incorporate revision_hints from §6. |
+| `executor` | MIND | Given strategic plan from §3 and accumulated results in §4, determine next tactical step. Output EXECUTOR_DECISION with action (COMMAND/ANALYZE/COMPLETE/BLOCKED). Issue natural language commands to Coordinator. |
 
-### Phase 6: Validation
+### Phase 5: Coordinator
+
+| Prompt | Model | Purpose |
+|--------|-------|---------|
+| `coordinator` | MIND | Translate natural language command from Executor into specific tool call. Validate against tool registry, execute MCP tool call, format results with claims into §4 and toolresults.md. |
+
+### Phase 6: Synthesis
+
+| Prompt | Model | Purpose |
+|--------|-------|---------|
+| `synthesis` | VOICE | Generate user-facing response from §0-§4 context. Ground all claims in evidence from §4. Use appropriate hedging based on confidence scores. Format with markdown. On REVISE, incorporate revision_hints from §7. |
+
+### Phase 7: Validation
 
 | Prompt | Model | Purpose |
 |--------|-------|---------|
@@ -128,9 +134,10 @@ app/recipes/prompts/
 │   ├── phase2_context_retrieval.yaml
 │   ├── phase2_context_synthesis.yaml
 │   ├── phase3_planner.yaml
-│   ├── phase4_coordinator.yaml
-│   ├── phase5_synthesis.yaml
-│   └── phase6_validation.yaml
+│   ├── phase4_executor.yaml
+│   ├── phase5_coordinator.yaml
+│   ├── phase6_synthesis.yaml
+│   └── phase7_validation.yaml
 ├── smart_summarization/
 │   ├── key_fact_extraction.yaml
 │   ├── content_compression.yaml

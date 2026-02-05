@@ -1,0 +1,65 @@
+# Synthesizer (Chat Mode - Pets) Recipe
+# Specialized response generation for live animal commerce queries
+# Uses pets-specific synthesis prompt
+
+name: synthesizer_chat_pets
+role: synthesizer
+phase: synthesis
+mode: chat
+content_type: pets
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/synthesizer/common.md (290 tokens)"
+  - "apps/prompts/synthesizer/synthesis_pets.md (1200 tokens)"
+
+# Input documents (Unified Flow: context.md + toolresults.md for full data)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 2500
+    path_type: "turn"
+    description: "Unified context document with §0-§4"
+  - path: "toolresults.md"
+    optional: true
+    max_tokens: 3000
+    path_type: "turn"
+    description: "Full tool execution results with vendor details and availability"
+
+# Output documents (what this role creates)
+output_docs:
+  - "response.md"
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 10200
+  prompt: 1490          # Fixed cost: common.md (290) + synthesis_pets.md (1200)
+  input_docs: 5500      # Budget for context.md (2500) + toolresults.md (3000)
+  output: 2900          # Expected answer size
+  buffer: 310           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 9900
+
+# Output schema
+output_schema: ANSWER
+
+# Description
+description: |
+  Synthesizer for live animal commerce queries.
+
+  **Content-Type Specialization:**
+  - LIVE animals only - filters out toys, supplies, accessories
+  - Vendor-focused structure (breeder reputation, ethical practices)
+  - Care context and buying tips
+  - Explicit disqualifiers for non-animal results
+
+  **Unified Flow Integration:**
+  - Reads context.md (§0-§4) + toolresults.md for vendor data
+  - Output is appended to context.md as §5
+
+  Phase: Synthesis (Phase 5 in unified flow)
+  Mode: Chat
+  Content Type: Pets (Live Animals)

@@ -4,20 +4,20 @@
 
 name: phase1_context_gatherer
 category: pipeline
-phase: 1
+phase: 2
 role: MIND
-temperature: 0.5
+temperature: 0.6
 
 prompt_fragments:
   - "apps/prompts/pipeline/phase1_context_gatherer.md"
 
 input_docs:
   - path: "context.md"
-    sections: ["0"]
+    sections: ["0", "1"]
     path_type: "turn"
     optional: false
     max_tokens: 500
-    description: "Section 0 with user query, intent, mode from Phase 0"
+    description: "Section 0 (user query) and Section 1 (reflection decision) from Phase 0-1"
   - path: "turn_index"
     sections: ["summaries"]
     path_type: "index"
@@ -45,8 +45,8 @@ input_docs:
 
 output_doc:
   path: "context.md"
-  section: "1"
-  description: "Writes section 1 with gathered context (preferences, prior turns, cached research)"
+  section: "2"
+  description: "Writes section 2 with gathered context (preferences, prior turns, cached research)"
 
 token_budget:
   total: 10500
@@ -56,20 +56,20 @@ token_budget:
   buffer: 300
 
 llm_params:
-  temperature: 0.5
+  temperature: 0.6
   max_tokens: 600
 
 output_schema: GATHERED_CONTEXT
 
 description: |
-  Phase 1: Context Gatherer (2-Phase Process)
+  Phase 2: Context Gatherer (2-Phase Process)
 
-  Uses MIND role (temp=0.5) for reasoning about relevance.
-  Only runs when Phase 2 (Reflection) has decided PROCEED.
+  Uses MIND role (temp=0.6) for reasoning about relevance.
+  Only runs when Phase 1 (Reflection) has decided PROCEED.
 
   **2-Phase Process:**
   1. RETRIEVAL (~5,500 tokens): Identify relevant sources without loading full docs
-  2. SYNTHESIS (~5,000 tokens): Follow links, extract details, compile section 1
+  2. SYNTHESIS (~5,000 tokens): Follow links, extract details, compile section 2
 
   **Input Sources:**
   - QueryAnalysis from Phase 0
@@ -79,11 +79,12 @@ description: |
   - Visit Records (cached page data)
   - Obsidian Memory (forever memory)
 
-  **Output (context.md section 1):**
+  **Output (context.md section 2):**
   - Session Preferences table
   - Relevant Prior Turns table
   - Cached Research Intelligence with quality scores
   - Visit Record Data
+  - Constraints (budget/requirements)
   - Source References with links
 
   **Dual Format:**

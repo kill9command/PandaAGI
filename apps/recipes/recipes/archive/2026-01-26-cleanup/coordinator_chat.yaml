@@ -1,0 +1,78 @@
+# Coordinator (Chat Mode) Recipe - Agent Loop
+# Iterative tool execution: plan next step, execute, see results, repeat
+# Updated for Agent Loop: Coordinator works like Claude Code - step by step
+
+name: coordinator_chat
+role: coordinator
+mode: chat
+
+# Agent loop configuration
+agent_loop:
+  enabled: true
+  max_steps: 10
+  tools_per_step: 3
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/coordinator/core.md (864 tokens)"
+  - "apps/prompts/coordinator/tools/intent_mapping.md (852 tokens)"
+  - "apps/prompts/coordinator/agent_loop.md (800 tokens)"
+
+# Input documents (Unified Flow: context.md + ticket.md from Planner)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 3000
+    path_type: "turn"
+    description: "Unified context document with §0-§4 (§4 accumulates execution results)"
+
+  - path: "ticket.md"
+    optional: true   # Optional for new Executor flow (command is in context.md §4)
+    max_tokens: 500
+    path_type: "turn"
+    description: "Task ticket from Planner phase (optional if using Executor flow)"
+
+# Output documents (what this role creates)
+output_docs:
+  - "toolresults.md"   # Tool execution results (appended to context.md as §4)
+
+# Token budget (hard limits enforced by Doc Pack Builder)
+token_budget:
+  total: 8000
+  prompt: 2516          # Fixed cost: core (864) + intent (852) + agent_loop (800)
+  input_docs: 3500      # Budget for context.md (grows with steps) + ticket.md
+  output: 1700          # Agent decision output (smaller per step)
+  buffer: 284           # Safety margin
+
+# Trimming strategy (if budget exceeded)
+trimming_strategy:
+  method: truncate_end
+  target: 7500
+
+# Output schema for agent loop
+output_schema: AGENT_DECISION
+
+# Description
+description: |
+  Coordinator operates as an AGENT LOOP - like Claude Code.
+
+  **How it works:**
+  1. Read context.md (includes §4 with previous step results)
+  2. Decide next action: TOOL_CALL, DONE, or BLOCKED
+  3. If TOOL_CALL: Execute tools, append results to §4, loop back to step 1
+  4. If DONE/BLOCKED: Exit loop, proceed to Synthesis
+
+  **Agent Loop Benefits:**
+  - Reacts to tool results (adjust approach based on what's learned)
+  - Handles failures gracefully (retry, work around, or report blocked)
+  - Efficient execution (only does what's needed)
+  - Natural task completion (knows when to stop)
+
+  **Tools available (Chat mode):**
+  - internet.research (adaptive search with QUICK/STANDARD/DEEP strategies)
+  - doc.search (semantic search in knowledge base)
+  - memory.create, memory.query, memory.update (long-term memory ops)
+  - file.read, file.glob, file.grep (read-only file operations)
+
+  Phase: Execution (Phase 4 in unified flow)
+  Mode: Chat (read-only operations)

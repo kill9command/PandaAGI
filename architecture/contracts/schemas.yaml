@@ -1,0 +1,161 @@
+# Canonical Schemas - Machine-readable schema definitions
+#
+# Defines the structure of all pipeline artifacts.
+
+version: "1.0"
+
+constraints_json:
+  description: "Constraints extracted from user query"
+  example:
+    constraints:
+      - id: "file_size_1"
+        type: "file_size"
+        max_bytes: 51200
+        source: "extracted"
+        original_text: "under 50KB"
+      - id: "budget_1"
+        type: "budget"
+        max_amount: 500
+        currency: "USD"
+        source: "extracted"
+    query: "Write output under 50KB with budget under $500"
+    extraction_source: "constraint_extractor"
+  fields:
+    constraints:
+      type: array
+      required: true
+      items:
+        id:
+          type: string
+          required: true
+        type:
+          type: string
+          required: true
+          enum: [file_size, budget, time, privacy, must_avoid, location, availability]
+        source:
+          type: string
+          required: false
+    query:
+      type: string
+      required: false
+    extraction_source:
+      type: string
+      required: false
+
+plan_state_json:
+  description: "Plan execution state with goals and violations"
+  example:
+    goals:
+      - id: "GOAL_1"
+        description: "Search for flights"
+        status: "completed"
+      - id: "GOAL_2"
+        description: "Book hotel"
+        status: "pending"
+    constraints:
+      - id: "budget_1"
+        status: "active"
+    violations: []
+    last_updated_phase: 5
+    backtracking:
+      enabled: true
+      backtrack_count: 0
+      max_backtracks: 3
+      skipped_steps: []
+      aborted: false
+  fields:
+    goals:
+      type: array
+      required: true
+      items:
+        id: { type: string, required: true }
+        description: { type: string, required: true }
+        status: { type: string, required: true, enum: [pending, in_progress, completed, failed] }
+    constraints:
+      type: array
+      required: true
+      items:
+        id: { type: string, required: true }
+        status: { type: string, required: true, enum: [active, violated, satisfied] }
+    violations:
+      type: array
+      required: true
+      items:
+        constraint_id: { type: string, required: true }
+        reason: { type: string, required: true }
+        phase: { type: integer, required: true }
+    last_updated_phase:
+      type: integer
+      required: true
+
+toolresults_md:
+  description: "Markdown document with tool execution results"
+  format: markdown
+  required_sections:
+    - "Tool Results"
+  example: |
+    # Tool Results
+
+    ## file.write
+    **Status:** success
+    **Output:** Written 1024 bytes to output.csv
+
+    ## file.read
+    **Status:** success
+    **Output:** Read 512 bytes from input.csv
+
+response_md:
+  description: "User-facing response markdown"
+  format: markdown
+  min_length: 10
+
+metadata_json:
+  description: "Turn metadata for indexing"
+  example:
+    turn_number: 42
+    user_id: "default"
+    session_id: "abc123"
+    timestamp: "2024-01-01T00:00:00"
+    topic: "travel planning"
+    intent: "transactional"
+    mode: "chat"
+  fields:
+    turn_number: { type: integer, required: true }
+    user_id: { type: string, required: true }
+    session_id: { type: string, required: true }
+    timestamp: { type: string, required: true }
+
+metrics_json:
+  description: "Performance metrics for the turn"
+  example:
+    turn_number: 42
+    timestamp: "2024-01-01T00:00:00"
+    phases_completed: [0, 1, 2, 3, 6, 7, 8]
+    total_duration_ms: 5000
+    token_usage:
+      input: 3000
+      output: 1500
+    quality_score: 0.85
+  fields:
+    turn_number: { type: integer, required: true }
+    timestamp: { type: string, required: true }
+    phases_completed: { type: array, required: true }
+
+artifact_manifest_json:
+  description: "Manifest of generated artifacts for a turn"
+  example:
+    turn_id: "turn_000042"
+    artifacts:
+      - artifact_id: "docx_20240101"
+        type: "docx"
+        filename: "report.docx"
+        path: "artifacts/report.docx"
+        size_bytes: 15000
+        title: "Travel Report"
+    total_artifacts: 1
+    created_at: "2024-01-01T00:00:00"
+  fields:
+    turn_id: { type: string, required: true }
+    artifacts: { type: array, required: true }
+    total_artifacts: { type: integer, required: true }
+    created_at: { type: string, required: true }

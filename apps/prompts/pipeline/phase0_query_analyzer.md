@@ -1,4 +1,4 @@
-# Phase 0: Query Analyzer
+# Phase 1: Query Analyzer
 
 Analyze the user query to produce a **natural language statement** of what the user wants.
 Your `user_purpose` output flows to all downstream phases.
@@ -11,17 +11,16 @@ Your `user_purpose` output flows to all downstream phases.
 {
   "resolved_query": "query with references made explicit",
   "user_purpose": "Natural language statement of what the user wants (2-4 sentences)",
-  "action_needed": "live_search | recall_memory | answer_from_context | navigate_to_site | execute_code | unclear",
   "data_requirements": {
     "needs_current_prices": true | false,
     "needs_product_urls": true | false,
     "needs_live_data": true | false,
     "freshness_required": "< 1 hour | < 24 hours | any | null"
   },
-  "prior_context": {
-    "continues_topic": "string or null",
-    "prior_turn_purpose": "string or null",
-    "relationship": "continuation | verification | modification | new_topic"
+  "reference_resolution": {
+    "status": "not_needed | resolved | failed",
+    "original_references": ["string"],
+    "resolved_to": "string | null"
   },
   "mode": "chat | code",
   "was_resolved": true | false,
@@ -44,20 +43,7 @@ Capture in natural language:
 2. **Why** (buying, learning, comparing, verifying)
 3. **Priorities** ("cheapest" = price, "best" = quality)
 4. **Constraints** (budget, requirements)
-5. **Relationship** to prior turns
-
----
-
-## action_needed
-
-| Value | When to Use |
-|-------|-------------|
-| `live_search` | Needs current data from web (prices, products, news) |
-| `recall_memory` | Asking about stored preferences or past conversations |
-| `answer_from_context` | Can answer from context (greeting, simple follow-up) |
-| `navigate_to_site` | Wants to go to a specific URL |
-| `execute_code` | Code operations (file edits, git, tests) |
-| `unclear` | Query is ambiguous |
+5. **Relationship** to prior turns (if applicable, in narrative form)
 
 ---
 
@@ -72,22 +58,19 @@ Capture in natural language:
 
 ---
 
-## prior_context.relationship
+## Reference Resolution
 
-| Value | Meaning |
-|-------|---------|
-| `continuation` | Continues same inquiry |
-| `verification` | "check again" - wants fresh data |
-| `modification` | "what about X instead?" - same topic, different params |
-| `new_topic` | Different topic |
+If the query contains references (e.g., "that thread", "it", "the article"):
+- Extract the reference phrases into `original_references`
+- Resolve them using the recent turn summaries
+- If resolution fails, set `status` to `failed` and leave `resolved_to` as null
 
 ---
 
-## Mode Detection
+## Mode (UI-Provided)
 
-- **Code:** File paths, git commands, code terms → `code`
-- **Chat:** Shopping, URLs, research → `chat`
-- **Default:** `chat`
+Mode is provided by the UI toggle. **Do not infer or change it.**
+Echo the provided mode as-is.
 
 ---
 
@@ -101,17 +84,16 @@ Capture in natural language:
 {
   "resolved_query": "[adjective] [product] with [feature]",
   "user_purpose": "User wants to find and buy [product] with [feature]. [Priority word] indicates [price/quality] priority. Needs current prices from retailers with clickable URLs.",
-  "action_needed": "live_search",
   "data_requirements": {
     "needs_current_prices": true,
     "needs_product_urls": true,
     "needs_live_data": true,
     "freshness_required": "< 1 hour"
   },
-  "prior_context": {
-    "continues_topic": null,
-    "prior_turn_purpose": null,
-    "relationship": "new_topic"
+  "reference_resolution": {
+    "status": "not_needed",
+    "original_references": [],
+    "resolved_to": null
   },
   "mode": "chat",
   "was_resolved": false,
@@ -128,17 +110,16 @@ Capture in natural language:
 {
   "resolved_query": "search again for [prior topic]",
   "user_purpose": "User wants to verify/refresh results from prior search. 'Check again' = wants NEW data, not cached. Run fresh research.",
-  "action_needed": "live_search",
   "data_requirements": {
     "needs_current_prices": true,
     "needs_product_urls": true,
     "needs_live_data": true,
     "freshness_required": "< 1 hour"
   },
-  "prior_context": {
-    "continues_topic": "[topic from prior turn]",
-    "prior_turn_purpose": "[purpose from prior turn]",
-    "relationship": "verification"
+  "reference_resolution": {
+    "status": "resolved",
+    "original_references": ["check again"],
+    "resolved_to": "refresh results for [prior topic]"
   },
   "mode": "chat",
   "was_resolved": true,
@@ -158,17 +139,16 @@ Capture in natural language:
 {
   "resolved_query": "how do I [task]",
   "user_purpose": "User wants to learn about [topic]. Informational - not buying. Evergreen knowledge from guides is appropriate.",
-  "action_needed": "live_search",
   "data_requirements": {
     "needs_current_prices": false,
     "needs_product_urls": false,
     "needs_live_data": false,
     "freshness_required": "any"
   },
-  "prior_context": {
-    "continues_topic": null,
-    "prior_turn_purpose": null,
-    "relationship": "new_topic"
+  "reference_resolution": {
+    "status": "not_needed",
+    "original_references": [],
+    "resolved_to": null
   },
   "mode": "chat",
   "was_resolved": false,

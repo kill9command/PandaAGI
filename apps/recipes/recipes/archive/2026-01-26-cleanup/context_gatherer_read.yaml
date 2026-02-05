@@ -1,0 +1,97 @@
+# Context Gatherer - Phase 2: READ
+# Evaluates loaded contexts and decides what links to follow.
+
+name: context_gatherer_read
+role: context_gatherer
+phase: read
+mode: null
+
+# Input documents
+input_docs:
+  - path: "query.md"
+    optional: false
+    max_tokens: 200
+    path_type: "turn"
+    description: "Current user query"
+
+  - path: "scan_result.md"
+    optional: false
+    max_tokens: 300
+    path_type: "turn"
+    description: "Phase 1 output - which turns are relevant"
+
+  - path: "context_bundle.md"
+    optional: false
+    max_tokens: 2500
+    path_type: "turn"
+    description: "Loaded context.md files for relevant turns"
+
+# Output documents
+output_docs:
+  - "read_result.md"  # Direct info + links to follow
+
+# Token budget
+token_budget:
+  total: 4000
+  prompt: 600
+  input_docs: 3000      # query + scan_result + context_bundle
+  output: 300
+  buffer: 100
+
+output_schema: JSON
+
+system_prompt: |
+  You are the Context Gatherer (READ phase). Evaluate the loaded contexts and decide what to use.
+
+  You have received:
+  - The current query
+  - Context.md files from relevant previous turns
+
+  TASK:
+  1. What useful information is DIRECTLY available in these contexts?
+  2. What SOURCE REFERENCES should we follow for more detail?
+  3. What specific information should we extract from each link?
+
+  WHEN TO FOLLOW LINKS:
+  - Context has summary but you need specific details (specs, prices, recommendations)
+  - Context references research.md that has expert opinions
+  - Context references toolresults.md with product data you need
+
+  WHEN NOT TO FOLLOW LINKS:
+  - Direct information is sufficient for the query
+  - Link would provide redundant information
+  - Query is simple and doesn't need deep detail
+
+  SPECIAL CASE - LIST QUERIES:
+  When the query asks for "topics", "threads", "titles", "popular posts", or similar LIST items:
+  - Cached summaries like "Marine Life, Reef Tanks, Equipment Reviews" are NOT sufficient
+  - These are CATEGORIZED summaries, not actual list items
+  - Mark as insufficient and prefer fresh tool results
+  - Fresh internet.research toolresults will have exact titles
+
+  OUTPUT FORMAT (JSON):
+  ```json
+  {
+    "direct_info": {
+      "809": "RTX 4050 laptops: $624-$689, Lenovo LOQ best value",
+      "808": "RTX 4060 laptops: $749-$1099, more performance"
+    },
+    "links_to_follow": [
+      {
+        "turn": 809,
+        "link": "panda_system_docs/turns/turn_000809/research.md",
+        "reason": "Need performance specs and expert recommendations",
+        "extract": ["community_tips", "specs_discovered"]
+      }
+    ],
+    "sufficient": false,
+    "missing_info": "Need performance comparison between 4050 and 4060"
+  }
+  ```
+
+description: |
+  Phase 2 of Context Gatherer: Reads loaded context.md files and
+  decides what direct info to use and which links to follow.
+
+  Key decision: Is the direct context sufficient, or do we need
+  to follow links to research.md/toolresults.md for more detail?

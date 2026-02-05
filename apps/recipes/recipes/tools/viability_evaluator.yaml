@@ -7,7 +7,7 @@
 name: tools_viability_evaluator
 category: tools
 role: viability_evaluator
-model_layer: REFLEX  # Classification tasks use REFLEX (temp 0.3)
+model_layer: REFLEX  # Classification tasks use REFLEX (temp 0.4)
 
 # Prompt fragments (loaded in order)
 prompt_fragments:
@@ -45,6 +45,10 @@ token_budget:
   input_docs: 2550  # query + requirements + products
   output: 1200      # JSON evaluations
   buffer: 150
+
+llm_params:
+  temperature: 0.4
+  max_tokens: 1200
 
 # Trimming strategy
 trimming_strategy:
@@ -116,7 +120,9 @@ output_schema:
         - total_evaluated
         - accepted
         - rejected
+        - uncertain
         - viable_indices
+        - uncertain_indices
       properties:
         total_evaluated:
           type: integer
@@ -124,7 +130,13 @@ output_schema:
           type: integer
         rejected:
           type: integer
+        uncertain:
+          type: integer
         viable_indices:
+          type: array
+          items:
+            type: integer
+        uncertain_indices:
           type: array
           items:
             type: integer

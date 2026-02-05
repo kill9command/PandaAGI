@@ -5,14 +5,14 @@ json_module = json
 import httpx
 from fastapi.testclient import TestClient
 
-from apps.services.orchestrator.memory_store import reset_memory_store_cache
+from apps.services.tool_server.memory_store import reset_memory_store_cache
 import libs.gateway.app as gateway_module
 from libs.gateway.app import (
     app as gateway_app,
     RUNTIME_POLICY,
     GUIDE_URL,
     COORDINATOR_URL,
-    ORCH_URL,
+    TOOL_SERVER_URL,
     RECENT_SHORT_TERM,
     _extract_pricing_query,
 )
@@ -141,12 +141,12 @@ def test_gateway_auto_adds_purchasing_lookup(monkeypatch, tmp_path):
                     }
                 )
             )
-        if url == f"{ORCH_URL}/purchasing.lookup":
+        if url == f"{TOOL_SERVER_URL}/purchasing.lookup":
             call_state["lookup_args"] = payload or {}
             return DummyResp({"query": payload.get("query"), "extra_query": payload.get("extra_query", ""), "offers": [], "best_offer": None})
-        if url == f"{ORCH_URL}/doc.search":
+        if url == f"{TOOL_SERVER_URL}/doc.search":
             return DummyResp({"chunks": [], "summary": "noop"})
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             return DummyResp({"items": []})
         return DummyResp({"ok": True})
 
@@ -250,12 +250,12 @@ def test_gateway_pricing_uses_long_term_memory_when_history_blank(monkeypatch, t
                     }
                 )
             )
-        if url == f"{ORCH_URL}/purchasing.lookup":
+        if url == f"{TOOL_SERVER_URL}/purchasing.lookup":
             call_state["lookup_args"] = payload or {}
             return DummyResp({"query": payload.get("query"), "extra_query": payload.get("extra_query", ""), "offers": [], "best_offer": None})
-        if url == f"{ORCH_URL}/doc.search":
+        if url == f"{TOOL_SERVER_URL}/doc.search":
             return DummyResp({"chunks": [], "summary": "noop"})
-        if url == f"{ORCH_URL}/memory.query":
+        if url == f"{TOOL_SERVER_URL}/memory.query":
             return DummyResp({"items": []})
         return DummyResp({"ok": True})
 

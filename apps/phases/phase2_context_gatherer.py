@@ -3,7 +3,7 @@
 Architecture Reference:
     architecture/main-system-patterns/phase2-context-gathering.md
 
-Role: MIND (MIND model @ temp=0.5)
+Role: MIND (MIND model @ temp=0.6)
 Token Budget: ~10,500 total (across 2 LLM calls)
 
 Question: "What context does this query need?"
@@ -29,7 +29,7 @@ class ContextGatherer(BasePhase[GatheredContext]):
     """
     Phase 2: Gather relevant context for the query.
 
-    Uses MIND role (MIND model with temp=0.5) for reasoning
+    Uses MIND role (MIND model with temp=0.6) for reasoning
     about what context is relevant.
 
     Two-phase process:

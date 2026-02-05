@@ -16,7 +16,7 @@ def test_simple_file():
     payload = {
         "model": "qwen3-coder",
         "mode": "continue",
-        "repo": ".",
+        "repo": "/path/to/project",
         "messages": [
             {
                 "role": "user",

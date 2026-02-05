@@ -598,7 +598,7 @@ class LiveSessionContext:
         Returns:
             Path to written file
         """
-        from libs.gateway.doc_writers import write_markdown_doc
+        from libs.gateway.context.doc_writers import write_markdown_doc
 
         sections = {}
 
@@ -650,7 +650,7 @@ class LiveSessionContext:
         }
 
         path = turn_dir.doc_path("session_state.md")
-        from libs.gateway.doc_writers import write_markdown_doc
+        from libs.gateway.context.doc_writers import write_markdown_doc
         write_markdown_doc(path, "Live Session Context", sections, metadata)
 
         logger.info(f"[LiveContext] Wrote session_state.md ({len(sections)} sections)")
