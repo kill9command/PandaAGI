@@ -118,21 +118,6 @@ Panda can create new tools and workflows at runtime:
 
 ---
 
-## Benchmark Milestones
-
-These benchmarks measure progress toward the ultimate goal. They are not the goal.
-
-| Milestone | Target | Purpose |
-|-----------|--------|---------|
-| M1 | Self-extension | Tool and workflow creation at runtime |
-| M2 | APEX tool families | Breadth across spreadsheet, document, PDF, email, calendar |
-| M3 | Benchmark harness | Automated scoring and regression gates |
-| M4 | DeepPlanning | Multi-step planning with backtracking and domain APIs |
-
-**See:** `BENCHMARK_ALIGNMENT.md` for detailed gap analysis.
-
----
-
 ## Quick Start
 
 ```bash
@@ -155,7 +140,6 @@ Access: `http://localhost:9000` (local) or via Cloudflare tunnel (remote).
 | Design workflow | `ActualDesignInstructions.md` |
 | Phase specifications | `main-system-patterns/phase*.md` |
 | Concept docs | `concepts/*.md` |
-| Benchmark gaps | `BENCHMARK_ALIGNMENT.md` |
 
 ---
 
