@@ -26,7 +26,7 @@ Extract search components from the user's query. Output JSON only.
 
 2. **site**: If user mentions a specific site, map to domain:
    - "Reddit", "r/" → "reddit.com"
-   - "Reef2Reef", "R2R" → "reef2reef.com"
+   - "ExampleForum", "ExForum" → "forum.example.com"
    - "YouTube" → "youtube.com"
    - "Stack Overflow" → "stackoverflow.com"
    - "HackerNews", "HN" → "news.ycombinator.com"
@@ -38,9 +38,9 @@ Extract search components from the user's query. Output JSON only.
 
 ## Examples
 
-**Query:** "go to reef2reef.com and tell me what the popular threads are today"
+**Query:** "go to forum.example.com and tell me what the popular threads are today"
 ```json
-{"keywords": ["popular", "threads", "today"], "site": "reef2reef.com", "quoted_phrase": null, "context_keywords": []}
+{"keywords": ["popular", "threads", "today"], "site": "forum.example.com", "quoted_phrase": null, "context_keywords": []}
 ```
 
 **Query:** "can you tell me about jessika aro"
@@ -49,9 +49,9 @@ Extract search components from the user's query. Output JSON only.
 {"keywords": ["Jessikka", "Aro"], "site": null, "quoted_phrase": null, "context_keywords": ["journalist", "Russian", "disinformation"]}
 ```
 
-**Query:** 'find the "Best glass scraper thoughts" thread on R2R'
+**Query:** 'find the "Best glass scraper thoughts" thread on ExForum'
 ```json
-{"keywords": [], "site": "reef2reef.com", "quoted_phrase": "Best glass scraper thoughts", "context_keywords": []}
+{"keywords": [], "site": "forum.example.com", "quoted_phrase": "Best glass scraper thoughts", "context_keywords": []}
 ```
 
 **Query:** "what's a good recipe for chocolate chip cookies"

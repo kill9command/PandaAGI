@@ -73,7 +73,7 @@ def setup_logging(
     level: Optional[str] = None,
     log_to_console: bool = True,
     log_to_file: bool = True,
-    service_name: str = "pandaai",
+    service_name: str = "panda",
 ) -> None:
     """
     Configure unified logging for PandaAI services.

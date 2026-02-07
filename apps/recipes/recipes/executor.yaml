@@ -1,0 +1,67 @@
+# Executor (Unified) Recipe - Tactical Decision Layer
+# Issues natural language commands to Coordinator, tracks goal progress
+# Part of the 3-tier architecture: Planner → Executor → Coordinator
+
+name: executor
+role: executor
+
+# Executor loop configuration
+executor_loop:
+  enabled: true
+  max_iterations: 10
+
+# Prompt fragments (loaded in order)
+prompt_fragments:
+  - "apps/prompts/executor/tactical.md"
+
+# Input documents (context.md with strategic plan in §3)
+input_docs:
+  - path: "context.md"
+    optional: false
+    max_tokens: 4000
+    path_type: "turn"
+    description: "Unified context document with §0-§4 (§3 has strategic plan, §4 accumulates execution results)"
+
+# Output documents
+output_docs:
+  - "executor_decision.json"   # Executor decision (COMMAND, ANALYZE, CREATE_WORKFLOW, COMPLETE, BLOCKED)
+
+# Token budget
+token_budget:
+  total: 6900
+  prompt: 2000          # Fixed cost: tactical.md
+  input_docs: 4000      # Budget for context.md (grows with iterations)
+  output: 800           # Executor decision output (COMMAND/COMPLETE JSON can be 400-600 tokens)
+  buffer: 100           # Safety margin
+
+# Trimming strategy
+trimming_strategy:
+  method: truncate_end
+  target: 6400
+
+llm_params:
+  temperature: 0.6
+  max_tokens: 800
+
+# Output schema
+output_schema: EXECUTOR_DECISION
+
+# Description
+description: |
+  Executor (Unified) - Tactical Decision Layer
+
+  Operates between Planner (strategic) and Coordinator (tool expert).
+  Mode-specific tool gating is enforced by the Coordinator, not the Executor.
+
+  **How it works:**
+  1. Receives strategic goals from Planner (in §3)
+  2. Decides next tactical step: COMMAND, ANALYZE, CREATE_WORKFLOW, COMPLETE, or BLOCKED
+  3. If COMMAND: Issues natural language instruction to Coordinator
+  4. If COMPLETE: Goals achieved, return to Planner for routing
+
+  **Key Design:**
+  - Executor uses NATURAL LANGUAGE commands (not tool specs)
+  - Coordinator translates commands to workflows/tools
+  - This keeps Executor focused on reasoning
+
+  Phase: Execution (Phase 4 in 9-phase flow)

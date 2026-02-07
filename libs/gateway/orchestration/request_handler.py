@@ -20,6 +20,8 @@ import re
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+from apps.services.gateway.services.thinking import ActionEvent, emit_action_event
+
 if TYPE_CHECKING:
     from libs.gateway.context.context_document import ContextDocument
     from libs.gateway.persistence.turn_manager import TurnDirectory
@@ -192,7 +194,13 @@ class RequestHandler:
 
         # Phase 1.5: Query Analysis Validation (fast gate - PROCEED or CLARIFY)
         phase1_start = time.time()
-        await self._emit_phase_event(trace_id, 1, "active", "Validating query analysis (Phase 1.5)")
+        query_preview = context_doc.query[:200] if context_doc.query else ""
+        section0_raw = context_doc.get_section(0) if context_doc.has_section(0) else ""
+        await self._emit_phase_event(
+            trace_id, 1, "active", "Validating query analysis (Phase 1.5)",
+            input_summary=f"Query: {query_preview}",
+            input_raw=section0_raw,
+        )
         self._start_phase("phase1_5_validation")
         context_doc.update_execution_state(1, "Query Analysis Validation (Phase 1.5)")
         context_doc, decision = await self._phase1_reflection(context_doc, turn_dir)
@@ -200,13 +208,21 @@ class RequestHandler:
         self._end_phase("phase1_5_validation")
         self._record_decision("query_analysis_validation", decision)
         phase1_duration = int((time.time() - phase1_start) * 1000)
+        section1_raw = context_doc.get_section(1) if context_doc.has_section(1) else ""
         await self._emit_phase_event(
             trace_id, 1, "completed",
             f"Decision: {decision}",
             confidence=0.9 if decision == "PROCEED" else 0.7,
             duration_ms=phase1_duration,
-            details={"decision": decision}
+            details={"decision": decision},
+            output_summary=f"Decision: {decision}",
+            output_raw=section1_raw,
         )
+        await emit_action_event(ActionEvent(
+            trace_id=trace_id, action_type="decision",
+            label=f"Reflection: {decision}",
+            success=decision == "PROCEED",
+        ))
 
         if decision == "CLARIFY":
             clarification = self._extract_clarification(context_doc)
@@ -221,20 +237,41 @@ class RequestHandler:
 
         # Phase 2: Context Gatherer
         phase2_start = time.time()
-        await self._emit_phase_event(trace_id, 2, "active", "Gathering context from prior turns and memory")
+        await self._emit_phase_event(
+            trace_id, 2, "active", "Gathering context from prior turns and memory",
+            input_summary=f"Query: {query_preview}",
+        )
         self._start_phase("phase2_context_gatherer")
         context_doc.update_execution_state(2, "Context Gatherer")
         context_doc = await self._phase2_context_gatherer(context_doc)
         self._end_phase("phase2_context_gatherer")
         phase2_duration = int((time.time() - phase2_start) * 1000)
         num_sources = len(context_doc.source_references) if hasattr(context_doc, 'source_references') else 0
+        # Build brief source list for summary
+        source_labels = []
+        if hasattr(context_doc, 'source_references'):
+            for ref in context_doc.source_references[:5]:
+                if hasattr(ref, 'summary'):
+                    source_labels.append(ref.summary[:60] if ref.summary else str(ref))
+                elif hasattr(ref, 'path'):
+                    source_labels.append(str(ref.path)[-60:])
+        source_list_str = ", ".join(source_labels) if source_labels else "none"
+        section2_raw = context_doc.get_section(2) if context_doc.has_section(2) else ""
         await self._emit_phase_event(
             trace_id, 2, "completed",
             f"Found {num_sources} relevant sources",
             confidence=0.85,
             duration_ms=phase2_duration,
-            details={"sources_found": num_sources}
+            details={"sources_found": num_sources},
+            output_summary=f"Found {num_sources} sources: {source_list_str}",
+            output_raw=section2_raw,
         )
+        await emit_action_event(ActionEvent(
+            trace_id=trace_id, action_type="memory",
+            label=f"Context gathered: {num_sources} sources",
+            detail=source_list_str[:200],
+            success=num_sources > 0,
+        ))
 
         # === PHASE 2.5: Constraint Extraction ===
         self._extract_and_write_constraints(context_doc, turn_dir)
@@ -248,8 +285,13 @@ class RequestHandler:
             await self._emit_phase_event(
                 trace_id, 3, "active",
                 f"Planning strategy (iteration {retry_count + 1})",
-                details={"iteration": retry_count + 1}
+                details={"iteration": retry_count + 1},
+                input_summary=f"{num_sources} sources, mode={mode}, iteration {retry_count + 1}",
             )
+            await emit_action_event(ActionEvent(
+                trace_id=trace_id, action_type="route",
+                label=f"Planning iteration {retry_count + 1}",
+            ))
             self._start_phase("phase3_4_planning_loop")
             context_doc.update_execution_state(
                 phase=3,
@@ -272,28 +314,39 @@ class RequestHandler:
 
             # Emit planner completion event
             num_tools = len(context_doc.claims) if hasattr(context_doc, 'claims') else 0
+            section3_raw = context_doc.get_section(3) if context_doc.has_section(3) else ""
             await self._emit_phase_event(
                 trace_id, 3, "completed",
                 f"Planning complete, {num_tools} claims gathered",
                 confidence=0.8 if not coordinator_blocked else 0.4,
                 duration_ms=phase34_duration,
-                details={"claims": num_tools, "blocked": coordinator_blocked}
+                details={"claims": num_tools, "blocked": coordinator_blocked},
+                output_summary=f"{num_tools} claims gathered, blocked={coordinator_blocked}",
+                output_raw=section3_raw,
             )
 
             # Phase 6: Synthesis
             phase6_start = time.time()
-            await self._emit_phase_event(trace_id, 6, "active", "Generating response from gathered context")
+            num_claims = len(context_doc.claims) if hasattr(context_doc, 'claims') else 0
+            await self._emit_phase_event(
+                trace_id, 6, "active", "Generating response from gathered context",
+                input_summary=f"Sections 0-4, {num_claims} claims",
+                input_raw=toolresults_content[:2000] if toolresults_content else "",
+            )
             self._start_phase("phase6_synthesis")
             context_doc.update_execution_state(6, "Synthesis")
             context_doc, response = await self._phase5_synthesis(context_doc, turn_dir, mode)
             self._end_phase("phase6_synthesis")
             phase6_duration = int((time.time() - phase6_start) * 1000)
+            resp_len = len(response) if response else 0
             await self._emit_phase_event(
                 trace_id, 6, "completed",
-                f"Response generated ({len(response) if response else 0} chars)",
+                f"Response generated ({resp_len} chars)",
                 confidence=0.85,
                 duration_ms=phase6_duration,
-                details={"response_length": len(response) if response else 0}
+                details={"response_length": resp_len},
+                output_summary=f"Response: {response[:300]}..." if response and len(response) > 300 else f"Response: {response}" if response else "No response",
+                output_raw=response[:2000] if response else "",
             )
 
             # Check for synthesizer INVALID
@@ -373,7 +426,11 @@ class RequestHandler:
 
             # Phase 7: Validation
             phase7_start = time.time()
-            await self._emit_phase_event(trace_id, 7, "active", "Validating response quality and accuracy")
+            await self._emit_phase_event(
+                trace_id, 7, "active", "Validating response quality and accuracy",
+                input_summary=f"Response to validate ({len(response) if response else 0} chars)",
+                input_raw=response[:2000] if response else "",
+            )
             self._start_phase("phase7_validation")
             context_doc.update_execution_state(7, "Validation")
             context_doc, response, validation_result = await self._phase6_validation(
@@ -385,16 +442,25 @@ class RequestHandler:
             self._end_phase("phase7_validation")
             self._record_decision("validation", validation_result.decision if validation_result else "UNKNOWN")
             phase7_duration = int((time.time() - phase7_start) * 1000)
+            val_decision = validation_result.decision if validation_result else "UNKNOWN"
+            val_confidence = validation_result.confidence if validation_result else 0.0
+            val_issues = validation_result.issues if validation_result else []
+            section7_output = context_doc.get_section(7) if context_doc.has_section(7) else ""
             await self._emit_phase_event(
                 trace_id, 7, "completed",
-                f"Validation: {validation_result.decision if validation_result else 'UNKNOWN'}",
-                confidence=validation_result.confidence if validation_result else 0.0,
+                f"Validation: {val_decision}",
+                confidence=val_confidence,
                 duration_ms=phase7_duration,
-                details={
-                    "decision": validation_result.decision if validation_result else "UNKNOWN",
-                    "issues": validation_result.issues if validation_result else []
-                }
+                details={"decision": val_decision, "issues": val_issues},
+                output_summary=f"{val_decision}, confidence: {val_confidence:.2f}, issues: {len(val_issues)}",
+                output_raw=section7_output,
             )
+            await emit_action_event(ActionEvent(
+                trace_id=trace_id, action_type="decision",
+                label=f"Validation: {val_decision}",
+                detail=f"confidence={val_confidence:.2f}",
+                success=val_decision == "APPROVE",
+            ))
 
             # Best-seen tracking
             if validation_result and response:
@@ -598,7 +664,8 @@ class RequestHandler:
                 "retries": retry_count,
                 "validation_passed": validation_passed,
                 "response_length": len(response) if response else 0
-            }
+            },
+            output_summary=f"Turn {turn_number} saved, validation={'passed' if validation_passed else 'failed'}, {elapsed_ms:.0f}ms",
         )
 
         return {

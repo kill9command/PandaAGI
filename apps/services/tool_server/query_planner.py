@@ -518,7 +518,7 @@ async def build_phase1_search_terms(
 
 ## Rules
 1. **keywords**: Core search terms (2-6 words). Remove filler ("find me", "can you", "please").
-2. **site**: If user mentions a specific site (Reddit → reddit.com, Reef2Reef → reef2reef.com), map it. Otherwise null.
+2. **site**: If user mentions a specific site (Reddit → reddit.com, ExampleForum → forum.example.com), map it. Otherwise null.
 3. **quoted_phrase**: If user wants a SPECIFIC article/thread title (in quotes), preserve it exactly. Otherwise null.
 4. **context_keywords**: If conversation context is provided AND relevant, add connecting keywords. Otherwise empty array.
 
@@ -875,7 +875,7 @@ async def optimize_query_for_phase(
     Examples:
         Phase 1: "best egg nog recipe" → "egg nog recipe"
         Phase 1: "find cheap laptops with nvidia gpu" → "laptops nvidia gpu reddit"
-        Phase 2 (with vendors): "find Syrian hamsters" → "Poppybee Hamstery Syrian hamsters for sale 2025"
+        Phase 2 (with vendors): "find Syrian hamsters" → "Example Pet Store Syrian hamsters for sale 2025"
         Phase 2 (no vendors): "find Syrian hamsters" → "Syrian hamsters for sale 2025"
     """
     import os

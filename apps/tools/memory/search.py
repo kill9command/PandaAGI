@@ -172,6 +172,7 @@ async def search_memory(
     include_expired: bool = None,
     artifact_types: List[str] = None,
     config: MemoryConfig = None,
+    user_id: str = "default",
 ) -> List[MemoryResult]:
     """
     Search obsidian_memory for relevant knowledge.
@@ -210,7 +211,8 @@ async def search_memory(
     if folders:
         search_paths = [config.vault_path / folder for folder in folders]
     else:
-        search_paths = [config.vault_path / p for p in config.searchable_paths]
+        # Use per-user searchable paths (absolute Paths from UserPathResolver)
+        search_paths = config.get_user_searchable_paths(user_id)
 
     # Collect all notes
     notes: List[MemoryNote] = []
@@ -321,16 +323,10 @@ async def get_user_preferences(
     if config is None:
         config = MemoryConfig.load()
 
-    # New path structure: obsidian_memory/Users/{user_id}/preferences.md
-    pref_path = config.vault_path / "obsidian_memory" / "Users" / user_id / "preferences.md"
+    from libs.gateway.persistence.user_paths import UserPathResolver
+    resolver = UserPathResolver(user_id)
+    pref_path = resolver.preferences_file
     note = load_note(pref_path)
-
-    # Fallback to old path for backwards compatibility
-    if note is None:
-        old_pref_path = config.write_path / "Preferences" / "User" / f"{user_id}.md"
-        note = load_note(old_pref_path)
-        if note is not None:
-            pref_path = old_pref_path
 
     if note is None:
         return None
@@ -338,7 +334,7 @@ async def get_user_preferences(
     return MemoryResult(
         path=str(pref_path.relative_to(config.vault_path)),
         relevance=1.0,
-        summary=note.get_summary(),
+        summary=note.get_summary(max_length=2000),
         artifact_type="preference",
         topic=f"User Preferences: {user_id}",
         confidence=note.confidence,

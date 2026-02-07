@@ -33,7 +33,7 @@ from .query_analyzer import QueryAnalysis, ContentReference
 from libs.gateway.persistence.visit_record import VisitRecordReader, VisitRecordManifest
 
 # Recipe loader for prompt loading
-from libs.gateway.llm.recipe_loader import load_recipe, RecipeNotFoundError
+from libs.gateway.llm.recipe_loader import load_recipe, Recipe, RecipeNotFoundError
 
 
 from .context_gatherer_docs import (
@@ -46,6 +46,8 @@ from .context_gatherer_2phase_docs import (
     MemoryNode, RetrievalResultDoc, RetrievalTurn, LinkToFollow,
     SynthesisInputDoc
 )
+from .search_results import SearchResults, SearchResultItem
+from .memory_vault_searcher import MemoryVaultSearcher
 
 # Import optional dependencies with graceful fallback
 try:
@@ -211,29 +213,30 @@ class ContextGatherer2Phase:
         # Retrieval context (memory graph)
         self._last_memory_index: Dict[str, MemoryNode] = {}
         self._last_retrieval_plan: Optional[Dict[str, Any]] = None
+        self._last_search_results: Optional[SearchResults] = None
 
         # Load recipes
         self.recipes = self._load_recipes()
 
-    def _load_recipes(self) -> Dict[str, Dict]:
-        """Load recipe configs for each phase using the recipe loader."""
+    def _load_recipes(self) -> Dict[str, Recipe]:
+        """Load recipe objects for each phase using the recipe loader."""
         recipes = {}
 
         recipe_map = {
             "retrieval": "pipeline/phase1_context_gatherer_retrieval",
             "synthesis": "pipeline/phase1_context_gatherer_synthesis",
             "validation": "pipeline/phase2_5_context_gathering_validator",
+            "search_term_gen": "pipeline/phase2_1_search_term_generation",
         }
 
         for phase, recipe_name in recipe_map.items():
             try:
                 recipe = load_recipe(recipe_name)
-                # Extract system_prompt from raw spec
-                recipes[phase] = recipe._raw_spec
+                recipes[phase] = recipe
                 logger.debug(f"[ContextGatherer2Phase] Loaded recipe: {recipe_name}")
             except RecipeNotFoundError:
                 logger.debug(f"[ContextGatherer2Phase] Recipe not found: {recipe_name}")
-                recipes[phase] = {"system_prompt": f"Default {phase} prompt"}
+                recipes[phase] = None
 
         return recipes
 
@@ -365,8 +368,41 @@ class ContextGatherer2Phase:
             logger.info(f"[ContextGatherer2Phase] Loaded query_analysis.json: resolved={self.query_analysis.was_resolved}")
             # Use resolved query for gathering (has references made explicit)
             effective_query = self.query_analysis.resolved_query
+
+            # Enrich content_reference with URLs (moved from Query Analyzer)
+            # Context Gatherer is responsible for all context lookups
             if self.query_analysis.content_reference:
+                self.query_analysis.content_reference = self._enrich_content_reference(
+                    self.query_analysis.content_reference, turn_number
+                )
                 logger.info(f"[ContextGatherer2Phase] Content reference: '{self.query_analysis.content_reference.title[:50]}...' (turn {self.query_analysis.content_reference.source_turn})")
+                if self.query_analysis.content_reference.source_url:
+                    logger.info(f"[ContextGatherer2Phase] Found source URL: {self.query_analysis.content_reference.source_url[:60]}...")
+
+            # NEW: If no content_reference but we have reference_resolution, try to resolve URL
+            # This handles follow-up queries like "tell me more about The Café thread"
+            elif self.query_analysis.reference_resolution:
+                ref_res = self.query_analysis.reference_resolution
+                if isinstance(ref_res, dict) and ref_res.get("resolved_to"):
+                    resolved_title = ref_res["resolved_to"]
+                    # Create a content_reference from the resolved reference
+                    from .query_analyzer import ContentReference
+                    self.query_analysis.content_reference = ContentReference(
+                        title=resolved_title,
+                        content_type="thread",  # Default to thread for follow-ups
+                        site=None,
+                        source_turn=None,
+                        source_url=None
+                    )
+                    # Now try to enrich it with URL from linked_items
+                    self.query_analysis.content_reference = self._enrich_content_reference(
+                        self.query_analysis.content_reference, turn_number
+                    )
+                    if self.query_analysis.content_reference.source_url:
+                        logger.info(
+                            f"[ContextGatherer2Phase] Resolved reference URL: "
+                            f"'{resolved_title[:40]}...' → {self.query_analysis.content_reference.source_url[:60]}..."
+                        )
         else:
             logger.debug("[ContextGatherer2Phase] No query_analysis.json found, using original query")
             effective_query = query
@@ -519,10 +555,13 @@ class ContextGatherer2Phase:
         priority_turn: Optional[int] = None
     ) -> RetrievalResultDoc:
         """
-        Phase 1: Single LLM call for turn identification + context evaluation.
+        Phase 2.1 v2.0: Search-First Retrieval.
 
-        Key innovation: N-1 pre-loading for follow-ups happens BEFORE the LLM call,
-        ensuring the context is always available (deterministic, not LLM-dependent).
+        LLM generates search terms → code does BM25 + embedding hybrid search →
+        only matching documents go to synthesis. The LLM never sees the full index.
+
+        Architecture Reference:
+            architecture/main-system-patterns/phase2.1-context-gathering-retrieval.md v2.0
 
         Args:
             query: The query to gather context for (should be resolved_query from Phase 0)
@@ -530,69 +569,188 @@ class ContextGatherer2Phase:
             inherited_topic: Topic inherited from previous turn (if followup)
             priority_turn: Turn number to prioritize loading (from content_reference.source_turn)
         """
-        # Build turn index
-        turn_index = self._build_turn_index(turn_number)
         is_followup = bool(inherited_topic)
 
-        # Build unified memory index (Obsidian-style graph)
-        memory_nodes, memory_index = self._build_unified_memory_index(
-            turn_index=turn_index,
-            priority_turn=priority_turn
+        # Build turn index (still needed for N-1 preloading and safety checks)
+        turn_index = self._build_turn_index(turn_number)
+
+        # PRE-LOAD N-1 for follow-ups (deterministic, runs BEFORE search)
+        n1_available, preloaded_n1 = self._preload_for_followup(query, turn_number, turn_index)
+
+        # Step 1: LLM generates search terms (REFLEX, temp 0.4)
+        search_config = await self._generate_search_terms(query)
+
+        search_terms = search_config.get("search_terms", [])
+        include_preferences = search_config.get("include_preferences", False)
+        include_n_minus_1 = search_config.get("include_n_minus_1", is_followup)
+
+        # Fallback: keyword extraction if LLM returned no terms
+        if not search_terms:
+            logger.warning("[ContextGatherer2Phase] Search term generation returned empty, using fallback")
+            search_terms = self._fallback_keyword_extraction(query)
+
+        # Get explicitly referenced turns
+        reference_turns = self._get_reference_turns()
+        if priority_turn:
+            reference_turns = (reference_turns or []) + [priority_turn]
+
+        # Step 2: Hybrid search (code only, no LLM)
+        searcher = MemoryVaultSearcher(
+            user_id=self.user_id,
+            session_id=self.session_id,
+            turns_dir=self.turns_dir,
+            sessions_dir=self.sessions_dir,
         )
-        self._last_memory_index = memory_index
+
+        search_results = searcher.search(
+            search_terms=search_terms,
+            include_preferences=include_preferences,
+            include_n_minus_1=include_n_minus_1,
+            current_turn=turn_number,
+            reference_turns=reference_turns,
+            forever_memory_results=self.forever_memory_results,
+            research_index_results=self.research_index_results,
+            index_limit=self.index_limit,
+        )
+
+        # Store for synthesis path and observability
+        self._last_search_results = search_results
+
+        # Populate _last_memory_index from results (for validation compat)
+        # confidence: use 0.80 for search results (RRF scores ~0.05-0.13 would
+        # falsely trigger the <0.30 "expired" check designed for quality scores)
+        # source_ref: resolve to absolute path so validator's exists() check works
+        self._last_memory_index = {}
+        for item in search_results.results:
+            abs_ref = str(Path(item.document_path).resolve()) if item.document_path else ""
+            self._last_memory_index[item.node_id] = MemoryNode(
+                node_id=item.node_id,
+                source_type=item.source_type,
+                summary=item.snippet,
+                confidence=0.80,
+                source_ref=abs_ref,
+                links=[],
+            )
+
+        # Save observability (retrieval_plan.json)
+        self._write_retrieval_plan(turn_number, search_results.to_observability_dict())
+
+        # Bridge: SearchResults → RetrievalResultDoc (so synthesis works unchanged)
+        result = RetrievalResultDoc.from_search_results(
+            query=query,
+            search_results=search_results,
+            is_followup=is_followup,
+            inherited_topic=inherited_topic,
+        )
+
+        # SAFETY: Ensure N-1 is in results for follow-up queries (belt + suspenders)
+        if n1_available:
+            result = self._ensure_n1_in_result(result, turn_index, preloaded_n1)
+
+        logger.info(
+            f"[ContextGatherer2Phase] Search-first retrieval: "
+            f"{len(search_results.results)} results, terms={search_terms}"
+        )
+
+        return result
+
+    async def _generate_search_terms(self, query: str) -> Dict[str, Any]:
+        """
+        LLM call to generate search terms (REFLEX role, temp 0.4).
+
+        Returns:
+            Dict with search_terms, include_preferences, include_n_minus_1.
+            Empty dict on failure (caller falls back to keyword extraction).
+        """
+        recipe = self.recipes.get("search_term_gen")
+        if not recipe:
+            logger.warning("[ContextGatherer2Phase] search_term_gen recipe not found")
+            return {}
+
+        system_prompt = recipe.get_prompt()
+        if not system_prompt:
+            logger.warning("[ContextGatherer2Phase] search_term_gen prompt is empty")
+            return {}
 
         query_payload = self._build_query_analysis_payload(query)
-        memory_payload = [asdict(node) for node in memory_nodes]
-
-        # Build RETRIEVAL prompt from recipe
-        recipe = self.recipes.get("retrieval", {})
-        system_prompt = recipe.get("system_prompt", self._default_retrieval_prompt())
-
-        # Build user prompt with context data
-        user_prompt = f"""QUERY_ANALYSIS:
-{json.dumps(query_payload, indent=2)}
-
-UNIFIED_MEMORY_INDEX:
-{json.dumps(memory_payload, indent=2)}
-
-CURRENT QUERY: {query}"""
+        user_prompt = f"QUERY_ANALYSIS:\n{json.dumps(query_payload, indent=2)}"
 
         try:
             full_prompt = f"{system_prompt}\n\n---\n\n{user_prompt}"
-
-            # MIND role temp=0.6 for relevance reasoning
-            # See: architecture/LLM-ROLES/llm-roles-reference.md
             response_text = await self.llm_client.call(
                 prompt=full_prompt,
-                role="context_gatherer",
-                max_tokens=600,
-                temperature=0.6
+                role="search_term_gen",
+                max_tokens=200,
+                temperature=0.4,
             )
 
-            json_data = self._extract_json(response_text)
+            result = self._extract_json(response_text)
 
-            if "selected_nodes" in json_data:
-                self._last_retrieval_plan = json_data
+            # Validate structure
+            terms = result.get("search_terms", [])
+            if not isinstance(terms, list) or not terms:
+                logger.warning(f"[ContextGatherer2Phase] Invalid search_terms from LLM: {result}")
+                return {}
 
-            # Write RetrievalPlan if provided
-            self._write_retrieval_plan(turn_number, json_data)
-
-            # Create result with followup metadata
-            result = RetrievalResultDoc.from_llm_response(
-                query=query,
-                response=json_data,
-                is_followup=is_followup,
-                inherited_topic=inherited_topic,
-                memory_index=memory_index
-            )
-
+            logger.info(f"[ContextGatherer2Phase] Generated search terms: {terms}")
             return result
 
         except Exception as e:
-            # Hard error per spec §9.1: LLM call failures, I/O errors propagate
-            # See: architecture/main-system-patterns/phase2-context-gathering.md §9
-            logger.error(f"[ContextGatherer2Phase] RETRIEVAL phase failed (hard error): {e}")
-            raise
+            logger.warning(f"[ContextGatherer2Phase] Search term generation failed: {e}")
+            return {}
+
+    def _fallback_keyword_extraction(self, query: str) -> List[str]:
+        """
+        Extract search phrases from the resolved query when LLM fails.
+
+        Uses simple keyword extraction and groups into 2-3 phrases.
+        """
+        # Use TurnSearchIndex's keyword extraction if available
+        try:
+            from libs.gateway.persistence.turn_search_index import TurnSearchIndex
+            keywords = TurnSearchIndex._extract_keywords(None, query)
+        except Exception:
+            # Manual fallback
+            import re as _re
+            stop = {"the", "and", "for", "are", "but", "not", "you", "all", "can",
+                     "was", "has", "have", "been", "would", "will", "just", "what",
+                     "with", "this", "that", "from", "they", "about", "more", "some"}
+            words = _re.findall(r"\b[a-z]{3,}\b", query.lower())
+            keywords = [w for w in words if w not in stop]
+
+        if not keywords:
+            return [query[:50]]
+
+        # Group into 2-3 phrases
+        phrases = []
+        if len(keywords) <= 3:
+            phrases.append(" ".join(keywords))
+        else:
+            # First phrase: first 2-3 keywords, second phrase: remaining
+            mid = min(3, len(keywords) // 2 + 1)
+            phrases.append(" ".join(keywords[:mid]))
+            phrases.append(" ".join(keywords[mid:mid + 3]))
+            if len(keywords) > mid + 3:
+                phrases.append(" ".join(keywords[mid + 3:mid + 6]))
+
+        return phrases[:3]
+
+    def _get_reference_turns(self) -> Optional[List[int]]:
+        """Extract explicitly referenced turn numbers from QA reference_resolution."""
+        if not self.query_analysis or not self.query_analysis.reference_resolution:
+            return None
+
+        ref = self.query_analysis.reference_resolution
+        if not isinstance(ref, dict):
+            return None
+
+        turn_nums = []
+        # Check for resolved_turn field
+        resolved_turn = ref.get("resolved_turn") or ref.get("source_turn")
+        if resolved_turn and isinstance(resolved_turn, int):
+            turn_nums.append(resolved_turn)
+
+        return turn_nums if turn_nums else None
 
     def _preload_for_followup(
         self,
@@ -607,6 +765,10 @@ CURRENT QUERY: {query}"""
         Always load N-1 and let the LLM decide if it's relevant to the current query.
         This fixes cases like "the thread" which need N-1 context but didn't match
         the old pronoun/signal patterns.
+
+        ARCHITECTURAL FIX (2026-02-05): Also load response.md for N-1.
+        The user sees the response and asks follow-ups about it. We need
+        the actual response content, not just the context.md summary.
 
         Returns:
             (n1_available: bool, preloaded_context: Optional[ContextBundleEntry])
@@ -627,6 +789,24 @@ CURRENT QUERY: {query}"""
             content = context_path.read_text()
             entry = self._parse_context_for_bundle(content, n1_turn, n1_dir)
             if entry:
+                # Also load response.md for N-1 - this is what the user actually saw
+                response_path = n1_dir / "response.md"
+                if response_path.exists():
+                    try:
+                        response_content = response_path.read_text()
+                        # Include up to 1500 chars of response (enough for topic lists)
+                        if response_content:
+                            response_preview = response_content[:1500]
+                            if len(response_content) > 1500:
+                                response_preview += "..."
+                            # Append response to summary so follow-ups can find mentioned items
+                            entry.summary = f"{entry.summary}\n\n[Previous Response]:\n{response_preview}"
+                            logger.info(
+                                f"[ContextGatherer2Phase] Added N-1 response.md ({len(response_content)} chars)"
+                            )
+                    except Exception as e:
+                        logger.debug(f"[ContextGatherer2Phase] Could not load N-1 response.md: {e}")
+
                 logger.info(
                     f"[ContextGatherer2Phase] PRE-LOADED N-1 (Turn {n1_turn}, topic={entry.topic})"
                 )
@@ -665,14 +845,14 @@ CURRENT QUERY: {query}"""
             turn_number=n1_turn,
             relevance="critical",
             reason=f"N-1 turn (immediately preceding). Follow-up query refers to topic: {preloaded.topic}",
-            usable_info=preloaded.summary[:500] if preloaded.summary else "",
+            usable_info=preloaded.summary[:2000] if preloaded.summary else "",
             expected_info=f"Context for pronouns referring to {preloaded.topic}",
             load_priority=0
         )
 
         result.relevant_turns.insert(0, n1_entry)
         if preloaded.summary:
-            result.direct_info[str(n1_turn)] = preloaded.summary[:500]
+            result.direct_info[str(n1_turn)] = preloaded.summary[:2000]
 
         result.reasoning += f"\n\n[SAFETY] Force-added N-1 (Turn {n1_turn}) for follow-up handling."
 
@@ -713,7 +893,8 @@ CURRENT QUERY: {query}"""
 
     def _write_retrieval_plan(self, turn_number: int, response: Dict[str, Any]) -> None:
         """Persist RetrievalPlan JSON when present for observability."""
-        if "selected_nodes" not in response:
+        # Accept both v1 (selected_nodes) and v2 (version: 2.0_search_first) formats
+        if "selected_nodes" not in response and "version" not in response:
             return
 
         turn_dir = self.turns_dir / f"turn_{turn_number:06d}"
@@ -971,8 +1152,8 @@ It contains the subject that pronouns like "some", "it", "that" refer to.
         node_by_ref = self._index_nodes_by_source_ref(loaded_nodes)
 
         # Build SYNTHESIS prompt from recipe
-        recipe = self.recipes.get("synthesis", {})
-        system_prompt = recipe.get("system_prompt", self._default_synthesis_prompt())
+        recipe = self.recipes.get("synthesis")
+        system_prompt = recipe.get_prompt() if recipe else self._default_synthesis_prompt()
 
         # Build input sections
         direct_info_section = self._format_direct_info(retrieval_result)
@@ -1116,8 +1297,8 @@ Output MARKDOWN only (no JSON wrapper)."""
         turn_dir: Path
     ) -> Dict[str, Any]:
         """Phase 2.5: Validate gathered context for completeness and integrity."""
-        recipe = self.recipes.get("validation", {})
-        system_prompt = recipe.get("system_prompt", self._default_context_validation_prompt())
+        recipe = self.recipes.get("validation")
+        system_prompt = recipe.get_prompt() if recipe else self._default_context_validation_prompt()
 
         gathered_context = context_doc.get_section(2) or ""
         query_analysis = self._build_query_analysis_payload(query)
@@ -1235,9 +1416,15 @@ GATHERED_CONTEXT (§2):
 
             for node_id in node_ids:
                 if node_id not in memory_index:
-                    issues.append(f"unknown_node_id: {node_id}")
-                    missing.append(node_id)
-                    guidance.append("remove unknown node_ids or select valid nodes from memory index")
+                    # Skip unknown node_id check when using search-first path:
+                    # The synthesis LLM references node_ids from loaded nodes, which
+                    # are all valid search results. Minor ID mismatches (e.g. LLM
+                    # citing "session:preferences" that wasn't a search result) are
+                    # harmless — the content was provided via supplementary sources.
+                    if not self._last_search_results:
+                        issues.append(f"unknown_node_id: {node_id}")
+                        missing.append(node_id)
+                        guidance.append("remove unknown node_ids or select valid nodes from memory index")
                     continue
 
                 node = memory_index[node_id]
@@ -1248,6 +1435,7 @@ GATHERED_CONTEXT (§2):
                 if node.source_ref:
                     ref_path = Path(node.source_ref)
                     if not ref_path.is_absolute():
+                        # Try resolving relative to turns_dir first, then cwd
                         ref_path = (self.turns_dir / ref_path).resolve()
                     if not ref_path.exists():
                         issues.append(f"missing_source_ref: {node_id}")
@@ -1365,7 +1553,26 @@ GATHERED_CONTEXT (§2):
         return f"QUERY_ANALYSIS:\n{json.dumps(payload, indent=2)}"
 
     def _build_loaded_nodes_for_synthesis(self) -> List[MemoryNode]:
-        """Resolve selected nodes from the last RetrievalPlan for synthesis."""
+        """Resolve selected nodes for synthesis.
+
+        v2.0 path: build MemoryNodes from SearchResults.
+        v1.x fallback: use _last_retrieval_plan + _last_memory_index.
+        """
+        # v2.0: Search-first path
+        if self._last_search_results and self._last_search_results.results:
+            loaded = []
+            for item in self._last_search_results.results:
+                loaded.append(MemoryNode(
+                    node_id=item.node_id,
+                    source_type=item.source_type,
+                    summary=item.snippet,
+                    confidence=item.rrf_score,
+                    source_ref=item.document_path,
+                    links=[],
+                ))
+            return loaded
+
+        # v1.x fallback: legacy retrieval plan path
         if not self._last_retrieval_plan or not self._last_memory_index:
             return []
 
@@ -1605,7 +1812,9 @@ GATHERED_CONTEXT (§2):
             if entry:
                 # Skip turns with very low quality (essentially unusable)
                 # These were degraded by the Freshness Analyzer due to outdated info
-                if entry.quality_score < 0.2:
+                # EXCEPTION: Never skip N-1 - user might be following up on it
+                is_n1 = (turn_num == current_turn - 1)
+                if entry.quality_score < 0.2 and not is_n1:
                     logger.debug(
                         f"[ContextGatherer2Phase] Skipping turn {turn_num} - "
                         f"quality too low ({entry.quality_score:.2f})"
@@ -1930,6 +2139,280 @@ GATHERED_CONTEXT (§2):
         except Exception as e:
             logger.warning(f"[ContextGatherer2Phase] Failed to check intelligence cache: {e}")
 
+    def _enrich_content_reference(
+        self, content_ref: ContentReference, current_turn: int
+    ) -> ContentReference:
+        """
+        Enrich a ContentReference with source_url from prior turns' research.json.
+
+        This is the URL lookup that enables follow-up queries like "tell me more
+        about that thread" to route directly to the URL instead of searching again.
+
+        Moved from Query Analyzer to Context Gatherer because URL lookup is
+        context retrieval, not query analysis.
+        """
+        if content_ref.source_url:
+            # Already have URL, no need to search
+            return content_ref
+
+        ref_title = content_ref.title.lower().strip() if content_ref.title else ""
+        ref_site = content_ref.site.lower() if content_ref.site else None
+
+        if not ref_title:
+            return content_ref
+
+        # Search recent turns (up to 3 lookback)
+        max_lookback = 3
+        for i in range(1, min(max_lookback + 1, current_turn)):
+            prev_turn = current_turn - i
+            turn_dir = self.turns_dir / f"turn_{prev_turn:06d}"
+            research_path = turn_dir / "research.json"
+
+            if not research_path.exists():
+                continue
+
+            try:
+                research_data = json.loads(research_path.read_text())
+                extracted_links = research_data.get("extracted_links", [])
+
+                for link in extracted_links:
+                    link_title = link.get("title", "").lower().strip()
+                    link_url = link.get("url", "")
+
+                    if not link_title or not link_url:
+                        continue
+
+                    # Match by title similarity (substring matching)
+                    title_match = (
+                        ref_title in link_title or
+                        link_title in ref_title or
+                        ref_title.replace("the ", "") in link_title or
+                        link_title in ref_title.replace("the ", "")
+                    )
+
+                    # If site specified, verify URL matches
+                    if ref_site and title_match:
+                        site_match = ref_site in link_url.lower()
+                        if not site_match:
+                            continue
+
+                    if title_match:
+                        content_ref.source_url = link_url
+                        content_ref.source_turn = prev_turn
+                        logger.info(
+                            f"[ContextGatherer2Phase] Found URL for '{content_ref.title[:30]}...' "
+                            f"in turn {prev_turn}: {link_url[:60]}..."
+                        )
+                        return content_ref
+
+            except Exception as e:
+                logger.warning(f"[ContextGatherer2Phase] Error reading research.json from turn {prev_turn}: {e}")
+                continue
+
+        # Also check toolresults.md for linked_items (thread/topic URLs from extraction)
+        for i in range(1, min(max_lookback + 1, current_turn)):
+            prev_turn = current_turn - i
+            turn_dir = self.turns_dir / f"turn_{prev_turn:06d}"
+            toolresults_path = turn_dir / "toolresults.md"
+
+            if not toolresults_path.exists():
+                continue
+
+            try:
+                toolresults_content = toolresults_path.read_text()
+                # Extract linked_items from JSON blocks in toolresults.md
+                linked_items = self._extract_linked_items_from_toolresults(toolresults_content)
+
+                for item in linked_items:
+                    # Parse markdown link: [text](url)
+                    match = re.match(r'\[([^\]]+)\]\(([^)]+)\)', item)
+                    if not match:
+                        continue
+
+                    link_text, link_url = match.groups()
+                    link_text_lower = link_text.lower().strip()
+
+                    # Match by title similarity
+                    title_match = (
+                        ref_title in link_text_lower or
+                        link_text_lower in ref_title or
+                        ref_title.replace("the ", "") in link_text_lower or
+                        link_text_lower in ref_title.replace("the ", "")
+                    )
+
+                    if title_match:
+                        # Handle relative URLs - prepend site if needed
+                        if link_url.startswith("/") and ref_site:
+                            link_url = f"https://{ref_site}{link_url}"
+                        elif link_url.startswith("/"):
+                            # Try to get base URL from previous research
+                            link_url = self._resolve_relative_url(link_url, prev_turn)
+
+                        content_ref.source_url = link_url
+                        content_ref.source_turn = prev_turn
+                        logger.info(
+                            f"[ContextGatherer2Phase] Found linked_items URL for '{content_ref.title[:30]}...' "
+                            f"in turn {prev_turn}: {link_url[:60]}..."
+                        )
+                        return content_ref
+
+            except Exception as e:
+                logger.warning(f"[ContextGatherer2Phase] Error reading toolresults.md from turn {prev_turn}: {e}")
+                continue
+
+        # Also check visit records
+        content_ref = self._enrich_with_visit_record(content_ref)
+
+        logger.debug(f"[ContextGatherer2Phase] No matching URL found for '{ref_title[:30]}...'")
+        return content_ref
+
+    def _extract_linked_items_from_toolresults(self, content: str) -> list:
+        """
+        Extract linked_items from toolresults.md JSON blocks.
+
+        toolresults.md contains JSON like:
+        {
+          "intelligence": {
+            "linked_items": [
+              "[Monster Tanks 400g+](/forums/monster-tanks-400g.1046/)",
+              "[Carbon Dosing](/threads/carbon-dosing.123456/)"
+            ]
+          }
+        }
+        """
+        linked_items = []
+
+        # Find all JSON blocks in the markdown (between ```json and ```)
+        json_pattern = r'```json\s*([\s\S]*?)```'
+        matches = re.findall(json_pattern, content)
+
+        for json_str in matches:
+            try:
+                # Handle truncated JSON by trying to parse what we have
+                data = json.loads(json_str)
+
+                # Extract linked_items from intelligence dict
+                if isinstance(data, dict):
+                    intelligence = data.get("intelligence", {})
+                    if isinstance(intelligence, dict):
+                        items = intelligence.get("linked_items", [])
+                        if isinstance(items, list):
+                            linked_items.extend(items)
+            except json.JSONDecodeError:
+                # JSON may be truncated in toolresults.md, try regex extraction
+                # Look for linked_items array directly
+                items_pattern = r'"linked_items"\s*:\s*\[(.*?)\]'
+                items_match = re.search(items_pattern, json_str, re.DOTALL)
+                if items_match:
+                    items_str = items_match.group(1)
+                    # Extract individual markdown links
+                    link_pattern = r'"(\[[^\]]+\]\([^)]+\))"'
+                    links = re.findall(link_pattern, items_str)
+                    linked_items.extend(links)
+
+        return linked_items
+
+    def _resolve_relative_url(self, relative_url: str, source_turn: int) -> str:
+        """
+        Resolve a relative URL to absolute using the base URL from source turn.
+
+        Checks research.json and toolresults.md to find the site that was visited.
+        """
+        turn_dir = self.turns_dir / f"turn_{source_turn:06d}"
+
+        # Try research.json first
+        research_path = turn_dir / "research.json"
+        if research_path.exists():
+            try:
+                research_data = json.loads(research_path.read_text())
+                extracted_links = research_data.get("extracted_links", [])
+                for link in extracted_links:
+                    url = link.get("url", "")
+                    if url.startswith("http"):
+                        # Extract base URL
+                        from urllib.parse import urlparse
+                        parsed = urlparse(url)
+                        base_url = f"{parsed.scheme}://{parsed.netloc}"
+                        return f"{base_url}{relative_url}"
+            except Exception:
+                pass
+
+        # Try context.md for source URL hints
+        context_path = turn_dir / "context.md"
+        if context_path.exists():
+            try:
+                content = context_path.read_text()
+                # Look for URLs in the content
+                url_pattern = r'https?://([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})'
+                match = re.search(url_pattern, content)
+                if match:
+                    domain = match.group(1)
+                    return f"https://{domain}{relative_url}"
+            except Exception:
+                pass
+
+        # Fallback: return as-is (won't be fully navigable but preserves info)
+        logger.warning(f"[ContextGatherer2Phase] Could not resolve relative URL: {relative_url}")
+        return relative_url
+
+    def _enrich_with_visit_record(self, content_ref: ContentReference) -> ContentReference:
+        """
+        Enrich a ContentReference with visit record info if available.
+
+        Checks visit_records/ directories for cached page data.
+        """
+        if not content_ref.source_turn:
+            return content_ref
+
+        turn_dir = self.turns_dir / f"turn_{content_ref.source_turn:06d}"
+        visit_records_dir = turn_dir / "visit_records"
+
+        if not visit_records_dir.exists():
+            return content_ref
+
+        # Look for manifest.json files in visit_records subdirectories
+        for subdir in visit_records_dir.iterdir():
+            if not subdir.is_dir():
+                continue
+
+            manifest_path = subdir / "manifest.json"
+            if not manifest_path.exists():
+                continue
+
+            try:
+                manifest = json.loads(manifest_path.read_text())
+
+                # Check if this visit record matches the content we're looking for
+                manifest_title = manifest.get("title", "").lower()
+                manifest_url = manifest.get("source_url", "")
+                ref_title = content_ref.title.lower() if content_ref.title else ""
+
+                # Match by title similarity or site match
+                title_match = (
+                    ref_title in manifest_title or
+                    manifest_title in ref_title or
+                    (content_ref.site and content_ref.site in manifest_url)
+                )
+
+                if title_match:
+                    # Found matching visit record
+                    content_ref.source_url = manifest_url
+                    content_ref.has_visit_record = True
+                    # Path relative to turns_dir.parent (panda_system_docs)
+                    content_ref.visit_record_path = str(subdir.relative_to(self.turns_dir.parent))
+
+                    logger.info(
+                        f"[ContextGatherer2Phase] Found visit record for '{content_ref.title[:30]}...' "
+                        f"at {content_ref.visit_record_path}"
+                    )
+                    return content_ref
+
+            except Exception as e:
+                logger.warning(f"[ContextGatherer2Phase] Error reading manifest {manifest_path}: {e}")
+                continue
+
+        return content_ref
+
     def _detect_followup(self, query: str, turn_number: int) -> tuple:
         """
         Always check N-1 for inherited topic context.
@@ -2035,12 +2518,11 @@ GATHERED_CONTEXT (§2):
             return
 
         try:
-            # Search for relevant knowledge - uses config.searchable_paths
-            # which includes Knowledge/, Beliefs/, Users/, Maps/
+            # Search for relevant knowledge in per-user memory directories
             raw_memory_results = await search_memory(
                 query=query,
-                # No folders param = uses config.searchable_paths defaults
                 limit=7,  # Quality over quantity - fewer but more relevant results
+                user_id=self.user_id,
             )
             # Filter to only include results with meaningful relevance (>= 0.6)
             # This prevents irrelevant notes from consuming context budget

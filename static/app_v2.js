@@ -438,7 +438,7 @@ const savedMode = LS.get('panda.mode', 'chat');
   // Ensure apiBase reflects current LAN toggle
   try {
     const useLAN = !!(useLANTgl && useLANTgl.checked);
-    const lanBase = LS.get('panda.lanBase', 'http://192.168.1.100:9000');
+    const lanBase = LS.get('panda.lanBase', 'http://192.168.1.150:9000');
     LS.set('panda.apiBase', useLAN ? (lanBase.replace(/\/$/, '') + '/v1') : '/v1');
   } catch {}
   // Kick off initial connection ping
@@ -465,7 +465,7 @@ const savedMode = LS.get('panda.mode', 'chat');
 // Update context status bar with current repo, mode, and working directory
 function updateContextStatus() {
   // Update repo path
-  const repoPath = LS.get('panda.repoRoot', '') || '/path/to/project';
+  const repoPath = LS.get('panda.repoRoot', '') || '/path/to/pandaagi';
   if (activeRepoPath) {
     activeRepoPath.textContent = repoPath || '<not set>';
     activeRepoPath.title = repoPath;
@@ -804,7 +804,7 @@ function syncPolicyUI() {
     let val = list.join('\n');
     if (!val.trim()) {
       // Default suggestion when empty
-      val = '/path/to/project/panda_system_docs\n/path/to/another/project';
+      val = '/path/to/pandaagi/panda_system_docs\n/path/to/your/project';
     }
     polAllowedPaths.value = val;
   }

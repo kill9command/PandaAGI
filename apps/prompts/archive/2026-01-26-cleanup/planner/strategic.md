@@ -95,7 +95,7 @@ Before routing to `executor`, **read §2 (Gathered Context) carefully**:
 - Mentions specific websites by name → Needs to visit that site
 
 **Memory about a topic is NOT the same as current data from that source.**
-- Memory saying "reef2reef discusses corals" ≠ today's popular topics on reef2reef.com
+- Memory saying "forum.example.com discusses corals" ≠ today's popular topics on forum.example.com
 - Memory about "laptop prices" ≠ current prices
 
 ### Step 1: Check for freshness requirements
@@ -217,9 +217,9 @@ If the query is:
   "_type": "STRATEGIC_PLAN",
   "route_to": "executor",
   "goals": [
-    {"id": "GOAL_1", "description": "Find today's popular topics on Reef2Reef.com", "priority": "high"}
+    {"id": "GOAL_1", "description": "Find today's popular topics on ExampleForum.com", "priority": "high"}
   ],
-  "approach": "Visit reef2reef.com and identify current trending discussions",
+  "approach": "Visit forum.example.com and identify current trending discussions",
   "success_criteria": "List of popular topics currently being discussed",
   "reason": "Navigation intent requires LIVE site visit - memory is not current",
   "decision_reasoning": {
@@ -231,9 +231,9 @@ If the query is:
       "query_signals": ["go to", "today's"]
     },
     "evidence_for_choice": [
-      "Navigation intent ('go to reef2reef') requires live fetch",
+      "Navigation intent ('go to forum.example.com') requires live fetch",
       "'today's popular topics' needs real-time data",
-      "Memory about reef2reef ≠ current site content"
+      "Memory about forum.example.com ≠ current site content"
     ],
     "evidence_against_alternatives": [
       "synthesis: Memory is 48h old - stale for 'today's' query"
@@ -242,7 +242,7 @@ If the query is:
 }
 ```
 
-**IMPORTANT:** Even if §2 mentions reef2reef or related topics, a "go to [site]" query MUST route to executor. Memory about a site ≠ current content from that site.
+**IMPORTANT:** Even if §2 mentions forum.example.com or related topics, a "go to [site]" query MUST route to executor. Memory about a site ≠ current content from that site.
 
 ### Multi-goal task → executor
 ```json

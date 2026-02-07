@@ -58,7 +58,7 @@ When user says "go to X AND do Y", it's still `navigation` with a `goal`:
 
 | Query Pattern | Intent | intent_metadata | Reasoning |
 |--------------|--------|-----------------|-----------|
-| "go to reef2reef.com and find popular threads" | navigation | target_url: https://reef2reef.com, goal: find popular threads | Site + task |
+| "go to forum.example.com and find popular threads" | navigation | target_url: https://forum.example.com, goal: find popular threads | Site + task |
 | "visit amazon and show me deals" | navigation | target_url: https://amazon.com, goal: show deals | Site + task |
 | "go to reddit and tell me what's trending" | navigation | target_url: https://reddit.com, goal: find trending content | Site + task |
 | "check newegg for RTX 4080 prices" | navigation | target_url: https://newegg.com, goal: find RTX 4080 prices | Site + task |
@@ -78,7 +78,7 @@ Queries to search FOR something WITHIN a specific named site (but user doesn't h
 | "find X on reddit" | site_search | site_name: reddit.com, search_term: X | Site-specific search |
 | "look for X on ebay" | site_search | site_name: ebay.com, search_term: X | Site-specific search |
 | "what does newegg have for X" | site_search | site_name: newegg.com, search_term: X | Site product query |
-| "search reef2reef for protein skimmers" | site_search | site_name: reef2reef.com, search_term: protein skimmers | Forum search |
+| "search forum.example.com for protein skimmers" | site_search | site_name: forum.example.com, search_term: protein skimmers | Forum search |
 | "find hamster threads on reddit" | site_search | site_name: reddit.com, search_term: hamster threads | Forum search |
 
 ### Navigation vs Site Search
@@ -87,8 +87,8 @@ Queries to search FOR something WITHIN a specific named site (but user doesn't h
 |-------|--------|-----|
 | "go to amazon.com" | navigation | User wants to GO there |
 | "search amazon for laptops" | site_search | User wants to SEARCH within |
-| "visit reef2reef.com and find popular threads" | navigation | User wants to GO + do task |
-| "find popular threads on reef2reef" | site_search | User wants to SEARCH within |
+| "visit forum.example.com and find popular threads" | navigation | User wants to GO + do task |
+| "find popular threads on forum.example.com" | site_search | User wants to SEARCH within |
 | "take me to reddit" | navigation | User wants to GO there |
 | "what's on reddit about hamsters" | site_search | User wants to SEARCH within |
 
@@ -207,14 +207,14 @@ Queries about previous findings or memory.
 
 **Navigation** (user names a site and wants to GO THERE):
 - "go to amazon.com" → navigation
-- "visit reef2reef.com and find popular threads" → navigation (site + task)
+- "visit forum.example.com and find popular threads" → navigation (site + task)
 - "take me to reddit" → navigation
 - "check newegg for deals" → navigation (site + task)
 
 **Site Search** (user names a site and wants to SEARCH WITHIN it):
 - "search amazon for laptops" → site_search
 - "find X on reddit" → site_search
-- "what does reef2reef say about protein skimmers" → site_search
+- "what does forum.example.com say about protein skimmers" → site_search
 
 **Informational** (NO specific site mentioned):
 - "what are popular aquarium forums" → informational

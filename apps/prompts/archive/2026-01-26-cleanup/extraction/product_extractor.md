@@ -59,7 +59,7 @@ Output ONLY valid JSON (no markdown, no explanation):
       "price": 70,
       "currency": "USD",
       "url": "https://example-hamstery.com/adoption",
-      "seller_name": "Poppy Bee Hamstery",
+      "seller_name": "Example Pet Store",
       "seller_type": "breeder",
       "in_stock": true,
       "description": "Quality bred Syrian hamsters. Adoption requires application approval. $35 deposit + $35 at pickup.",

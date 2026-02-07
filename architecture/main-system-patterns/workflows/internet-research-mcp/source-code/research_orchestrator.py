@@ -4652,7 +4652,7 @@ Return ONLY the JSON block from the "Structured Data" section. Do not include ma
         normalized_retailers = {}
         for name, info in list(result["retailers"].items()):
             # CRITICAL: Remove underscores from retailer names - they break domain lookup
-            # "poppy_bee_hamstery" → "poppybeehamstery"
+            # "example_petstore" → "example-petstore"
             normalized_name = name.replace("_", "").replace(" ", "").lower()
             if normalized_name != name:
                 logger.debug(f"[Intelligence] Normalized retailer name: '{name}' → '{normalized_name}'")
@@ -4865,8 +4865,8 @@ def _detect_vendor_catalogs(findings: List[Dict]) -> List[Dict[str, Any]]:
     Returns list of catalog hints:
     [
         {
-            "vendor_url": "https://hubbahubbahamstery.com/available",
-            "vendor_name": "Hubba-Hubba Hamstery",
+            "vendor_url": "https://example-shop.com/available",
+            "vendor_name": "Example Pet Shop",
             "detected_items": 5,
             "has_pagination": True,
             "categories": ["available", "upcoming"],

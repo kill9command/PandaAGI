@@ -1,13 +1,12 @@
 # PandaAI v2 Model Registry
 # Simplified Cognitive Stack Configuration (vLLM Tested)
-# Target Hardware: RTX 4060 Laptop (8GB VRAM)
+# Target Hardware: RTX 3090 (24GB VRAM)
 #
 # SIMPLIFIED DESIGN (based on vLLM testing 2026-01-06):
 # - Single MIND model handles ALL text roles (REFLEX, NERVES, MIND, VOICE)
-# - Different temperatures per task (0.3 classification, 0.5 reasoning, 0.7 dialogue)
+# - Different temperatures per task (0.4 classification, 0.6 reasoning, 0.7 dialogue)
 # - EYES swaps in on-demand for vision (requires MIND unload, 3-5s swap)
 # - Embeddings run on CPU (no VRAM impact)
-# - SERVER is remote (Qwen3-Coder-30B)
 #
 # KEY FINDING: Qwen3-0.6B (REFLEX) is NOT used - MIND handles those tasks.
 
@@ -19,12 +18,12 @@ updated: "2026-01-06"
 # VRAM BUDGET (Simplified - vLLM Tested)
 # =============================================================================
 hardware:
-  gpu: "RTX 4060 Laptop"
-  vram_total_gb: 8
-  vram_hot_pool_gb: 3.3  # Single MIND model (~3.3GB with compressed-tensors)
+  gpu: "RTX 3090 (24GB VRAM)"
+  vram_total_gb: 24
+  vram_hot_pool_gb: 18.0  # Single MIND model (Qwen3-Coder-30B-AWQ)
   vram_cold_reserve_gb: 5.0  # EYES when swapped in
   context_default: 4096  # vLLM tested max_model_len
-  context_ceiling: 8192  # Can increase if needed
+  context_ceiling: 32768  # Can increase with 24GB VRAM
 
 # =============================================================================
 # MODEL STACK (Simplified - Single MIND for All Text)
@@ -50,14 +49,14 @@ models:
   # ---------------------------------------------------------------------------
   # MIND - Single model for ALL text roles (vLLM tested)
   # Handles: classification, reasoning, planning, dialogue (via temperature)
-  # Quantization: compressed-tensors (auto-detected by vLLM, not AWQ format)
+  # Quantization: AWQ 4-bit
   # ---------------------------------------------------------------------------
   mind:
-    model_id: "cyankiwi/Qwen3-4B-Instruct-2507-AWQ-4bit"
-    local_path: "models/Qwen3-4B-Instruct-2507-AWQ"
-    name: "Qwen3-4B-Instruct-AWQ"
-    format: "compressed-tensors"  # vLLM auto-detects, not AWQ format
-    vram_gb: 3.3  # Tested with vLLM
+    model_id: "Qwen/Qwen3-Coder-30B-AWQ"
+    local_path: "models/Qwen3-Coder-30B-AWQ"
+    name: "Qwen3-Coder-30B-AWQ"
+    format: "awq"  # AWQ 4-bit quantization
+    vram_gb: 18.0  # Fits in RTX 3090 24GB VRAM
     pool: "hot"
     served_name: "mind"  # vLLM --served-model-name
     capabilities:
@@ -79,27 +78,28 @@ models:
       - conversational_output
       - formatting
     phases:
-      - phase0_query_analyzer   # REFLEX role, temp=0.3
-      - phase1_reflection       # REFLEX role, temp=0.3
-      - phase2_context_gatherer # MIND role, temp=0.5
-      - phase3_planner          # MIND role, temp=0.5
-      - phase4_coordinator      # MIND role, temp=0.5
-      - phase5_synthesis        # VOICE role, temp=0.7
-      - phase6_validation       # MIND role, temp=0.5
-      - background_compression  # NERVES role, temp=0.1
+      - phase0_query_analyzer   # REFLEX role, temp=0.4
+      - phase1_reflection       # REFLEX role, temp=0.4
+      - phase2_context_gatherer # MIND role, temp=0.6
+      - phase3_planner          # MIND role, temp=0.6
+      - phase4_executor         # MIND role, temp=0.6
+      - phase5_coordinator      # MIND role, temp=0.6
+      - phase6_synthesis        # VOICE role, temp=0.7
+      - phase7_validation       # MIND role, temp=0.6
+      - background_compression  # NERVES role, temp=0.3
     # Temperature per role (applied via recipe/prompt selection)
     role_temperatures:
-      reflex: 0.3    # Classification, binary decisions
-      nerves: 0.1    # Compression (low creativity)
-      mind: 0.5      # Reasoning, planning
+      reflex: 0.4    # Classification, binary decisions
+      nerves: 0.3    # Compression (low creativity)
+      mind: 0.6      # Reasoning, planning
       voice: 0.7     # User dialogue (more natural)
     parameters:
-      temperature: 0.5  # Default (overridden per role)
+      temperature: 0.6  # Default (overridden per role)
       max_tokens: 2000
       context_window: 4096  # vLLM tested max_model_len
     notes: |
       Single model serves all text roles. Role behavior controlled by:
-      - Temperature (0.3 for classification, 0.5 for reasoning, 0.7 for dialogue)
+      - Temperature (0.4 for classification, 0.6 for reasoning, 0.7 for dialogue)
       - System prompts (role-specific instructions)
       REFLEX (Qwen3-0.6B) is NOT used - MIND handles those tasks.
 
@@ -137,8 +137,8 @@ models:
   # Runs on separate server, accessed via API
   # ---------------------------------------------------------------------------
   server:
-    model_id: "Qwen/Qwen3-Coder-30B"
-    name: "Qwen3-Coder-30B"
+    model_id: "Qwen/Qwen3-Coder-30B-AWQ"
+    name: "Qwen3-Coder-30B-AWQ"
     pool: "remote"
     type: "remote"
     endpoint: "${SERVER_ENDPOINT:-http://localhost:8001}"  # Configure in .env
@@ -157,7 +157,7 @@ models:
       - multi_file_edit
       - algorithm_request
     fallback: "mind"  # Use local MIND if server unavailable
-    notes: "Remote server running Qwen3-Coder-30B for heavy coding tasks"
+    notes: "Remote server running Qwen3-Coder-30B-AWQ for heavy coding tasks"
 
 # =============================================================================
 # POOL CONFIGURATION (Simplified)
@@ -166,9 +166,9 @@ pools:
   hot:
     description: "Always loaded in VRAM"
     models:
-      - mind  # Qwen3-4B (~3.3GB) - handles ALL text roles
+      - mind  # Qwen3-Coder-30B-AWQ (~18GB) - handles ALL text roles
     # Note: REFLEX (Qwen3-0.6B) is NOT used - MIND handles those tasks
-    total_vram_gb: 3.3
+    total_vram_gb: 18.0
 
   cold:
     description: "Loaded on demand, unloaded after use"
@@ -185,7 +185,7 @@ pools:
   remote:
     description: "Remote server models accessed via API"
     models:
-      - server  # Qwen3-Coder-30B on remote server
+      - server  # Qwen3-Coder-30B-AWQ on remote server
     connection:
       type: "http"
       timeout_seconds: 120
@@ -198,49 +198,56 @@ pools:
 phase_assignments:
   phase0_query_analyzer:
     model: mind
-    role: reflex  # Use REFLEX temperature (0.3)
+    role: reflex  # Use REFLEX temperature (0.4)
     recipe: "query_analyzer.yaml"
 
   phase1_reflection:
     model: mind
-    role: reflex  # Use REFLEX temperature (0.3)
+    role: reflex  # Use REFLEX temperature (0.4)
     recipe: "reflection.yaml"
 
   phase2_context_gatherer:
     model: mind
-    role: mind  # Use MIND temperature (0.5)
+    role: mind  # Use MIND temperature (0.6)
     recipes:
       - "context_gatherer_retrieval.yaml"
       - "context_gatherer_synthesis.yaml"
 
   phase3_planner:
     model: mind
-    role: mind  # Use MIND temperature (0.5)
+    role: mind  # Use MIND temperature (0.6)
     recipes:
       chat: "planner_chat.yaml"
       code: "planner_code.yaml"
 
-  phase4_coordinator:
+  phase4_executor:
     model: mind
-    role: mind  # Use MIND temperature (0.5)
+    role: mind  # Use MIND temperature (0.6)
     recipes:
       chat: "coordinator_chat.yaml"
       code: "coordinator_code.yaml"
     vision_subtask: eyes  # Swap to EYES for vision tasks
 
-  phase5_synthesis:
+  phase5_coordinator:
+    model: mind
+    role: mind  # Use MIND temperature (0.6)
+    recipes:
+      chat: "coordinator_chat.yaml"
+      code: "coordinator_code.yaml"
+
+  phase6_synthesis:
     model: mind
     role: voice  # Use VOICE temperature (0.7)
     recipes:
       chat: "synthesizer_chat.yaml"
       code: "synthesizer_code.yaml"
 
-  phase6_validation:
+  phase7_validation:
     model: mind
-    role: mind  # Use MIND temperature (0.5)
+    role: mind  # Use MIND temperature (0.6)
     recipe: "validator.yaml"
 
-  phase7_save:
+  phase8_save:
     model: null  # Procedural, no LLM
 
 # =============================================================================
@@ -249,19 +256,19 @@ phase_assignments:
 background_services:
   context_compression:
     model: mind
-    role: nerves  # Use NERVES temperature (0.1)
+    role: nerves  # Use NERVES temperature (0.3)
     trigger: "section_4_exceeds_budget"
     recipe: "compression.yaml"
 
   memory_compression:
     model: mind
-    role: nerves  # Use NERVES temperature (0.1)
+    role: nerves  # Use NERVES temperature (0.3)
     trigger: "memory_section_exceeds_budget"
     recipe: "memory_compression.yaml"
 
   state_tracking:
     model: mind
-    role: nerves  # Use NERVES temperature (0.1)
+    role: nerves  # Use NERVES temperature (0.3)
     trigger: "multi_goal_query"
     recipe: "state_tracking.yaml"
 
@@ -272,25 +279,26 @@ vllm:
   host: "localhost"
   port: 8000
   tensor_parallel_size: 1
-  gpu_memory_utilization: 0.80  # Tested value
+  gpu_memory_utilization: 0.90  # RTX 3090 24GB - can use higher utilization
   max_model_len: 4096  # Tested value
-  quantization: null  # Auto-detected as compressed-tensors
+  quantization: "awq"  # AWQ 4-bit quantization
   enforce_eager: true  # Required on WSL
 
   # Startup command (tested):
   # python -m vllm.entrypoints.openai.api_server \
   #   --host 0.0.0.0 \
   #   --port 8000 \
-  #   --model models/Qwen3-4B-Instruct-2507-AWQ \
+  #   --model models/Qwen3-Coder-30B-AWQ \
   #   --served-model-name mind \
-  #   --gpu-memory-utilization 0.80 \
+  #   --gpu-memory-utilization 0.90 \
   #   --max-model-len 4096 \
   #   --enforce-eager \
+  #   --quantization awq \
   #   --trust-remote-code
 
   # Model loading (simplified - only MIND)
   startup_models:
-    - mind  # Qwen3-4B (~3.3GB) - serves ALL text roles
+    - mind  # Qwen3-Coder-30B-AWQ (~18GB) - serves ALL text roles
 
 # =============================================================================
 # FALLBACK CONFIGURATION (Simplified)
@@ -305,20 +313,21 @@ fallbacks:
 # NOTES
 # =============================================================================
 # Simplified Stack (2026-01-06 - vLLM Tested):
-# - MIND: Qwen3-4B (~3.3GB, compressed-tensors) - ALL text roles
+# - MIND: Qwen3-Coder-30B-AWQ (~18GB, AWQ 4-bit) - ALL text roles
 # - EYES: Qwen3-VL-2B (BF16, ~5GB) - vision tasks (cold swap)
-# - SERVER: Qwen3-Coder-30B (remote) - heavy coding
 # - Embedding: all-MiniLM-L6-v2 (CPU) - semantic search
+#
+# Hardware: RTX 3090 (24GB VRAM)
 #
 # NOT USED:
 # - Qwen3-0.6B (REFLEX) - MIND handles classification tasks
 # - Separate NERVES/VOICE models - MIND handles via temperature
 #
 # vLLM Configuration Notes:
-# - quantization is auto-detected as "compressed-tensors" (not AWQ)
+# - quantization: awq (AWQ 4-bit)
 # - --enforce-eager required on WSL
-# - --gpu-memory-utilization 0.80 tested stable
-# - --max-model-len 4096 tested (can increase to 8192)
+# - --gpu-memory-utilization 0.90 tested stable on RTX 3090
+# - --max-model-len 4096 tested (can increase to 32768)
 #
 # Models available but not in active use:
 # - models/Qwen3-0.6B (could use for ultra-fast classification)

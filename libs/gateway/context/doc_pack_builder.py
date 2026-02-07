@@ -408,7 +408,7 @@ class DocPackBuilder:
     Builds document packs from recipes with hard budget enforcement.
 
     Usage:
-        recipe = load_recipe("planner_chat")
+        recipe = load_recipe("pipeline/phase3_planner")
         builder = DocPackBuilder()
         pack = builder.build(recipe, turn_dir)
         prompt = pack.as_prompt()

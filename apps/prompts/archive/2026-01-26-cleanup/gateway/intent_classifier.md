@@ -10,7 +10,7 @@ QUERY: {query}
 
 ## Definitions
 
-- **navigation**: User wants to go to a specific website URL (e.g., "go to amazon.com", "visit reef2reef.com")
+- **navigation**: User wants to go to a specific website URL (e.g., "go to amazon.com", "visit forum.example.com")
 - **site_search**: User wants to search WITHIN a specific NAMED site (e.g., "find laptops on amazon", "search reddit for X")
   CRITICAL: Only use site_search if a SPECIFIC site is named! "find vendors" without a site = commerce, NOT site_search
 - **commerce**: User wants to buy something, find vendors/sellers, or search for products across the web (e.g., "cheapest laptop", "where to buy hamster", "for sale", "find vendors", "search for breeders", "find sellers", "additional vendors")

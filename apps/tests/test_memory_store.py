@@ -110,25 +110,25 @@ def test_user_specific_memory_isolation(memory_tmp: Path, monkeypatch: pytest.Mo
     monkeypatch.setenv("MEMORY_ROOT", str(memory_tmp))
     reset_memory_store_cache()
 
-    user1_store = get_memory_store("user1")
+    default_store = get_memory_store("default")
     user2_store = get_memory_store("user2")
 
-    user1_store.save_memory(
-        title="User1 note",
-        body_md="User1 researched hamster cages.",
+    default_store.save_memory(
+        title="User note",
+        body_md="User researched product reviews.",
         scope="short_term",
         tags=["topic:hamster"],
     )
 
     user2_store.save_memory(
         title="User2 note",
-        body_md="User2 tracked plant care schedule.",
+        body_md="User2 tracked product comparisons.",
         scope="short_term",
         tags=["topic:plants"],
     )
 
-    user1_items = user1_store.query("hamster", k=3)
+    default_items = default_store.query("hamster", k=3)
     user2_items = user2_store.query("hamster", k=3)
 
-    assert any("User1" in (item.get("title", "")) for item in user1_items)
-    assert not any("User1" in (item.get("title", "")) for item in user2_items)
+    assert any("User" in (item.get("title", "")) for item in default_items)
+    assert not any("User" in (item.get("title", "")) for item in user2_items)

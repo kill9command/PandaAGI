@@ -136,6 +136,9 @@ class LLMClient:
                 content = result["choices"][0]["message"]["content"]
 
                 logger.info(f"[LLMClient] {role} LLM response: {len(content)} chars")
+                # Debug: log first 300 chars for troubleshooting parse errors
+                if role == "query_analyzer":
+                    logger.debug(f"[LLMClient] {role} response preview: {content[:300]}...")
                 return content
 
         except httpx.TimeoutException as e:

@@ -791,8 +791,8 @@ if __name__ == "__main__":
                 'snippet': 'Forum discussion about wanting a hamster as a pet'
             },
             {
-                'url': 'https://www.poppybeehamstery.com/hamsters-for-sale',
-                'title': 'Syrian Hamsters for Sale - Poppy Bee Hamstery',
+                'url': 'https://www.example-breeder.com/hamsters-for-sale',
+                'title': 'Syrian Hamsters for Sale - Example Pet Store',
                 'snippet': 'Ethical Syrian hamster breeder. $35 per hamster. Shipping available.'
             },
             {

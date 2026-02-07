@@ -19,6 +19,8 @@ from apps.services.gateway.config import (
     COORDINATOR_API_KEY,
     COORDINATOR_MODEL_ID,
     COORDINATOR_URL,
+    CLAUDE_API_KEY,
+    CLAUDE_MODEL,
     MEM_INDEX_PATH,
     MEM_JSON_DIR,
     MODEL_TIMEOUT,
@@ -47,7 +49,9 @@ _circuit_breaker: Optional[Any] = None
 _token_budget_enforcer: Optional[Any] = None
 _meta_reflection_gate: Optional[Any] = None
 _llm_client: Optional[Any] = None
+_claude_client: Optional[Any] = None
 _unified_flow: Optional[Any] = None
+_claude_flow: Optional[Any] = None
 _context_summarizer: Optional[Any] = None
 _llm_extractor: Optional[Any] = None
 _learning_store: Optional[Any] = None
@@ -276,6 +280,46 @@ def get_llm_client():
     return _llm_client
 
 
+def get_claude_client():
+    """Get the Claude LLM client singleton. Returns None if CLAUDE_API_KEY not set."""
+    global _claude_client
+    if _claude_client is None:
+        if not CLAUDE_API_KEY:
+            return None
+        try:
+            from libs.gateway.llm.claude_client import ClaudeLLMClient
+
+            _claude_client = ClaudeLLMClient(
+                api_key=CLAUDE_API_KEY,
+                model=CLAUDE_MODEL,
+                timeout=MODEL_TIMEOUT,
+            )
+            logger.info(f"[Dependencies] Claude LLM client initialized (model={CLAUDE_MODEL})")
+        except ImportError:
+            logger.warning("[Dependencies] anthropic package not installed, Claude client unavailable")
+            return None
+    return _claude_client
+
+
+def get_claude_flow():
+    """Get a UnifiedFlow instance wired to Claude. Returns None if unavailable."""
+    global _claude_flow
+    if _claude_flow is None:
+        claude_client = get_claude_client()
+        if claude_client is None:
+            return None
+
+        from libs.gateway.unified_flow import UnifiedFlow, UNIFIED_FLOW_ENABLED
+
+        if UNIFIED_FLOW_ENABLED:
+            _claude_flow = UnifiedFlow(
+                llm_client=claude_client,
+                session_context_manager=get_session_contexts(),
+            )
+            logger.info("[Dependencies] Claude unified flow initialized")
+    return _claude_flow
+
+
 def get_llm_extractor():
     """Get the LLM extractor singleton."""
     global _llm_extractor
@@ -466,7 +510,8 @@ def reset_all():
     global _tool_circuit_breaker, _artifact_store, _ledger, _claim_registry
     global _session_contexts
     global _wm_config, _circuit_breaker, _token_budget_enforcer
-    global _meta_reflection_gate, _llm_client, _unified_flow, _context_summarizer
+    global _meta_reflection_gate, _llm_client, _claude_client, _unified_flow, _claude_flow
+    global _context_summarizer
     global _llm_extractor, _learning_store, _info_registry, _recent_short_term
     global _research_ws_manager
 
@@ -480,7 +525,9 @@ def reset_all():
     _token_budget_enforcer = None
     _meta_reflection_gate = None
     _llm_client = None
+    _claude_client = None
     _unified_flow = None
+    _claude_flow = None
     _context_summarizer = None
     _llm_extractor = None
     _learning_store = None

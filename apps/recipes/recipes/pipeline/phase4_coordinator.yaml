@@ -1,0 +1,63 @@
+# Phase 5: Coordinator (Unified) Recipe
+# Tool Expert: Translates Executor commands into workflow selections
+# Architecture: architecture/main-system-patterns/phase5-coordinator.md
+
+name: phase4_coordinator
+category: pipeline
+phase: 5
+role: REFLEX
+temperature: 0.4
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase4_coordinator.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2", "3"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 2500
+    description: "Sections 0-3: query, context, reflection, strategic plan"
+  - path: "context.md"
+    sections: ["4"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 3000
+    description: "Section 4: Accumulated execution results from prior iterations"
+
+output_doc:
+  path: "context.md"
+  section: "4"
+  description: "Writes/appends section 4 with execution progress and tool results"
+
+token_budget:
+  total: 2500
+  prompt: 700
+  input_docs: 1200
+  output: 400
+  buffer: 200
+
+llm_params:
+  temperature: 0.4
+  max_tokens: 400
+
+output_schema: COORDINATOR_SELECTION
+
+description: |
+  Phase 5: Coordinator (Unified) - Tool Expert
+
+  Uses REFLEX role (temp=0.4). Translates Executor commands into workflow selections.
+  Mode-specific tool gating is enforced at execution time, not in the prompt.
+
+  **Core Question:** "Which workflow best accomplishes this command?"
+
+  **Output (COORDINATOR_SELECTION):**
+  ```json
+  {
+    "_type": "COORDINATOR_SELECTION",
+    "command_received": "<executor_command>",
+    "workflow_selected": "<workflow_name>",
+    "workflow_args": {...},
+    "status": "selected | needs_more_info | blocked"
+  }
+  ```

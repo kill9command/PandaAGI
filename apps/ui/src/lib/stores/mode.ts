@@ -17,6 +17,23 @@ mode.subscribe(v => {
   if (browser) localStorage.setItem(MODE_KEY, v);
 });
 
+// Model provider toggle (panda = local Qwen, claude = Claude API)
+const PROVIDER_KEY = 'panda.modelProvider';
+
+type ModelProvider = 'panda' | 'claude';
+
+function getInitialProvider(): ModelProvider {
+  if (!browser) return 'panda';
+  const stored = localStorage.getItem(PROVIDER_KEY);
+  return (stored === 'claude') ? 'claude' : 'panda';
+}
+
+export const modelProvider = writable<ModelProvider>(getInitialProvider());
+
+modelProvider.subscribe(v => {
+  if (browser) localStorage.setItem(PROVIDER_KEY, v);
+});
+
 // Repo root (for code mode)
 const REPO_KEY = 'panda.repoRoot';
 

@@ -52,7 +52,7 @@ class TurnSearchIndex:
 
     Usage:
         index = TurnSearchIndex(session_id="default")
-        results = index.search("What's my favorite topic?", limit=10)
+        results = index.search("What's my favorite hamster?", limit=10)
 
         # Results are scoped to the session and sorted by relevance
         for result in results:

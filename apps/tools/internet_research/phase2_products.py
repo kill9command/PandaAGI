@@ -154,6 +154,16 @@ class Phase2ProductFinder:
         Returns:
             Phase2Result with products and recommendations
         """
+        # Normalize inputs — may be strings from §2 template resolution
+        if not isinstance(phase1_intelligence, dict):
+            phase1_intelligence = {}
+        if not isinstance(vendor_hints, list):
+            vendor_hints = []
+        if not isinstance(search_terms, list):
+            search_terms = []
+        if not isinstance(price_range, dict):
+            price_range = None
+
         logger.info(f"[Phase2] Starting product search for: {goal}")
         logger.info(f"[Phase2] Vendor hints: {vendor_hints}")
         logger.info(f"[Phase2] Search terms: {search_terms}")
@@ -590,6 +600,14 @@ JSON:"""
         """Generate recommendations based on Phase 1 intelligence."""
         if not products:
             return ("No products found to recommend.", "Unable to assess prices.")
+
+        # Normalize phase1_intelligence — may be a string from §2 template resolution
+        if not isinstance(phase1_intelligence, dict):
+            phase1_intelligence = {}
+
+        # Normalize price_range
+        if not isinstance(price_range, dict):
+            price_range = None
 
         # Build product summary
         product_summary = ""

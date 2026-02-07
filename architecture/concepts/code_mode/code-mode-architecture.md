@@ -1,7 +1,7 @@
 # Code Mode Architecture
 
-**Version:** 3.0
-**Updated:** 2026-02-03
+**Version:** 4.0
+**Updated:** 2026-02-05
 
 ---
 
@@ -9,13 +9,18 @@
 
 **Code Mode = Chat Mode + Write Tools**
 
-The 9-phase pipeline (Phases 0–8) is identical for both modes. The only differences:
+The 9-phase pipeline (Phases 0–8) is identical for both modes. **All phases use the same unified prompts.** The only differences:
 
 1. **Tool availability** — Code mode unlocks write operations
-2. **Mode-specific recipes** — 4 phases load different prompts (Planner, Executor, Coordinator, Synthesis)
-3. **Permission validation** — Write operations are gated by mode and repository scope
+2. **Permission validation** — Write operations are gated by mode and repository scope
+3. **UI presentation** — Code mode UI may show file trees, diffs, terminal output
 
-Everything else — query analysis, reflection, context gathering, validation, save — runs the same regardless of mode.
+**Mode does NOT affect:**
+- Recipe selection (all phases load unified recipes)
+- LLM prompts (same prompt regardless of mode)
+- Pipeline structure (same 9 phases)
+
+The LLM sees `mode` in §0 and adapts its output format naturally. Research queries produce research-style responses; code queries produce code-style responses — determined by query content, not mode flag.
 
 ---
 
@@ -42,21 +47,21 @@ The user selects `chat` or `code` mode. Mode is stored on the context document a
 
 ---
 
-## 4. Pipeline Divergence
+## 4. Pipeline: All Phases Unified
 
 | Phase | Name | Mode Behavior |
 |-------|------|---------------|
 | 0 | Query Analyzer | Unified |
 | 1 | Reflection | Unified |
 | 2 | Context Gatherer | Unified |
-| **3** | **Planner** | **Mode-specific recipe** — code planner can plan file edits, git operations, test runs |
-| **4** | **Executor** | **Mode-specific recipe** — code executor emits write-tool commands |
-| **5** | **Coordinator** | **Mode-specific recipe + permission validation** — code coordinator executes write tools after permission checks |
-| **6** | **Synthesis** | **Mode-specific recipe** — code synthesis uses file references, line numbers, status indicators |
+| 3 | Planner | Unified — LLM plans file edits or research based on query, not mode |
+| 4 | Executor | Unified — issues natural language commands; Coordinator enforces tool gating |
+| 5 | Coordinator | Unified — **permission validation at execution time** blocks write tools in chat mode |
+| 6 | Synthesis | Unified — LLM formats response based on content (code diffs vs product links) |
 | 7 | Validation | Unified |
 | 8 | Save | Unified |
 
-4 of 9 phases diverge. The divergence is recipe selection only — the pipeline structure never changes.
+**All 9 phases use the same recipe and prompt.** Mode-specific behavior is enforced at the tool execution layer, not the prompt layer.
 
 ---
 
@@ -74,8 +79,8 @@ Code mode operations target a **saved repository** — the project the user is w
 Mode enforcement happens at multiple layers independently:
 - **Gateway** — Stores mode on request entry
 - **Pipeline** — Passes mode through all phases
-- **Recipe selection** — Loads mode-appropriate prompts
-- **Orchestrator** — Validates mode header on every tool endpoint
+- **Coordinator** — Validates mode before executing any tool call
+- **Tool Server** — Validates mode header on every tool endpoint
 
 Even if one layer is bypassed, the others enforce the gate.
 
@@ -107,14 +112,12 @@ Complex work is decomposed into independent sub-tasks. Each sub-task executes wi
 
 ## 7. Response Format
 
-Code mode synthesis produces structured responses with:
-- Status indicators (success/failure per operation)
-- File references with line numbers (`auth.py:45-67`)
-- Lists of modified files
-- Test results summary
-- Clear separation of what changed and why
+The Synthesis phase (Phase 6) uses a unified prompt that handles both formats. The LLM picks the appropriate format based on query content visible in §0:
 
-Chat mode synthesis produces conversational natural language.
+- **Research/commerce queries** → Structured lists with prices, links, specs
+- **Informational queries** → Prose with sections, citations
+- **Code changes** → File references with line numbers, diffs, test results
+- **Code exploration** → File structure, key functions, module overview
 
 ---
 
@@ -134,7 +137,8 @@ Chat mode synthesis produces conversational natural language.
 | 1.0 | 2026-01-04 | Initial with full implementation walkthrough |
 | 2.1 | 2026-01-06 | Updated for 9-phase pipeline, agent loop |
 | 3.0 | 2026-02-03 | Distilled to pure concept. Removed implementation details, code paths, and phase-by-phase walkthrough. Added target capabilities from superpowers framework. |
+| 4.0 | 2026-02-05 | **Unified all prompts.** Mode no longer affects recipe selection or LLM prompts. Mode only gates tool availability at execution time. Removed "mode-specific recipe" references from pipeline table. |
 
 ---
 
-**Last Updated:** 2026-02-03
+**Last Updated:** 2026-02-05

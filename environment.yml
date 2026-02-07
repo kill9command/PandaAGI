@@ -1,4 +1,4 @@
-name: pandaai
+name: panda
 channels:
   - conda-forge
 dependencies:

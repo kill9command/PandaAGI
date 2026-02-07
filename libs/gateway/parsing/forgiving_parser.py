@@ -70,6 +70,10 @@ class ForgivingParser:
                 )
         except json.JSONDecodeError as e:
             warnings.append(f"JSON parse failed: {e}")
+        except Exception as e:
+            # Catch any other errors (like dict() on non-dict)
+            warnings.append(f"JSON validation failed: {e}")
+            logger.warning(f"[ForgivingParser] Strategy 1 failed: {e}, raw preview: {raw_output[:200]}")
 
         # Strategy 2: JSON repair
         try:
@@ -124,7 +128,10 @@ class ForgivingParser:
 
         # Try direct parse first
         try:
-            return json.loads(text)
+            result = json.loads(text)
+            # Only return if it's a dict or list, not primitive types
+            if isinstance(result, (dict, list)):
+                return result
         except json.JSONDecodeError:
             pass
 
@@ -134,7 +141,9 @@ class ForgivingParser:
 
         if start >= 0 and end > start:
             try:
-                return json.loads(text[start:end])
+                result = json.loads(text[start:end])
+                if isinstance(result, dict):
+                    return result
             except json.JSONDecodeError:
                 pass
 
@@ -144,7 +153,9 @@ class ForgivingParser:
 
         if start >= 0 and end > start:
             try:
-                return json.loads(text[start:end])
+                result = json.loads(text[start:end])
+                if isinstance(result, list):
+                    return result
             except json.JSONDecodeError:
                 pass
 
@@ -222,6 +233,11 @@ class ForgivingParser:
         schema: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Validate data against schema, applying defaults for missing fields."""
+        # Safety check: if data is not a dict, return defaults
+        if not isinstance(data, dict):
+            logger.warning(f"[ForgivingParser] Expected dict, got {type(data).__name__}: {str(data)[:100]}")
+            return self._get_defaults(schema) if schema else {}
+
         if not schema:
             return data
 
@@ -456,7 +472,6 @@ def parse_phase0_output(raw: str) -> ParseResult:
             "type": "object",
             "default": {"status": "not_needed", "original_references": [], "resolved_to": None}
         },
-        "mode": {"type": "string", "default": "chat"},
     }
     parser = ForgivingParser()
     return parser.parse(raw, schema)

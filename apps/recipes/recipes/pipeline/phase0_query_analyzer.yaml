@@ -22,8 +22,8 @@ input_docs:
     sections: ["summaries"]
     path_type: "input"
     optional: true
-    max_tokens: 450
-    description: "Summaries from turns N-1, N-2, N-3 for reference resolution"
+    max_tokens: 650
+    description: "Summaries from turns N-1, N-2, N-3 for reference resolution (includes findings + links)"
 
 output_doc:
   path: "context.md"
@@ -31,9 +31,9 @@ output_doc:
   description: "Writes section 0 with resolved query, user_purpose, data_requirements, reference_resolution, validation"
 
 token_budget:
-  total: 1500
+  total: 1700
   prompt: 600
-  input_docs: 550
+  input_docs: 750
   output: 200
   buffer: 150
 

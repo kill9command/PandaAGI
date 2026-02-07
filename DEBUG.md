@@ -446,7 +446,7 @@ When editing documentation, architecture specs, or LLM prompts:
 
 **DO NOT** use specific real-world examples like:
 - Product names: "MacBook Pro", "HP Pavilion", "Dell XPS"
-- Websites: "reef2reef.com", "amazon.com"
+- Websites: "forum.example.com", "amazon.com"
 - Topics: "Syrian hamsters", "Bitcoin price"
 - Brands: "HP", "Apple", "Samsung"
 
@@ -468,7 +468,7 @@ When editing documentation, architecture specs, or LLM prompts:
 **Wrong:**
 ```markdown
 NEED: Find the current price of Bitcoin
-NEED: Fetch trending topics from reef2reef.com
+NEED: Fetch trending topics from forum.example.com
 NEED: Find laptops under $1000, preferably HP
 ```
 

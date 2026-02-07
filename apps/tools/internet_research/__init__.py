@@ -32,10 +32,12 @@ async def execute_full_research(
     task: str = "",
     session_id: str = None,
     target_vendors: int = 3,
+    max_visits: int = 8,
     config: dict = None,
     event_emitter = None,
     human_assist_allowed: bool = True,
     turn_dir_path: str = None,
+    **kwargs,  # Accept extra args from workflow (prior_turn_context, topic, etc.)
 ) -> dict:
     """
     Execute full research: Phase 1 (intelligence) + Phase 2 (products).
@@ -75,28 +77,51 @@ async def execute_full_research(
 
     # Phase 1: Intelligence Gathering
     logger.info("[FullResearch] === PHASE 1: Intelligence Gathering ===")
+
+    # Merge max_visits into config
+    phase1_config = config.copy() if config else {}
+    if max_visits:
+        phase1_config["max_visits"] = max_visits
+
+    # Extract target_url from kwargs if provided (for follow-up query routing)
+    target_url = kwargs.get("target_url")
+
     phase1_result = await execute_research(
         goal=goal,
         intent=intent,
         context=context,
         task=task,
         session_id=f"{session_id}_p1",
-        config=config,
+        config=phase1_config,
         event_emitter=event_emitter,
         human_assist_allowed=human_assist_allowed,
         turn_dir_path=turn_dir_path,
+        target_url=target_url,
     )
 
     logger.info(f"[FullResearch] Phase 1 complete: {phase1_result.pages_visited} pages visited")
     logger.info(f"[FullResearch] Phase 1 intelligence: {list(phase1_result.intelligence.keys())}")
 
     # For informational queries, stop here
+    # Flatten phase1 results to top level for workflow success criteria
     if intent == "informational":
+        phase1_dict = phase1_result.to_dict()
+        # DEBUG: Log sources in phase1_dict
+        logger.info(f"[FullResearch] DEBUG: phase1_dict sources={phase1_dict.get('sources', [])}")
         return {
             "success": phase1_result.success,
             "goal": goal,
             "intent": intent,
-            "phase1": phase1_result.to_dict(),
+            # Flatten for workflow success criteria (expects findings, sources at top level)
+            "findings": phase1_dict.get("findings", []),
+            "sources": phase1_dict.get("sources", []),
+            "intelligence": phase1_dict.get("intelligence", {}),
+            "vendor_hints": phase1_dict.get("vendor_hints", []),
+            "search_terms": phase1_dict.get("search_terms", []),
+            "price_range": phase1_dict.get("price_range"),
+            "research_state_md": phase1_dict.get("research_state_md", ""),
+            # Also keep phase1 for backwards compatibility
+            "phase1": phase1_dict,
             "phase2": None,
             "products": [],
             "recommendation": "",

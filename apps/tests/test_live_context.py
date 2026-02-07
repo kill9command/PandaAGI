@@ -47,7 +47,7 @@ def send_query(query: str, profile_id: str = PROFILE_ID):
     if trace_id:
         # Check for live_context_stats in verbose trace
         day = time.strftime("%Y%m%d")
-        verbose_path = Path(f"/path/to/project/transcripts/verbose/{day}/{trace_id}.json")
+        verbose_path = Path(f"/path/to/pandaagi/transcripts/verbose/{day}/{trace_id}.json")
 
         if verbose_path.exists():
             with open(verbose_path, 'r') as f:
@@ -83,7 +83,7 @@ def main():
     print("="*80)
 
     # Clear any existing context for this test user
-    session_ctx_path = Path(f"/path/to/project/panda_system_docs/shared_state/session_contexts/{PROFILE_ID}.json")
+    session_ctx_path = Path(f"/path/to/pandaagi/panda_system_docs/shared_state/session_contexts/{PROFILE_ID}.json")
     if session_ctx_path.exists():
         print(f"\nClearing existing context: {session_ctx_path}")
         session_ctx_path.unlink()

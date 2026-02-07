@@ -5,45 +5,36 @@
 version: "1.0"
 
 constraints_json:
-  description: "Constraints extracted from user query"
+  description: "Extracted constraints from user query (Phase 2.5)"
   example:
     constraints:
-      - id: "file_size_1"
+      - id: "FILE_SIZE_001"
         type: "file_size"
         max_bytes: 51200
         source: "extracted"
         original_text: "under 50KB"
-      - id: "budget_1"
+      - id: "BUDGET_001"
         type: "budget"
-        max_amount: 500
+        max_amount: 100.00
         currency: "USD"
         source: "extracted"
-    query: "Write output under 50KB with budget under $500"
-    extraction_source: "constraint_extractor"
+        original_text: "max budget $100"
+    extracted_at: "2024-01-01T00:00:00"
   fields:
     constraints:
       type: array
       required: true
       items:
-        id:
-          type: string
-          required: true
-        type:
-          type: string
-          required: true
-          enum: [file_size, budget, time, privacy, must_avoid, location, availability]
-        source:
-          type: string
-          required: false
-    query:
+        id: { type: string, required: true }
+        type: { type: string, required: true, enum: [file_size, budget, time, location] }
+        source: { type: string, required: true, enum: [extracted, context] }
+        original_text: { type: string, required: false }
+    extracted_at:
       type: string
-      required: false
-    extraction_source:
-      type: string
-      required: false
+      required: true
 
 plan_state_json:
-  description: "Plan execution state with goals and violations"
+  description: "Plan execution state with goals"
   example:
     goals:
       - id: "GOAL_1"
@@ -52,10 +43,6 @@ plan_state_json:
       - id: "GOAL_2"
         description: "Book hotel"
         status: "pending"
-    constraints:
-      - id: "budget_1"
-        status: "active"
-    violations: []
     last_updated_phase: 5
     backtracking:
       enabled: true
@@ -71,19 +58,6 @@ plan_state_json:
         id: { type: string, required: true }
         description: { type: string, required: true }
         status: { type: string, required: true, enum: [pending, in_progress, completed, failed] }
-    constraints:
-      type: array
-      required: true
-      items:
-        id: { type: string, required: true }
-        status: { type: string, required: true, enum: [active, violated, satisfied] }
-    violations:
-      type: array
-      required: true
-      items:
-        constraint_id: { type: string, required: true }
-        reason: { type: string, required: true }
-        phase: { type: integer, required: true }
     last_updated_phase:
       type: integer
       required: true
@@ -117,7 +91,6 @@ metadata_json:
     session_id: "abc123"
     timestamp: "2024-01-01T00:00:00"
     topic: "travel planning"
-    intent: "transactional"
     mode: "chat"
   fields:
     turn_number: { type: integer, required: true }
@@ -136,10 +109,21 @@ metrics_json:
       input: 3000
       output: 1500
     quality_score: 0.85
+    decisions:
+      - phase: 1
+        decision_type: "reflection"
+        decision_value: "PROCEED"
+      - phase: 3
+        decision_type: "routing"
+        decision_value: "executor"
+      - phase: 7
+        decision_type: "validation"
+        decision_value: "APPROVE"
   fields:
     turn_number: { type: integer, required: true }
     timestamp: { type: string, required: true }
     phases_completed: { type: array, required: true }
+    decisions: { type: array, required: false }
 
 artifact_manifest_json:
   description: "Manifest of generated artifacts for a turn"

@@ -95,6 +95,25 @@ class ResponseParser:
         except json.JSONDecodeError:
             pass
 
+        # Fix 4: Unterminated strings - close any unclosed string and array/object
+        # Count quotes to check for unterminated string
+        quote_count = repaired.count('"') - repaired.count('\\"')
+        if quote_count % 2 == 1:
+            # Odd number of quotes = unterminated string
+            repaired = repaired.rstrip()
+            if not repaired.endswith('"'):
+                repaired += '"'
+            # Close any unclosed arrays/objects
+            open_brackets = repaired.count('[') - repaired.count(']')
+            open_braces = repaired.count('{') - repaired.count('}')
+            repaired += ']' * open_brackets + '}' * open_braces
+            try:
+                result = json.loads(repaired)
+                logger.info("[ResponseParser] JSON repair successful (closed unterminated string)")
+                return result
+            except json.JSONDecodeError:
+                pass
+
         # === LAST RESORT: Extract answer via regex ===
         answer_match = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)', text, re.DOTALL)
         if answer_match:

@@ -1,9 +1,9 @@
 # Phase 2.5: Context Gathering Validator
 
 **Status:** SPECIFICATION
-**Version:** 1.3
+**Version:** 2.0
 **Created:** 2026-02-04
-**Updated:** 2026-02-04
+**Updated:** 2026-02-06
 **Layer:** REFLEX role (MIND model @ temp=0.4)
 **Token Budget:** ~1,000 total
 
@@ -89,11 +89,18 @@ Return `retry` if:
 - Visit data referenced in context is missing or incomplete
 - GatheredContext lacks a required section (preferences/prior turns/cached research) but data is available
 - `_meta` is missing for sections that include memory nodes
-- `node_ids` in `_meta` do not exist in the Unified Memory Index
+- `node_ids` in `_meta` do not match any document path from the Phase 2.1 search results
 - `confidence_avg` does not match the Universal Confidence System rule (use weighted mean of `current` confidence when available, otherwise simple average)
 - Canonical section titles are missing when nodes are present (`Session Preferences`, `Relevant Prior Turns`, `Cached Research`, `Visit Data`, `Constraints`)
 
-**Retry requirement:** when `status=retry`, populate `retry_guidance` with explicit fix instructions (e.g., “include visit_data for cited URL”, “extract budget constraint from turn 811”).
+**Retry requirement:** when `status=retry`, populate `retry_guidance` with explicit fix instructions (e.g., "include visit_data for cited URL", "extract budget constraint from turn 811").
+
+### 5.2.1 Search-First Specific Validation
+
+With the Search-First Retrieval (Phase 2.1 v2.0), also check:
+- **Irrelevant content included:** If §2 contains information that doesn't trace back to any Phase 2.1 search result, flag it. The LLM should only synthesize from documents that matched the search.
+- **Always-include items properly labeled:** Preferences and N-1 turns that were auto-included (not search-matched) should be marked as such in `_meta.source: "always_include"`.
+- **Empty results handled correctly:** If Phase 2.1 returned 0 search results, §2 should contain only the Constraints section (derived from the raw query). No hallucinated prior context.
 
 ### 5.4 Memory Integrity + Confidence Downgrade Policy
 
@@ -181,7 +188,8 @@ Track:
 | 1.1 | 2026-02-04 | Clarified Phase 2.2 dependency for validation placement. |
 | 1.2 | 2026-02-04 | Added validation rules for `_meta`, node_ids, and confidence_avg. |
 | 1.3 | 2026-02-04 | Added section-title checks and memory integrity/downgrade policy. |
+| **2.0** | **2026-02-06** | **Updated for Search-First Retrieval.** Added §5.2.1 with search-specific validation rules. Updated node_id validation to check against search results instead of Unified Memory Index. |
 
 ---
 
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-06

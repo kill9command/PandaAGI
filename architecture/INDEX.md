@@ -32,7 +32,7 @@ Complete index of architecture documents for humans and LLMs.
 |-------|----------|---------|
 | 1 | `main-system-patterns/phase1-query-analyzer.md` | User purpose extraction, query parsing, data requirements, validation |
 | 1.5 | `main-system-patterns/phase1.5-query-analyzer-validator.md` | Query analysis validation helper |
-| 2.1 | `main-system-patterns/phase2.1-context-gathering-retrieval.md` | Retrieval sub-phase (identify relevant sources) |
+| 2.1 | `main-system-patterns/phase2.1-context-gathering-retrieval.md` | Search-First Retrieval: LLM generates search terms, code does BM25 + embedding hybrid search |
 | 2.2 | `main-system-patterns/phase2.2-context-gathering-synthesis.md` | Synthesis sub-phase (extract and compile context) |
 | 2.5 | `main-system-patterns/phase2.5-context-gathering-validator.md` | Context gathering validation helper |
 | 3 | `main-system-patterns/phase3-planner.md` | Strategic planning with goals |

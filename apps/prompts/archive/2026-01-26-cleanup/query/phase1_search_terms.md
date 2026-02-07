@@ -31,12 +31,12 @@ Query: "can you tell me about jessika aro"
 Look for these signals:
 - Quoted text: `"Best glass scraper thoughts?"`
 - Content type words: "thread", "article", "post", "discussion", "video"
-- Site names: "Reddit", "Reef2Reef", "YouTube", "Stack Overflow"
+- Site names: "Reddit", "ExampleForum", "YouTube", "Stack Overflow"
 
 **If YES → preserve the exact title in quotes + add site filter if mentioned:**
 ```
-User: can you tell me more about "How Can We Get More People Into Reef Keeping?" Reef2Reef thread
-Query: "How Can We Get More People Into Reef Keeping" site:reef2reef.com
+User: can you tell me more about "How Can We Get More People Into Reef Keeping?" ExampleForum thread
+Query: "How Can We Get More People Into Reef Keeping" site:forum.example.com
 ```
 
 **If NO → simplify to keywords + add context if available**
@@ -58,7 +58,7 @@ For topic queries:
 
 Convert site names to domains:
 - Reddit, r/ → site:reddit.com
-- Reef2Reef, R2R → site:reef2reef.com
+- ExampleForum, ExForum → site:forum.example.com
 - YouTube → site:youtube.com
 - Stack Overflow → site:stackoverflow.com
 - HackerNews → site:news.ycombinator.com

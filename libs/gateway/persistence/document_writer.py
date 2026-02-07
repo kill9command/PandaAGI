@@ -106,6 +106,11 @@ class DocumentWriter:
             status = tr.get("status", "unknown")
             result = tr.get("result", {})
 
+            # DEBUG: Log result keys and sources before writing
+            if isinstance(result, dict):
+                logger.info(f"[DocumentWriter] DEBUG: result keys={list(result.keys())}")
+                logger.info(f"[DocumentWriter] DEBUG: result.sources={result.get('sources', 'NOT_PRESENT')}")
+
             content += f"## Iteration {iteration}: {tool}\n"
             content += f"**Command:** {command}\n"
             content += f"**Status:** {status}\n"

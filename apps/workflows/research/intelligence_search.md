@@ -57,6 +57,12 @@ inputs:
     from: section_1_topic
     description: "Topic classification from Phase 1"
 
+  target_url:
+    type: string
+    required: false
+    from: content_reference.source_url
+    description: "Direct URL to visit for follow-up queries (from prior turn's extracted links)"
+
 constraints:
   max_searches: 2
   max_visits: 8
@@ -106,6 +112,7 @@ steps:
       prior_turn_context: "{{prior_turn_context}}"
       topic: "{{topic}}"
       intent: "informational"
+      target_url: "{{target_url}}"
     state_document: research_state.md
     roles:
       - name: Research Planner

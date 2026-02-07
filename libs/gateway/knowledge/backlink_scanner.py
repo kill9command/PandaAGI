@@ -4,7 +4,7 @@ Backlink Scanner: Scans markdown files for wiki links and manages backlink index
 Detects wiki link patterns in Obsidian-style markdown files:
 - [[Target]] - simple wiki link
 - [[Target|Display Text]] - aliased wiki link
-- [[type:Name]] - typed entity link (e.g., [[vendor:Poppybee]])
+- [[type:Name]] - typed entity link (e.g., [[vendor:ExamplePetStore]])
 
 Integrates with KnowledgeGraphDB to store bidirectional backlinks for navigation
 and orphan detection.
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Standard wiki link: [[Target]] or [[Target|Display Text]]
 WIKI_LINK_PATTERN = re.compile(r'\[\[([^\]|]+)(?:\|([^\]]+))?\]\]')
 
-# Typed entity link: [[type:Name]] (e.g., [[vendor:Poppybee]])
+# Typed entity link: [[type:Name]] (e.g., [[vendor:ExamplePetStore]])
 TYPED_LINK_PATTERN = re.compile(r'\[\[(\w+):([^\]|]+)(?:\|([^\]]+))?\]\]')
 
 
@@ -279,8 +279,20 @@ class BacklinkScanner:
                     logger.warning(f"[BacklinkScanner] Invalid turn number: {target}")
                     return None
 
-            # Other typed entities
-            dir_path = self.vault_path / dir_template
+            # Other typed entities — use per-user paths via UserPathResolver
+            from libs.gateway.persistence.user_paths import UserPathResolver
+            resolver = UserPathResolver(user_id)
+            # Map entity type to per-user knowledge subdirectory
+            _entity_subdir = {
+                "vendor": "Vendors", "product": "Products", "site": "Sites",
+                "topic": "Topics", "person": "People", "concept": "Concepts",
+                "fact": "Facts",
+            }
+            subdir = _entity_subdir.get(entity_type)
+            if subdir:
+                dir_path = resolver.knowledge_dir / subdir
+            else:
+                dir_path = resolver.knowledge_dir / "Other"
             filename = self._normalize_filename(target)
             target_path = dir_path / f"{filename}.md"
 
@@ -298,14 +310,16 @@ class BacklinkScanner:
             if relative_path.exists():
                 return relative_path
 
-        # Search in common locations
+        # Search in per-user knowledge locations
+        from libs.gateway.persistence.user_paths import UserPathResolver
+        resolver = UserPathResolver(user_id)
         search_dirs = [
-            self.vault_path / "Knowledge" / "Concepts",
-            self.vault_path / "Knowledge" / "Facts",
-            self.vault_path / "Knowledge" / "Products",
-            self.vault_path / "Knowledge" / "Research",
-            self.vault_path / "Beliefs",
-            self.vault_path / "Maps",
+            resolver.knowledge_dir / "Concepts",
+            resolver.knowledge_dir / "Facts",
+            resolver.knowledge_dir / "Products",
+            resolver.knowledge_dir / "Research",
+            resolver.beliefs_dir,
+            resolver.maps_dir,
             self.vault_path,
         ]
 
@@ -506,7 +520,8 @@ class BacklinkScanner:
     def get_orphan_files(
         self,
         vault_path: Optional[Path] = None,
-        exclude_dirs: Optional[List[str]] = None
+        exclude_dirs: Optional[List[str]] = None,
+        user_id: str = "default"
     ) -> List[Path]:
         """
         Find files with no incoming backlinks (orphan files).
@@ -544,7 +559,7 @@ class BacklinkScanner:
         for md_file in all_files:
             links = self.scan_file(md_file)
             for link in links:
-                target = self.resolve_link_target(link, md_file.parent)
+                target = self.resolve_link_target(link, md_file.parent, user_id=user_id)
                 if target and target.exists():
                     linked_files.add(target)
 
@@ -556,7 +571,8 @@ class BacklinkScanner:
 
     def get_link_statistics(
         self,
-        vault_path: Optional[Path] = None
+        vault_path: Optional[Path] = None,
+        user_id: str = "default"
     ) -> Dict[str, Any]:
         """
         Get statistics about links in the vault.
@@ -611,7 +627,7 @@ class BacklinkScanner:
         stats["most_linked_targets"] = sorted_targets[:10]
 
         # Count orphans
-        orphans = self.get_orphan_files(vault)
+        orphans = self.get_orphan_files(vault, user_id=user_id)
         stats["orphan_count"] = len(orphans)
 
         return stats

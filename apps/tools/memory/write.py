@@ -74,26 +74,29 @@ async def write_memory(
     now = datetime.now()
     now_iso = now.isoformat()
 
-    # Determine target path
+    # Determine target path (per-user via UserPathResolver)
+    from libs.gateway.persistence.user_paths import UserPathResolver
+    resolver = UserPathResolver(user_id)
+
     if artifact_type == "research":
-        folder = config.write_path / "Knowledge" / "Research"
+        folder = resolver.knowledge_dir / "Research"
         filename = f"{slugify(topic)}.md"
         expires = (now + timedelta(days=config.research_expiry_days)).isoformat()
     elif artifact_type == "product":
-        folder = config.write_path / "Knowledge" / "Products"
+        folder = resolver.knowledge_dir / "Products"
         product_name = content.get("product_name", topic)
         filename = f"{slugify(product_name)}.md"
         expires = (now + timedelta(days=config.product_expiry_days)).isoformat()
     elif artifact_type == "preference":
-        folder = config.write_path / "Preferences" / "User"
-        filename = f"{user_id}.md"
+        folder = resolver.user_dir
+        filename = "preferences.md"
         expires = None  # Preferences don't expire
     elif artifact_type == "fact":
-        folder = config.write_path / "Knowledge" / "Facts"
+        folder = resolver.knowledge_dir / "Facts"
         filename = f"{slugify(topic)}.md"
         expires = None  # Facts don't expire
     else:
-        folder = config.write_path / "Knowledge" / "Research"
+        folder = resolver.knowledge_dir / "Research"
         filename = f"{slugify(topic)}.md"
         expires = (now + timedelta(days=config.research_expiry_days)).isoformat()
 
@@ -149,7 +152,7 @@ async def write_memory(
         note_content = render_template(artifact_type, template_vars)
         note_path.write_text(note_content, encoding="utf-8")
 
-    # Update indexes
+    # Update indexes (per-user)
     if config.auto_index:
         await update_indexes(
             note_path=note_path,
@@ -158,9 +161,10 @@ async def write_memory(
             artifact_type=artifact_type,
             product_name=content.get("product_name") if artifact_type == "product" else None,
             config=config,
+            user_id=user_id,
         )
 
-    # Log the change
+    # Log the change (per-user)
     if config.log_changes:
         await _log_change(
             action="update" if existing_note else "create",
@@ -168,6 +172,7 @@ async def write_memory(
             topic=topic,
             artifact_type=artifact_type,
             config=config,
+            user_id=user_id,
         )
 
     # Return relative path
@@ -283,10 +288,13 @@ async def _log_change(
     topic: str,
     artifact_type: str,
     config: MemoryConfig,
+    user_id: str = "default",
 ) -> None:
-    """Log a change to Logs/Changes/."""
+    """Log a change to per-user Logs/Changes/."""
+    from libs.gateway.persistence.user_paths import UserPathResolver
+    resolver = UserPathResolver(user_id)
     today = datetime.now().strftime("%Y-%m-%d")
-    log_dir = config.write_path / "Logs" / "Changes"
+    log_dir = resolver.logs_dir / "Changes"
     log_dir.mkdir(parents=True, exist_ok=True)
 
     log_file = log_dir / f"{today}.md"
@@ -330,7 +338,9 @@ async def update_preference(
     if config is None:
         config = MemoryConfig.load()
 
-    pref_path = config.write_path / "Preferences" / "User" / f"{user_id}.md"
+    from libs.gateway.persistence.user_paths import UserPathResolver
+    resolver = UserPathResolver(user_id)
+    pref_path = resolver.preferences_file
 
     existing = load_note(pref_path)
     if existing is None:

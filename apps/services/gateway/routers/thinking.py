@@ -19,6 +19,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from apps.services.gateway.services.thinking import (
     ThinkingEvent,
+    ActionEvent,
     THINKING_QUEUES,
     RESPONSE_STORE,
     cleanup_thinking_queues,
@@ -140,6 +141,12 @@ async def stream_thinking_events(trace_id: str):
                     if event.stage == "complete":
                         logger.info(f"[Thinking SSE] Trace {trace_id} complete")
                         return
+
+                elif isinstance(event, ActionEvent):
+                    yield {
+                        "event": "action",
+                        "data": json.dumps(event.to_dict()),
+                    }
 
             except asyncio.TimeoutError:
                 # Send keepalive

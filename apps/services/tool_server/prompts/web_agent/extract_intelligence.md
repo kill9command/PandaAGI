@@ -15,7 +15,7 @@ Extract community intelligence from this forum/discussion page.
 Look for these in the NAVIGATION & CONTENT section:
 
 1. **Vendor/Brand Recommendations** - SPECIFIC names of stores, breeders, websites people recommend
-   - Extract EXACT business names (e.g., "Poppy Bee Hamstery", "Hubba Hubba Hamstery", "Petco")
+   - Extract EXACT business names (e.g., "Example Pet Store", "Example Pet Shop", "Petco")
    - Do NOT generalize to categories like "local breeder" or "pet store" - we need actual names
    - Include the reason why they recommend it
    - Include URL/website if mentioned

@@ -263,25 +263,27 @@ class EntityDocument:
 
         return "\n".join(lines)
 
-    def save(self, vault_path: Path) -> Path:
+    def save(self, vault_path: Path, user_id: str = "default") -> Path:
         """
-        Save to appropriate subdirectory based on entity_type.
+        Save to per-user subdirectory based on entity_type.
 
         Creates the directory if it doesn't exist. Filename is derived
         from the canonical name (lowercased, spaces to hyphens).
 
         Args:
-            vault_path: Path to the Obsidian vault root
+            vault_path: Path to the Obsidian vault root (unused when user_id provided)
+            user_id: User ID for per-user knowledge paths
 
         Returns:
             Path to the saved file
         """
-        # Determine path based on entity type
-        dir_name = self.TYPE_DIRECTORIES.get(
-            self.entity_type,
-            "Knowledge/Other"
-        )
-        dir_path = vault_path / dir_name
+        # Determine path based on entity type (per-user)
+        from libs.gateway.persistence.user_paths import UserPathResolver
+        resolver = UserPathResolver(user_id)
+        subdir = self.TYPE_DIRECTORIES.get(self.entity_type, "Knowledge/Other")
+        # TYPE_DIRECTORIES values are like "Knowledge/Vendors" — extract the subdirectory
+        subdir_name = subdir.split("/", 1)[1] if "/" in subdir else subdir
+        dir_path = resolver.knowledge_dir / subdir_name
         dir_path.mkdir(parents=True, exist_ok=True)
 
         # Sanitize filename

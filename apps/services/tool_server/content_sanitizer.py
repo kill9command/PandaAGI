@@ -382,8 +382,40 @@ class ContentSanitizer:
 
         return structured
 
+    def _convert_links_to_markdown(self, soup: BeautifulSoup) -> None:
+        """
+        Convert <a href="url">text</a> to [text](url) markdown format.
+
+        This preserves link URLs in the extracted text so the LLM can see
+        where links point to, enabling follow-up queries about specific items.
+        """
+        links_found = 0
+        links_converted = 0
+
+        for a_tag in soup.find_all('a', href=True):
+            links_found += 1
+            href = a_tag.get('href', '')
+            text = a_tag.get_text(strip=True)
+
+            # Skip empty links, anchors, and javascript
+            if not text or not href or href.startswith('#') or href.startswith('javascript:'):
+                continue
+
+            # Skip very long URLs (likely tracking/noise)
+            if len(href) > 200:
+                continue
+
+            # Replace tag with markdown format
+            markdown_link = f"[{text}]({href})"
+            a_tag.replace_with(markdown_link)
+            links_converted += 1
+
+        logger.info(f"[ContentSanitizer] DEBUG: links_found={links_found}, links_converted={links_converted}")
+
     def _get_clean_text(self, soup: BeautifulSoup) -> str:
-        """Extract ALL visible text (no filtering)"""
+        """Extract ALL visible text (no filtering), preserving link URLs as markdown."""
+        # Convert links to markdown before extracting text
+        self._convert_links_to_markdown(soup)
         return soup.get_text(separator='\n\n', strip=True)
 
     def _normalize_text(self, text: str) -> str:

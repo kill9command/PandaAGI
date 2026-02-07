@@ -1,11 +1,11 @@
 # Phase 1: Query Analyzer
 
 **Status:** SPECIFICATION
-**Version:** 3.6
+**Version:** 4.0
 **Created:** 2026-01-04
-**Updated:** 2026-02-04
+**Updated:** 2026-02-05
 **Layer:** REFLEX role (MIND model @ temp=0.4)
-**Token Budget:** ~2,000 total (includes validation helper)
+**Token Budget:** ~1,500 total (includes validation helper)
 
 **Related Concepts:** See Section 13 for full concept alignment.
 
@@ -17,15 +17,22 @@ Phase 1 is the first stage of the pipeline (Phases 1-8). It runs **before** Cont
 
 > **"What is the user asking about?"**
 
-The Query Analyzer uses the REFLEX role (MIND model with temp=0.4) to:
-- Resolve pronoun and reference expressions to explicit entities
-- Capture user purpose in natural language for downstream phases
-- Identify references to prior conversation content
-- Add minimal latency (~50-100ms) to the pipeline
+The Query Analyzer is intentionally **minimal and focused**. It does exactly three things:
+1. **Detect junk queries** - Is this garbled/nonsensical input?
+2. **Resolve references** - Replace pronouns AND implicit continuations with explicit references
+3. **Describe user intent** - Brief natural language statement of what user wants
+
+**Conversational Continuity Principle:** Assume every query continues the previous conversation unless it clearly starts a new topic. This applies to both explicit pronouns ("that thread") and implicit continuations ("tell me the trending threads" after discussing a specific site). A query is only a new topic when it names a completely different subject or explicitly redirects ("forget that, look up Y").
+
+**What Query Analyzer does NOT do:**
+- URL lookups (Context Gatherer does this)
+- Data requirements analysis (Planner does this)
+- Visit record enrichment (Context Gatherer does this)
+- Complex turn loading (summaries are pre-formatted before QA is called)
 
 **Key Design Decision:** This phase replaces hardcoded pattern matching with LLM understanding. Instead of regex rules like `if "the thread" in query`, the LLM interprets context naturally.
 
-**Why Natural Language:** Phase 1 outputs `user_purpose` as a 2-4 sentence natural language statement that flows to all downstream phases. This replaces rigid intent categories (commerce, informational, etc.) which were a single point of failure — if the category was wrong, every downstream phase inherited the error. With `user_purpose`, each downstream LLM interprets the user's needs directly, and Phase 7 Validation catches misinterpretations via the RETRY loop.
+**Why Natural Language:** Phase 1 outputs `user_purpose` as a 2-4 sentence natural language statement that flows to all downstream phases. This replaces rigid intent categories (commerce, informational, etc.) which were a single point of failure.
 
 ---
 
@@ -166,49 +173,38 @@ This ensures:
 
 ## 7. Output Schema
 
+**Minimal output - Query Analyzer only resolves references and describes intent.**
+
 ```json
 {
-  "resolved_query": "string",
+  "resolved_query": "string (query with pronouns replaced by explicit references)",
   "user_purpose": "Natural language statement of what the user wants (2-4 sentences)",
-  "data_requirements": {
-    "needs_current_prices": true | false,
-    "needs_product_urls": true | false,
-    "needs_live_data": true | false,
-    "freshness_required": "< 1 hour | < 24 hours | any | null"
-  },
   "reference_resolution": {
     "status": "not_needed | resolved | failed",
     "original_references": ["string"],
     "resolved_to": "string | null"
   },
-  "mode": "chat | code",
   "was_resolved": true | false,
-  "content_reference": {
-    "title": "string | null",
-    "content_type": "thread | article | product | video | null",
-    "site": "string | null",
-    "source_turn": "number | null"
-  },
-  "reasoning": "string",
-  "validation": {
-    "status": "pass | retry | clarify",
-    "confidence": 0.0-1.0,
-    "issues": ["string"],
-    "retry_guidance": ["string"],
-    "clarification_question": "string | null"
-  }
+  "is_junk": false,
+  "reasoning": "string (brief explanation)"
 }
 ```
 
+### Fields Removed (now handled elsewhere)
+
+| Field | Now Handled By | Reason |
+|-------|---------------|--------|
+| `data_requirements` | Planner (Phase 3) | Planner decides what data is needed based on user_purpose |
+| `content_reference` | Context Gatherer (Phase 2) | URL lookups are context retrieval |
+| `mode` | UI toggle (passed through) | Not an LLM decision |
+
 ### Phase 1.5 Validator
 
-After the initial QueryAnalysis, Phase 1 runs the **validation helper** (Phase 1.5, REFLEX 0.4) to double-check coherence and completeness. The validator:
+After the initial QueryAnalysis, Phase 1 runs the **validation helper** (Phase 1.5, REFLEX 0.4) to check:
 
-- Confirms the query is actionable given `resolved_query` and `reference_resolution`
-- Checks `mode` consistency with `user_purpose` and query signals, and triggers permission if mode must switch
-- Ensures required fields are present and non-contradictory
-- Flags missing clarifications only when ambiguity is fundamental
-- Provides concrete `retry_guidance` when status is `retry`
+- Is the query actionable given `resolved_query`?
+- Did reference resolution succeed or fail?
+- Is the query fundamentally ambiguous (rare - default to pass)?
 
 ---
 
@@ -389,7 +385,39 @@ Analyze this query and output the QueryAnalysis JSON.
 }
 ```
 
-### Example 4: Greeting
+### Example 4: Implicit Continuation (No Pronouns)
+
+**Input:**
+```json
+{
+  "raw_query": "tell me what the trending threads are",
+  "turn_summaries": [
+    {
+      "turn_id": 219,
+      "summary": "User asked to visit forum.example.com and find popular topics. Response listed Monster Tanks, Nano Reefs, etc.",
+      "content_refs": ["forum.example.com popular topics page"]
+    }
+  ]
+}
+```
+
+**Output:**
+```json
+{
+  "resolved_query": "tell me what the trending threads are on forum.example.com",
+  "user_purpose": "User wants to see trending threads on forum.example.com. This continues the previous conversation about forum.example.com.",
+  "reference_resolution": {
+    "status": "resolved",
+    "original_references": ["the trending threads"],
+    "resolved_to": "trending threads on forum.example.com"
+  },
+  "was_resolved": true,
+  "is_junk": false,
+  "reasoning": "No explicit pronouns, but 'the trending threads' continues the forum.example.com context from turn 219. Enriched query with site name."
+}
+```
+
+### Example 5: Greeting
 
 **Input:**
 ```json
@@ -427,7 +455,7 @@ Analyze this query and output the QueryAnalysis JSON.
 }
 ```
 
-### Example 5: Code Mode Query
+### Example 6: Code Mode Query
 
 **Input:**
 ```json
@@ -626,7 +654,9 @@ This section maps Phase 1's responsibilities to the architecture's cross-cutting
 | 3.4 | 2026-02-04 | Removed Phase 1.2 normalization step; validation now runs directly on Phase 1 output. |
 | 3.5 | 2026-02-04 | Updated pipeline diagram to reflect Phase 2.1/2.2/2.5 sub-phases. |
 | 3.6 | 2026-02-04 | Emphasized narrative handoff quality for Phase 2.1 retrieval. |
+| 4.0 | 2026-02-05 | **Major simplification.** Removed `data_requirements`, `content_reference`, `mode` from output. Added `is_junk`. URL enrichment moved to Context Gatherer. Query Analyzer now only: (1) detects junk, (2) resolves pronouns, (3) describes intent. |
+| 4.1 | 2026-02-05 | **Added Conversational Continuity principle.** Query Analyzer now assumes queries continue the previous conversation unless clearly a new topic. Resolves implicit continuations (not just explicit pronouns). Added Example 4 (implicit continuation). |
 
 ---
 
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-05

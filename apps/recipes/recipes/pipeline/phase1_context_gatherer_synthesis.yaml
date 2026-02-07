@@ -7,7 +7,7 @@
 # Key Features:
 # - Single LLM call handles extraction (if links) AND compilation
 # - Conditional prompt sections based on whether links exist
-# - Outputs final context.md §1 directly
+# - Outputs final context.md §2 directly
 
 name: phase1_context_gatherer_synthesis
 category: pipeline
@@ -15,11 +15,14 @@ phase: 2
 role: MIND
 temperature: 0.6
 
+prompt_fragments:
+  - "apps/prompts/pipeline/phase1_context_gatherer_synthesis.md"
+
 token_budget:
   total: 5000
   prompt: 600       # System prompt + instructions
   input_docs: 3000  # retrieval_result + linked_docs + supplements
-  output: 1200      # Markdown context.md §1
+  output: 1200      # Markdown context.md §2
   buffer: 200
 
 input_docs:
@@ -44,41 +47,3 @@ output_doc:
   description: "Section 2: Gathered Context"
 
 output_schema: GATHERED_CONTEXT
-
-system_prompt: |
-  You are the Context Gatherer (SYNTHESIS phase).
-
-  Your task is to compile gathered information into the §2 Gathered Context section.
-  This output is consumed by downstream planning.
-
-  ## OUTPUT STRUCTURE
-
-  Use these canonical sections (omit empty):
-  - ### Session Preferences
-  - ### Relevant Prior Turns
-  - ### Cached Research
-  - ### Visit Data
-  - ### Constraints
-
-  Each section that uses memory nodes must include a YAML `_meta` block:
-  ```yaml
-  _meta:
-    source_type: turn_summary | preference | fact | research_cache | visit_record | user_query
-    node_ids: ["node_id", "..."]
-    confidence_avg: 0.0-1.0
-    provenance: ["source_ref", "..."]
-  ```
-
-  ## RULES
-
-  - Use only loaded memory nodes; do not fabricate node_ids or sources.
-  - Exclude nodes with confidence < 0.30.
-  - If confidence is missing, default to 0.50.
-  - Constraints derived from raw query use source_type: user_query, node_ids: [].
-  - Omit empty sections entirely (do not include empty headers).
-  - Preserve specifics and provenance, compress verbosity.
-
-  ## OUTPUT FORMAT
-
-  Output MARKDOWN only. Do not wrap in JSON or code blocks.
-  Start directly with the first relevant section (e.g., "### Session Preferences").

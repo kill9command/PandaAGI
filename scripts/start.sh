@@ -34,7 +34,7 @@ if [ -f "$ROOT_DIR/.env" ]; then
 fi
 
 # Configuration (defaults applied AFTER .env is loaded)
-CONDA_ENV="${CONDA_ENV:-pandaai}"
+CONDA_ENV="${CONDA_ENV:-panda}"
 MODEL_PATH="${MODEL_PATH:-$ROOT_DIR/models/qwen3-coder-30b-awq4}"
 VLLM_PORT="${VLLM_PORT:-8000}"
 TOOL_SERVER_PORT="${TOOL_SERVER_PORT:-8090}"

@@ -33,9 +33,9 @@ class ExtractedEntity:
     A single extracted entity with metadata.
 
     Attributes:
-        text: Original text as found in source (e.g., "Poppybee Hamstery")
+        text: Original text as found in source (e.g., "Example Pet Store")
         entity_type: Type of entity (vendor, product, site, topic, thread, person)
-        canonical_name: Normalized name for deduplication (e.g., "Poppybee Hamstery")
+        canonical_name: Normalized name for deduplication (e.g., "Example Pet Store")
         confidence: Extraction confidence score (0.0 to 1.0)
         properties: Additional properties (url, price, location, etc.)
         context: Surrounding text snippet for verification (up to 200 chars)
@@ -106,9 +106,9 @@ class EntityExtractor:
 
     Example:
         extractor = EntityExtractor()
-        entities = extractor.extract_from_text("Buy from Poppybee Hamstery for $75")
+        entities = extractor.extract_from_text("Buy from Example Pet Store for $75")
         # Returns: [
-        #   ExtractedEntity(text="Poppybee Hamstery", entity_type="vendor", ...),
+        #   ExtractedEntity(text="Example Pet Store", entity_type="vendor", ...),
         #   ExtractedEntity(text="$75", entity_type="price", properties={"amount": 75.0}, ...)
         # ]
     """
@@ -118,7 +118,7 @@ class EntityExtractor:
     # =========================================================================
 
     # Vendor patterns - names that appear in vendor contexts
-    # Matches: "from Poppybee Hamstery", "at Petco", "via Amazon"
+    # Matches: "from Example Pet Store", "at Petco", "via Amazon"
     # All patterns capture ONLY the vendor name, not the context words
     # Note: Patterns are compiled with re.IGNORECASE, so use word boundaries carefully
     VENDOR_PATTERNS = [

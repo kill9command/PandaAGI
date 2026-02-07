@@ -26,6 +26,7 @@ from apps.services.gateway.config import (
 )
 from apps.services.gateway.dependencies import (
     get_unified_flow,
+    get_claude_flow,
     is_unified_flow_enabled,
 )
 # NOTE: get_intent_classifier removed - Phase 0 now extracts user_purpose via LLM
@@ -146,9 +147,21 @@ async def chat_completions(
     session_id = str(payload.get("session_id") or payload.get("session") or profile_id or trace_id)
 
     # ========================================
-    # UNIFIED 9-PHASE FLOW ROUTING
+    # MODEL PROVIDER SELECTION
     # ========================================
-    unified_flow = get_unified_flow()
+    model_provider = payload.get("model_provider", "panda")
+
+    # Select the right flow based on model_provider toggle
+    if model_provider == "claude":
+        unified_flow = get_claude_flow()
+        if unified_flow is None:
+            logger.warning("[Gateway] Claude requested but unavailable (no API key or anthropic not installed)")
+            unified_flow = get_unified_flow()  # Fall back to Panda
+            model_provider = "panda"
+        else:
+            logger.info(f"[Gateway] Using Claude model provider (trace={trace_id})")
+    else:
+        unified_flow = get_unified_flow()
 
     if is_unified_flow_enabled() and unified_flow:
         logger.info(f"[UnifiedRouting] Using unified 8-phase flow (trace={trace_id})")
@@ -227,6 +240,7 @@ async def chat_completions(
                 "object": "chat.completion",
                 "created": int(time.time()),
                 "model": GUIDE_MODEL_ID,
+                "model_provider": model_provider,
                 "choices": [
                     {
                         "index": 0,
@@ -282,3 +296,16 @@ async def chat_completions(
         },
         "error": "No flow handler available"
     }
+
+
+@router.get("/v1/model_providers")
+async def list_model_providers():
+    """Return available model providers for UI toggle."""
+    providers = [{"id": "panda", "label": "Panda (Local)", "available": True}]
+    claude_flow = get_claude_flow()
+    providers.append({
+        "id": "claude",
+        "label": "Claude (API)",
+        "available": claude_flow is not None,
+    })
+    return {"providers": providers}

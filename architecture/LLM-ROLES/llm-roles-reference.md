@@ -1,7 +1,7 @@
 # LLM Roles Quick Reference
 
-**Version:** 5.1
-**Updated:** 2026-01-26
+**Version:** 7.0
+**Updated:** 2026-02-03
 
 Quick reference for the single-model multi-role system. For detailed specs, see individual phase docs.
 
@@ -9,195 +9,130 @@ Quick reference for the single-model multi-role system. For detailed specs, see 
 
 ## Model Stack
 
-| Component | Model | Server | VRAM | Notes |
-|-----------|-------|--------|------|-------|
-| ALL ROLES | Qwen3-Coder-30B-AWQ | vLLM (8000) | ~20GB | Single model for all text tasks |
-| Vision | EasyOCR | CPU | 0 | OCR-based text extraction |
-| Embedding | all-MiniLM-L6-v2 | CPU | 0 | Semantic search |
+| Component | Model | Purpose |
+|-----------|-------|---------|
+| All text roles | Qwen3-Coder-30B-AWQ | Single model for all text tasks via temperature control |
+| Vision/OCR | EasyOCR | Text extraction from images (CPU) |
+| Embedding | all-MiniLM-L6-v2 | Semantic search (CPU) |
 
-**Hardware:** RTX 3090 Server (24GB VRAM)
-
-**Architecture:** Single-model system - one Qwen3-Coder-30B-AWQ instance handles all roles.
-Role behavior is controlled entirely by temperature and system prompts.
+**Architecture:** Single-model system — one Qwen3-Coder-30B-AWQ instance handles all roles. Role behavior is controlled entirely by **temperature** and **system prompts**.
 
 ---
 
 ## Text Roles
 
-All roles use the same Qwen3-Coder-30B model with different temperatures:
+| Role | Temperature | Purpose |
+|------|-------------|---------|
+| NERVES | 0.3 | Compression, deterministic summarization |
+| REFLEX | 0.4 | Classification, binary decisions, fast gates |
+| MIND | 0.6 | Reasoning, planning, coordination, validation |
+| VOICE | 0.7 | User dialogue, natural responses |
 
-| Role | Temperature | Purpose | Used By |
-|------|-------------|---------|---------|
-| REFLEX | 0.3 | Classification, binary decisions, fast gates | Phase 0, 1 |
-| NERVES | 0.1 | Compression, low creativity | Background compression |
-| MIND | 0.5 | Reasoning, planning, coordination | Phase 2, 3, 4, 6 |
-| VOICE | 0.7 | User dialogue, natural responses | Phase 5 |
+**Principle:** Route to the lowest temperature capable of the task. Lower temperature = more deterministic. Higher temperature = more varied and natural.
 
-**Why temperature-based roles work:**
-- Lower temp (0.1-0.3): More deterministic, good for classification
-- Medium temp (0.5): Balanced reasoning
-- Higher temp (0.7): More varied, natural-sounding responses
+### Temperature Rationale (Qwen3-Coder-30B-A3B-Instruct)
 
----
+Qwen3-Coder is a **non-thinking-only** model. Official recommended inference settings:
+- temperature=0.7, top_p=0.8, top_k=20, repetition_penalty=1.05
 
-## vLLM Configuration
+Qwen explicitly warns: **"DO NOT use greedy decoding, as it can lead to performance degradation and endless repetitions."** This applies to all temperatures near 0. As a Mixture-of-Experts model, expert routing is nondeterministic even at temperature=0, so very low temperatures do not achieve true determinism.
 
-```bash
-python -m vllm.entrypoints.openai.api_server \
-  --model models/qwen3-coder-30b-awq4 \
-  --served-model-name qwen3-coder \
-  --gpu-memory-utilization 0.90 \
-  --max-model-len 8192 \
-  --port 8000
-```
+Our graduated scale (0.3–0.7) balances task-appropriate creativity against the model's documented sensitivity to low temperatures. The floor of 0.3 stays above the greedy-danger zone while maintaining low variance for factual tasks.
 
-**API Endpoint:** `http://localhost:8000/v1/chat/completions`
+**Sources:** [Qwen3-Coder Model Card](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct), [Qwen Quickstart](https://qwen.readthedocs.io/en/latest/getting_started/quickstart.html), [HuggingFace Discussion: Temp 0.7 is too high](https://huggingface.co/Qwen/Qwen3-30B-A3B-GGUF/discussions/1)
 
 ---
 
 ## Phase → Role Mapping
 
-| Phase | Name | Role | Temp | Recipe | Purpose |
-|-------|------|------|------|--------|---------|
-| 0 | Query Analyzer | REFLEX | 0.3 | `query_analyzer.yaml` | Classify intent |
-| 1 | Reflection | REFLEX | 0.3 | `reflection.yaml` | PROCEED/CLARIFY gate |
-| 2 | Context Gatherer | MIND | 0.5 | `context_gatherer_*.yaml` | Gather context |
-| 3 | Planner | MIND | 0.5 | `planner_*.yaml` | Plan tasks |
-| 4 | Coordinator | MIND | 0.5 | `coordinator_*.yaml` | Execute tools |
-| 5 | Synthesis | VOICE | 0.7 | `synthesizer_*.yaml` | Generate response |
-| 6 | Validation | MIND | 0.5 | `validator.yaml` | Verify accuracy |
-| 7 | Save | N/A | N/A | - | Persist turn |
+| Phase | Name | Role | Temp |
+|-------|------|------|------|
+| 1 | Query Analyzer | REFLEX | 0.4 |
+| 2 | Context Gatherer | MIND | 0.6 |
+| 3 | Planner | MIND | 0.6 |
+| 4 | Executor | MIND | 0.6 |
+| 5 | Coordinator | REFLEX | 0.4 |
+| 6 | Synthesis | VOICE | 0.7 |
+| 7 | Validation | MIND | 0.6 |
+| 8 | Save | N/A | N/A |
 
----
-
-## Research Subsystem Roles
-
-The internet.research tool (invoked from Phase 4) has its own LLM roles:
-
-| Role | Temperature | Recipe | Purpose |
-|------|-------------|--------|---------|
-| Research Planner | MIND (0.5) | `research_planner.yaml` | Decides next action (search/visit/done) |
-| Result Scorer | REFLEX (0.3) | `research_scorer.yaml` | Scores search results for relevance |
-| Content Extractor | MIND (0.5) | `research_extractor.yaml` | Extracts findings from page text |
-
-**Document IO Compliance:**
-- Research roles can read from `context.md` and `research_state.md` via recipes
-- Research Planner checks `context.md §2` for prior intelligence before starting Phase 1
-- State is persisted to turn directory via `ResearchState.write_to_turn()`
-
-See: `architecture/mcp-tool-patterns/internet-research-mcp/INTERNET_RESEARCH_ARCHITECTURE.md`
-
----
-
-## Token Budgets
-
-| Phase | Role | Total | Prompt | Input | Output |
-|-------|------|-------|--------|-------|--------|
-| 0 | REFLEX | 1,500 | 500 | 700 | 300 |
-| 1 | REFLEX | 2,200 | 600 | 1,200 | 400 |
-| 2 | MIND | 10,500 | 2,000 | 6,000 | 2,500 |
-| 3 | MIND | 5,750 | 1,540 | 2,000 | 2,000 |
-| 4 | MIND | 8,000-12,000 | 2,500 | 3,500 | 2,000 |
-| 5 | VOICE | 10,000 | 1,300 | 5,500 | 3,000 |
-| 6 | MIND | 6,000 | 1,500 | 4,000 | 500 |
-
-**Context Window:** 8192 tokens (vLLM configured)
+NERVES runs as background compression when documents exceed token budgets — it is not a pipeline phase.
 
 ---
 
 ## Phase Decisions
 
-| Phase | Decision | Action |
-|-------|----------|--------|
-| 1 | PROCEED | → Phase 2 |
-| 1 | CLARIFY | → User |
-| 3 | coordinator | → Phase 4 |
-| 3 | synthesis | → Phase 5 |
-| 3 | clarify | → User |
-| 6 | APPROVE | → Phase 7 |
-| 6 | REVISE | → Phase 5 (max 2) |
-| 6 | RETRY | → Phase 3 (max 1) |
-| 6 | FAIL | → User (error) |
+| Phase | Decision | Routes To |
+|-------|----------|-----------|
+| 1 Query Analyzer (Validation) | pass | Phase 2.1 |
+| 1 Query Analyzer (Validation) | retry | Phase 1 rerun |
+| 1 Query Analyzer (Validation) | clarify | User |
+| 3 Planner | executor | Phase 4 (Executor–Coordinator loop) |
+| 3 Planner | synthesis | Phase 6 (skip execution) |
+| 3 Planner | clarify | User |
+| 7 Validation | APPROVE | Phase 8 |
+| 7 Validation | REVISE | Phase 6 (max 2) |
+| 7 Validation | RETRY | Phase 3 (max 1) |
+| 7 Validation | FAIL | User (error) |
 
 ---
 
 ## Quality Gates
 
-| Gate | Phase | Enforcement |
-|------|-------|-------------|
-| Schema | All | Output must match role schema |
-| Evidence | 4, 5, 6 | Claims must link to documents |
-| Confidence | 2, 6 | Below threshold → escalate |
-| Validation | 6 | APPROVE/REVISE/RETRY/FAIL |
+| Gate | Phases | Enforcement |
+|------|--------|-------------|
+| Schema validation | All LLM calls | Output must match recipe's declared schema |
+| Evidence grounding | P4, P5, P6 | Claims must link to source documents |
+| Confidence threshold | P2, P7 | Below threshold triggers escalation |
+| Validation judgment | P7 | APPROVE / REVISE / RETRY / FAIL |
 
 ---
 
-## Error Limits
+## Research Subsystem Roles
 
-| Limit | Value |
-|-------|-------|
-| Max LLM calls per turn | 25 |
-| Max Planner-Coordinator iterations | 5 |
-| Max RETRY loops | 1 |
-| Max REVISE loops | 2 |
-| Combined loop max | 3 |
+The internet research tool (invoked from Phase 5 Coordinator) has its own internal LLM roles:
 
----
+| Role | Temperature | Purpose |
+|------|-------------|---------|
+| Research Planner | MIND (0.6) | Decides next action (search, visit, done) |
+| Result Scorer | REFLEX (0.4) | Scores search results for relevance |
+| Content Extractor | MIND (0.6) | Extracts findings from page text |
 
-## NERVES Background Compression
-
-NERVES is NOT part of the main 8-phase pipeline. It handles background document
-compression when sections exceed token budgets:
-
-- Triggered asynchronously when content exceeds budget
-- Uses temperature 0.1 for deterministic compression
-- Verifies key facts are preserved after compression
+These roles follow the same recipe system and token governance as pipeline roles.
 
 ---
 
-## Vision: EasyOCR
-
-For vision tasks, we use EasyOCR for text extraction from images:
-
-```python
-import easyocr
-reader = easyocr.Reader(['en'], gpu=False)  # CPU mode
-
-def extract_text_from_image(image_path: str) -> list[dict]:
-    results = reader.readtext(image_path)
-    return [
-        {"bbox": bbox, "text": text, "confidence": conf}
-        for bbox, text, conf in results
-    ]
-```
-
-**Use Cases:**
-- Web page navigation (screenshots)
-- Document text extraction
-- UI element identification
-
-**Future:** EYES vision model (Qwen-VL) for complex image understanding
-(charts, diagrams, photos) once the system is stable.
-
----
-
-## Detailed Documentation
+## Related Documents
 
 | Topic | Document |
 |-------|----------|
-| Document IO | `DOCUMENT-IO-SYSTEM/DOCUMENT_IO_ARCHITECTURE.md` |
-| Phase 0 | `main-system-patterns/phase0-query-analyzer.md` |
-| Phase 1 | `main-system-patterns/phase1-reflection.md` |
-| Phase 2 | `main-system-patterns/phase2-context-gathering.md` |
+| Recipe system | `concepts/recipe_system/RECIPE_SYSTEM.md` |
+| Prompt philosophy | `concepts/recipe_system/PROMPT_MANAGEMENT_SYSTEM.md` |
+| Phase 1 | `main-system-patterns/phase1-query-analyzer.md` |
+| Phase 1.5 | `main-system-patterns/phase1.5-query-analyzer-validator.md` |
+| Phase 2.1 | `main-system-patterns/phase2.1-context-gathering-retrieval.md` |
+| Phase 2.2 | `main-system-patterns/phase2.2-context-gathering-synthesis.md` |
+| Phase 2.5 | `main-system-patterns/phase2.5-context-gathering-validator.md` |
 | Phase 3 | `main-system-patterns/phase3-planner.md` |
 | Phase 4 | `main-system-patterns/phase4-executor.md` |
 | Phase 5 | `main-system-patterns/phase5-coordinator.md` |
 | Phase 6 | `main-system-patterns/phase6-synthesis.md` |
 | Phase 7 | `main-system-patterns/phase7-validation.md` |
 | Phase 8 | `main-system-patterns/phase8-save.md` |
+| Deprecated | `main-system-patterns/phase1-reflection.md` |
+| Research architecture | `main-system-patterns/workflows/internet-research-mcp/` |
 
 ---
 
-**Last Updated:** 2026-01-26
+## Changelog
 
-**v5.1 Changes:** Added Research Subsystem Roles section documenting Research Planner (MIND 0.5), Result Scorer (REFLEX 0.3), and Content Extractor (MIND 0.5) with Document IO compliance notes.
+| Version | Date | Changes |
+|---------|------|---------|
+| 5.1 | 2026-01-26 | Added Research Subsystem Roles section |
+| 6.0 | 2026-02-03 | Fixed all phase numbers to 9-phase pipeline. Removed vLLM config, Python code, token budgets, error limits (now in ERROR_HANDLING.md). Removed NERVES/EasyOCR implementation detail. |
+| 7.0 | 2026-02-03 | **Revised all role temperatures based on Qwen3-Coder research.** NERVES 0.1→0.3, REFLEX 0.3→0.4, MIND 0.5→0.6, VOICE 0.7 unchanged. Phase 5 Coordinator changed from MIND to REFLEX (deterministic tool selection). Added temperature rationale section with Qwen sources. |
+| 7.1 | 2026-02-04 | Removed deprecated Phase 1.2 reference after normalization moved into Phase 1. |
+
+---
+
+**Last Updated:** 2026-02-04

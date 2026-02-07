@@ -374,8 +374,8 @@ I found 20 hamsters for sale ranging from $15 to $395. Here's a list:
 {
   "catalog_hints": [
     {
-      "vendor_name": "Hubba-Hubba Hamstery",
-      "vendor_url": "https://hubbahubbahamstery.com/available",
+      "vendor_name": "Example Pet Shop",
+      "vendor_url": "https://example-shop.com/available",
       "detected_items": 5,
       "has_pagination": true,
       "categories": ["available", "upcoming"],
@@ -395,7 +395,7 @@ I found 20 hamsters for sale ranging from $15 to $395. Here's a list:
 
 **Format 1: Inline with claim (preferred)**
 ```markdown
-**Hubba-Hubba Hamstery** (located in Northwest region, website: https://hubbahubbahamstery.com)
+**Example Pet Shop** (located in Northwest region, website: https://example-shop.com)
 🔍 *Multiple items available - I can explore their full catalog if you'd like*
 ```
 
@@ -405,8 +405,8 @@ I found 20 hamsters for sale ranging from $15 to $395. Here's a list:
 
 I found several vendors with extensive catalogs:
 
-- **Hubba-Hubba Hamstery**: 5+ items detected with pagination
-  → Say "explore Hubba-Hubba Hamstery catalog" to see all available hamsters
+- **Example Pet Shop**: 5+ items detected with pagination
+  → Say "explore Example Pet Shop catalog" to see all available hamsters
 
 - **Local Breeder**: 8+ items across multiple categories
   → Say "explore Local Breeder catalog" to browse their full inventory
@@ -424,24 +424,24 @@ I found several vendors with extensive catalogs:
 
 **Initial Response**:
 ```markdown
-I found Hubba-Hubba Hamstery, an ethical breeder specializing in Syrian hamsters.
+I found Example Pet Shop, an ethical breeder specializing in Syrian hamsters.
 
 **Details:**
 - Located in Northwest region
-- Website: https://hubbahubbahamstery.com
+- Website: https://example-shop.com
 - Services: Adoption, health guarantees, lifelong support
 - 🔍 *I detected multiple items on their site - would you like me to explore their full catalog?*
 
-Just say "explore Hubba-Hubba Hamstery catalog" to see all available hamsters with details on age, color, pricing, and availability status.
+Just say "explore Example Pet Shop catalog" to see all available hamsters with details on age, color, pricing, and availability status.
 ```
 
-**User**: "explore Hubba-Hubba Hamstery catalog"
+**User**: "explore Example Pet Shop catalog"
 
 **Coordinator**: *(Uses vendor.explore_catalog tool)*
 
 **Follow-Up Response**:
 ```markdown
-Here's the complete catalog from Hubba-Hubba Hamstery:
+Here's the complete catalog from Example Pet Shop:
 
 ## Available Now (3 hamsters)
 1. **Syrian Hamster - Golden Male**
@@ -459,9 +459,9 @@ Here's the complete catalog from Hubba-Hubba Hamstery:
 [etc...]
 
 **Contact Info:**
-- Email: breeder@hubbahubbahamstery.com
+- Email: contact@example-shop.com
 - Phone: (555) 123-4567
-- Application: https://hubbahubbahamstery.com/adopt
+- Application: https://example-shop.com/adopt
 ```
 
 **Why This Pattern Works:**

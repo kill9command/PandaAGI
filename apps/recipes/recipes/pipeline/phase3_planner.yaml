@@ -1,0 +1,63 @@
+# Phase 3: Planner Recipe (Unified)
+# Strategic decision-maker: WHAT needs to be done
+# Architecture: architecture/main-system-patterns/phase3-planner.md
+
+name: phase3_planner
+category: pipeline
+phase: 3
+role: MIND
+temperature: 0.6
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase3_planner.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "2"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 2000
+    description: "Sections 0 and 2: query + gathered context"
+  - path: "context.md"
+    sections: ["0", "2", "3", "4", "5", "6"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 3500
+    description: "Full context on RETRY (includes validation feedback in section 6)"
+
+output_doc:
+  path: "context.md"
+  section: "3"
+  description: "§3 render is produced by orchestrator from STRATEGIC_PLAN JSON"
+
+token_budget:
+  total: 10000
+  prompt: 2000
+  input_docs: 6000
+  output: 1500
+  buffer: 500
+
+llm_params:
+  temperature: 0.6
+  max_tokens: 2000
+
+output_schema: STRATEGIC_PLAN
+
+description: |
+  Phase 3: Planner (Unified) - Strategic Decision-Maker
+
+  Uses MIND role (temp=0.6) for reasoning and planning.
+  Determines WHAT needs to be done, not HOW.
+
+  **Core Question:** "Can I answer from current context, or do I need more?"
+
+  **Routing Decisions:**
+  | Route | When |
+  |-------|------|
+  | executor | Need actions to satisfy goals |
+  | synthesis | Can answer from context |
+  | refresh_context | Missing memory/context in §2 |
+  | clarify | Query unclear after §2 |
+
+  **Key Principle:** Strategic, not tactical. Defines goals, not tool calls.
+  The Executor (Phase 4) determines HOW to achieve goals.

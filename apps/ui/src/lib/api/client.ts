@@ -1,6 +1,6 @@
 import { get } from 'svelte/store';
 import { profile } from '$lib/stores/profile';
-import { mode, repoRoot } from '$lib/stores/mode';
+import { mode, repoRoot, modelProvider } from '$lib/stores/mode';
 import { currentTraceId, isLoading, addMessage, updateLastAssistant } from '$lib/stores/chat';
 import { startThinking, updatePhase, stopThinking, updateSseStatus } from '$lib/stores/thinking';
 import { connectResearch, disconnectResearch } from '$lib/stores/research';
@@ -50,9 +50,12 @@ export async function sendMessage(content: string, history: ChatMessage[] = []) 
 
   try {
     // Use jobs API to avoid 524 timeout on long-running requests
+    const provider = get(modelProvider);
+
     const payload = {
       messages: [...history, { role: 'user', content }],
       mode: currentMode,
+      model_provider: provider,
       session_id: sessionId,
       user_id: sessionId,
       repo,
@@ -160,7 +163,11 @@ function connectThinking(traceId: string): () => void {
           status: status || 'active',
           confidence: confidence || 0,
           reasoning: reasoning || '',
-          duration: duration_ms
+          duration: duration_ms,
+          input: data.input_summary || undefined,
+          output: data.output_summary || undefined,
+          inputRaw: data.input_raw || undefined,
+          outputRaw: data.output_raw || undefined,
         });
       }
 

@@ -1,0 +1,48 @@
+# Phase 8.1: Batch Memory Reflector Recipe
+# Reviews batched turns and extracts differential knowledge
+# Architecture: architecture/main-system-patterns/phase8.1-batch-memory-reflector.md
+
+name: phase8_1_batch_reflector
+category: pipeline
+phase: 8.1
+role: MIND
+temperature: 0.6
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase8_1_batch_reflector.md"
+
+input_docs:
+  - path: "batch_input"
+    path_type: "input"
+    optional: false
+    max_tokens: 5000
+    description: "Compiled batch of recent turns + existing knowledge summaries"
+
+output_doc:
+  path: "reflector_output"
+  section: "batch"
+  description: "JSON with new_facts, corrections, connections, open_questions"
+
+token_budget:
+  total: 8000
+  prompt: 1500
+  input_docs: 5000
+  output: 1200
+  buffer: 300
+
+llm_params:
+  temperature: 0.6
+  max_tokens: 1500
+
+description: |
+  Phase 8.1: Batch Memory Reflector
+
+  Uses MIND role (temp=0.6) to review batched turns and extract
+  differential knowledge: new facts, corrections, connections,
+  and open questions.
+
+  Runs as a background task after signal accumulator triggers.
+  One LLM call per batch (typically every 10 turns).
+
+  Hard caps enforced by code after LLM returns:
+  max 2 new_facts, 1 correction, 2 connections, 2 open_questions.

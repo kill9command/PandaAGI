@@ -176,7 +176,7 @@ class ToolExecutor:
         """Execute a single tool and extract claims."""
         import httpx
         from libs.gateway.execution.permission_validator import get_validator, PermissionDecision
-        from libs.gateway.validation.phase_events import emit_thinking_event, ThinkingEvent
+        from apps.services.gateway.services.thinking import emit_thinking_event, ThinkingEvent
 
         skip_urls = skip_urls or []
 

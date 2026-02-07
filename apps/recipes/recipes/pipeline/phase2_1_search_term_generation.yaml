@@ -1,0 +1,31 @@
+# Phase 2.1: Search Term Generation (Search-First Context Gatherer)
+# Aligns with architecture/main-system-patterns/phase2.1-context-gathering-retrieval.md v2.0
+
+name: phase2_1_search_term_generation
+category: pipeline
+phase: 2
+role: REFLEX
+temperature: 0.4
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase2_1_search_term_generation.md"
+
+token_budget:
+  total: 1700
+  prompt: 600
+  input_docs: 750
+  output: 200
+  buffer: 150
+
+input_docs:
+  - path: "query_analysis"
+    path_type: "input"
+    max_tokens: 400
+    description: "Phase 0 narrative, resolved query, and hints"
+
+output_doc:
+  path: "search_terms.json"
+  path_type: "turn"
+  description: "Search terms for hybrid retrieval"
+
+output_schema: SEARCH_TERMS

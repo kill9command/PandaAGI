@@ -265,7 +265,7 @@ class SiteKnowledgeCache:
         Use get_entry() for full structured data.
 
         Args:
-            domain: e.g., "hubbahubbahamstery.com"
+            domain: e.g., "example-shop.com"
 
         Returns:
             Navigation knowledge text, or None if not cached
@@ -280,7 +280,7 @@ class SiteKnowledgeCache:
         Get full structured knowledge entry for a domain.
 
         Args:
-            domain: e.g., "hubbahubbahamstery.com"
+            domain: e.g., "example-shop.com"
 
         Returns:
             SiteKnowledgeEntry or None if not cached
@@ -331,7 +331,7 @@ class SiteKnowledgeCache:
         For backwards compatibility. Use save_entry() for full structured data.
 
         Args:
-            domain: e.g., "hubbahubbahamstery.com"
+            domain: e.g., "example-shop.com"
             knowledge: Navigation tip, e.g., "Products under 'Our Hamsters'"
 
         Returns:
@@ -442,7 +442,7 @@ class SiteKnowledgeCache:
         Clear cached knowledge for a domain.
 
         Args:
-            domain: e.g., "hubbahubbahamstery.com"
+            domain: e.g., "example-shop.com"
 
         Returns:
             True if cleared successfully

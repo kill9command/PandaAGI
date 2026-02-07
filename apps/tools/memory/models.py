@@ -180,6 +180,13 @@ class MemoryNote:
 
     def get_summary(self, max_length: int = 200) -> str:
         """Extract summary from content."""
+        # Preference notes: return full content (all sections are relevant)
+        if self.artifact_type == "preference":
+            summary = self.content.strip()
+            if len(summary) > max_length:
+                summary = summary[:max_length - 3] + "..."
+            return summary
+
         # Look for ## Summary section
         lines = self.content.split("\n")
         in_summary = False
@@ -292,3 +299,16 @@ class MemoryConfig:
                 "obsidian_memory/Improvements",
             ])
         )
+
+    def get_user_searchable_paths(self, user_id: str = "default") -> List[Path]:
+        """Return searchable paths scoped to a specific user via UserPathResolver."""
+        from libs.gateway.persistence.user_paths import UserPathResolver
+        resolver = UserPathResolver(user_id)
+        return [
+            resolver.knowledge_dir,
+            resolver.beliefs_dir,
+            resolver.maps_dir,
+            resolver.improvements_dir,
+            resolver.turns_dir,
+            resolver.sessions_dir,
+        ]

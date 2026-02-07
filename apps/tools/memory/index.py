@@ -27,6 +27,7 @@ async def update_indexes(
     artifact_type: str,
     product_name: Optional[str] = None,
     config: MemoryConfig = None,
+    user_id: str = "default",
 ) -> None:
     """
     Update all relevant indexes after writing a note.
@@ -38,11 +39,14 @@ async def update_indexes(
         artifact_type: Type of artifact (research, product, preference)
         product_name: Product name (for product notes)
         config: Memory configuration
+        user_id: User ID for per-user index directories
     """
     if config is None:
         config = MemoryConfig.load()
 
-    indexes_dir = config.write_path / "Meta" / "Indexes"
+    from libs.gateway.persistence.user_paths import UserPathResolver
+    resolver = UserPathResolver(user_id)
+    indexes_dir = resolver.indexes_dir
     indexes_dir.mkdir(parents=True, exist_ok=True)
 
     # Get note link for indexes
@@ -259,7 +263,7 @@ async def _update_recent_index(
     index_path.write_text(f"---\n{frontmatter_str}---\n\n{body}", encoding="utf-8")
 
 
-async def rebuild_all_indexes(config: MemoryConfig = None) -> Dict[str, int]:
+async def rebuild_all_indexes(config: MemoryConfig = None, user_id: str = "default") -> Dict[str, int]:
     """
     Rebuild all indexes from scratch by scanning all notes.
 
@@ -271,7 +275,9 @@ async def rebuild_all_indexes(config: MemoryConfig = None) -> Dict[str, int]:
 
     logger.info("[MemoryIndex] Starting full index rebuild")
 
-    indexes_dir = config.write_path / "Meta" / "Indexes"
+    from libs.gateway.persistence.user_paths import UserPathResolver
+    resolver = UserPathResolver(user_id)
+    indexes_dir = resolver.indexes_dir
     indexes_dir.mkdir(parents=True, exist_ok=True)
 
     # Clear existing indexes
@@ -280,9 +286,9 @@ async def rebuild_all_indexes(config: MemoryConfig = None) -> Dict[str, int]:
     product_index: Dict[str, str] = {}
     recent_entries: List[tuple[datetime, str, str]] = []  # (mtime, link, path)
 
-    # Scan all notes
-    for search_path in config.searchable_paths:
-        full_path = config.vault_path / search_path
+    # Scan per-user notes
+    search_paths = config.get_user_searchable_paths(user_id)
+    for full_path in search_paths:
         if not full_path.exists():
             continue
 

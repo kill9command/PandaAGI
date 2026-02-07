@@ -120,6 +120,7 @@ class ResearchLoop:
         context: str = "",
         task: str = "",
         config: Optional[dict] = None,
+        target_url: Optional[str] = None,
     ) -> Phase1Intelligence:
         """
         Execute the LLM-driven research loop.
@@ -130,6 +131,7 @@ class ResearchLoop:
             context: Session context from Planner (what we were discussing)
             task: Specific task from Planner (what to research)
             config: Optional config overrides (max_searches, max_visits, etc.)
+            target_url: Direct URL to visit (for follow-up queries from prior turn's content)
 
         Returns:
             Phase1Intelligence with research results
@@ -141,6 +143,8 @@ class ResearchLoop:
         if task:
             logger.info(f"[ResearchLoop] Task: {task}")
         logger.info(f"[ResearchLoop] Intent: {intent}")
+        if target_url:
+            logger.info(f"[ResearchLoop] Target URL: {target_url}")
 
         start_time = time.time()
         state = create_initial_state(goal, intent, context, task, config)
@@ -150,9 +154,23 @@ class ResearchLoop:
             "goal": goal,
             "intent": intent,
             "session_id": self.session_id,
+            "target_url": target_url,
         })
 
         try:
+            # If target_url is provided, visit it directly first (follow-up query routing)
+            if target_url and target_url.strip():
+                logger.info(f"[ResearchLoop] Visiting target URL directly: {target_url}")
+                await self._execute_visit(state, target_url)
+                await self._emit_event("page_visited", {
+                    "url": target_url,
+                    "pages_visited": len(state.visited_pages),
+                    "iteration": 0,
+                    "reason": "direct_visit_from_prior_turn",
+                })
+                # If we got good content from direct visit, we might be done already
+                # Let the planner decide on next action
+
             # Main loop: Research Planner decides what to do
             while state.status == "in_progress":
                 state.iteration += 1
@@ -212,6 +230,10 @@ class ResearchLoop:
                 "elapsed_seconds": state.elapsed_seconds,
             })
 
+            # DEBUG: Log sources being captured
+            captured_sources = [p.url for p in state.visited_pages]
+            logger.info(f"[ResearchLoop] DEBUG: visited_pages count={len(state.visited_pages)}, sources={captured_sources}")
+
             return Phase1Intelligence(
                 success=True,
                 goal=goal,
@@ -222,7 +244,7 @@ class ResearchLoop:
                 vendor_hints=self._extract_vendor_hints(state),
                 search_terms=self._extract_search_terms(state),
                 price_range=state.intelligence.get("price_range"),
-                sources=[p.url for p in state.visited_pages],
+                sources=captured_sources,
                 research_state_md=state.to_markdown(),
                 searches_used=state.searches_used,
                 pages_visited=len(state.visited_pages),
@@ -540,7 +562,7 @@ JSON:"""
         """Extract findings from page text using Content Extractor LLM."""
         prompt = f"""# Content Extractor
 
-Extract useful information from this page.
+Extract useful information from this page. PRESERVE SPECIFIC ITEMS VERBATIM.
 
 ## Goal
 {goal}
@@ -557,14 +579,35 @@ Extract useful information from this page.
 ## Page Content
 {text[:8000]}
 
+## CRITICAL: Preserve Specific Content
+
+If the page contains lists, titles, names, or enumerated items:
+- **DO NOT summarize** them into generic categories
+- **EXTRACT the exact text** as it appears on the page
+- **Include all items** from numbered/bulleted lists (up to 15 items)
+
+Examples:
+- If page shows "Trending Threads: 1. Apex vs Hydros..." → extract "Apex vs Hydros..." verbatim
+- If page lists "Popular Topics: Coral Care, Tank Setup..." → extract each topic name
+- If page has thread titles → extract the actual thread titles, not "discussions about X"
+
 ## What to Extract
 
+### For ALL Queries - Linked Items (MOST IMPORTANT):
+- linked_items: EXACT titles WITH their URLs as `[title](url)` markdown format.
+  For threads, topics, products, or any clickable items - ALWAYS preserve the URL!
+  Example: If page shows link "Carbon Dosing" pointing to "/threads/carbon-dosing.123/", extract as `[Carbon Dosing](/threads/carbon-dosing.123/)` (list, up to 15 items)
+
+### For ALL Queries - Specific Items (SECONDARY):
+- specific_items: ONLY for items that have NO URL/link. Text-only content.
+  If an item HAS a link, put it in linked_items instead! (list, up to 10 items)
+
 ### For Informational Queries:
-- key_facts: Important information relevant to the goal (list)
-- recommendations: Any advice or suggestions (list)
+- key_facts: Important factual information relevant to the goal (list)
+- recommendations: Any advice or suggestions found (list)
 
 ### For Commerce Queries:
-- recommended_products: Products mentioned positively (list of names)
+- recommended_products: Products mentioned positively (list of exact names)
 - price_expectations: Price ranges mentioned (object with min/max)
 - specs_to_look_for: Features users recommend (list)
 - warnings: Things to avoid, common issues (list)
@@ -574,6 +617,8 @@ Extract useful information from this page.
 - relevance: 0.0-1.0 how relevant was this page
 - confidence: 0.0-1.0 how confident in the extracted info
 - summary: 1-2 sentence summary of what was useful
+
+**CRITICAL - URL Preservation:** The page content has links in `[text](url)` markdown format. Thread titles, topic names, and product links MUST go in linked_items with their URLs preserved. This enables follow-up queries to navigate directly to specific items.
 
 Output as JSON:"""
 
@@ -632,6 +677,10 @@ Output as JSON:"""
         if findings.get("vendors_mentioned"):
             intel["vendors_mentioned"] = findings["vendors_mentioned"]
 
+        # Specific items (MOST IMPORTANT - verbatim content from page)
+        if findings.get("specific_items"):
+            intel["specific_items"] = findings["specific_items"]
+
         # Key facts (informational)
         if findings.get("key_facts"):
             intel["key_facts"] = findings["key_facts"]
@@ -640,11 +689,19 @@ Output as JSON:"""
         if findings.get("recommendations"):
             intel["recommendations"] = findings["recommendations"]
 
+        # Linked items (for follow-up navigation - preserved markdown URLs)
+        if findings.get("linked_items"):
+            intel["linked_items"] = findings["linked_items"]
+
         return intel
 
     def _extract_findings(self, state: ResearchState) -> list:
         """Extract consolidated findings from state."""
         findings = []
+
+        # Add specific items FIRST (most important - verbatim content)
+        if state.intelligence.get("specific_items"):
+            findings.extend(state.intelligence["specific_items"])
 
         # Add key facts
         if state.intelligence.get("key_facts"):
@@ -709,6 +766,7 @@ async def execute_research(
     event_emitter: Optional[Any] = None,
     human_assist_allowed: bool = True,
     turn_dir_path: Optional[str] = None,
+    target_url: Optional[str] = None,
 ) -> Phase1Intelligence:
     """
     Execute LLM-driven research.
@@ -723,6 +781,7 @@ async def execute_research(
         event_emitter: Optional event emitter for progress events
         human_assist_allowed: Whether to allow human intervention for CAPTCHAs
         turn_dir_path: Turn directory path for Document IO compliance
+        target_url: Direct URL to visit (for follow-up query routing from prior turn)
 
     Returns:
         Phase1Intelligence with research results
@@ -750,4 +809,5 @@ async def execute_research(
         context=context,
         task=task,
         config=config,
+        target_url=target_url,
     )

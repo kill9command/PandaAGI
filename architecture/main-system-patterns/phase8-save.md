@@ -426,6 +426,7 @@ This section maps Phase 8's responsibilities to the cross-cutting concept docume
 ## 12. Related Documents
 
 - `architecture/main-system-patterns/phase7-validation.md` — Prior phase
+- `architecture/main-system-patterns/phase8.1-batch-memory-reflector.md` — Background batch reflection (async, LLM-assisted sub-phase)
 - `architecture/main-system-patterns/phase2.1-context-gathering-retrieval.md` — How saved turns are retrieved
 - `architecture/concepts/DOCUMENT-IO-SYSTEM/OBSERVABILITY_SYSTEM.md` — metrics.json specification
 - `architecture/concepts/confidence_system/UNIVERSAL_CONFIDENCE_SYSTEM.md` — Quality scores and decay

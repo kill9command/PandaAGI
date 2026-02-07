@@ -19,8 +19,8 @@ Even in code mode, you may receive web research results (not file operations). H
 ```json
 {
   "_type": "ANSWER",
-  "answer": "## Popular Topics on reef2reef.com Today\n\n1. **The Wrasse Lover's Thread!** - Community discussion\n2. **Build Thread: ESHOPPS Mariner 70** - Tank build progress\n3. **POTM Jan 2026: Wrasses** - Photo of the Month\n4. **Reef Light Product Confusion** - Lighting advice\n\n### Quick Links\n- [Today's Posts](https://reef2reef.com/whats-new/)\n- [Trending](https://reef2reef.com/trending/)",
-  "solver_self_history": ["Synthesized reef2reef popular topics from research"]
+  "answer": "## Popular Topics on forum.example.com Today\n\n1. **The Wrasse Lover's Thread!** - Community discussion\n2. **Build Thread: ESHOPPS Mariner 70** - Tank build progress\n3. **POTM Jan 2026: Wrasses** - Photo of the Month\n4. **Reef Light Product Confusion** - Lighting advice\n\n### Quick Links\n- [Today's Posts](https://forum.example.com/whats-new/)\n- [Trending](https://forum.example.com/trending/)",
+  "solver_self_history": ["Synthesized forum.example.com popular topics from research"]
 }
 ```
 

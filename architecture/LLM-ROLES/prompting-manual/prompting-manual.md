@@ -152,10 +152,10 @@ messages = [
 schema = {
     "type": "object",
     "properties": {
-        "intent": {"type": "string", "enum": ["informational", "transactional", "navigational"]},
+        "action_needed": {"type": "string", "enum": ["live_search", "recall_memory", "answer_from_context", "navigate_to_site", "execute_code", "unclear"]},
         "confidence": {"type": "number"}
     },
-    "required": ["intent", "confidence"]
+    "required": ["action_needed", "confidence"]
 }
 
 messages = [
@@ -345,7 +345,7 @@ SOLVER_MODEL_ID=qwen3-coder
 
 | Phase | Name | Role | Temp | Purpose |
 |-------|------|------|------|---------|
-| 0 | Query Analyzer | REFLEX | 0.3 | Classify intent |
+| 0 | Query Analyzer | REFLEX | 0.3 | Classify action, capture user purpose |
 | 1 | Reflection | REFLEX | 0.3 | PROCEED/CLARIFY gate |
 | 2 | Context Gatherer | MIND | 0.5 | Gather context |
 | 3 | Planner | MIND | 0.5 | Plan tasks |

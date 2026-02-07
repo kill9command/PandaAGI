@@ -5,13 +5,13 @@ tunnel: <your_tunnel_name_or_uuid>
 credentials-file: /home/<user>/.cloudflared/<uuid>.json
 
 ingress:
-  - hostname: <your_subdomain.yourdomain.com>
+  - hostname: app.homebroodexotics.com
     service: http://localhost:9000
   - service: http_status:404
 
 # Optional: increase timeouts for long LLM responses
 originRequest:
-  httpHostHeader: <your_subdomain.yourdomain.com>
+  httpHostHeader: app.homebroodexotics.com
   connectTimeout: 30s
   tcpKeepAlive: 30s
   disableChunkedEncoding: true

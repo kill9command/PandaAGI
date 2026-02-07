@@ -91,8 +91,8 @@ class PermissionHandler {
         const savedRepo = request.operation_details?.saved_repo || 'not configured';
 
         // Extract just the path relative to home for cleaner display
-        const displayPath = targetPath.replace(/^\/home\/[^/]+\//, '~/');
-        const displaySavedRepo = savedRepo.replace(/^\/home\/[^/]+\//, '~/');
+        const displayPath = targetPath.replace('/home/user/', '~/');
+        const displaySavedRepo = savedRepo.replace('/home/user/', '~/');
 
         promptDiv.innerHTML = `
             <div style="margin-bottom: 10px;">

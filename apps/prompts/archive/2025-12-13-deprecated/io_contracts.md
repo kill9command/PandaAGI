@@ -72,7 +72,7 @@
     "tool": "bom.build",
     "args": {
       "url": "https://www.thingiverse.com/thing:3492360",
-      "repo": "/path/to/project",
+      "repo": "/path/to/pandaagi",
       "format": "csv",
       "use_serpapi": false
     }
@@ -83,7 +83,7 @@
   {
     "status": "ok",
     "rows": [{"part": "Frame", "quantity": 1, ...}, ...],
-    "spreadsheet_path": "/path/to/project/bom_20251104_123456.csv",
+    "spreadsheet_path": "/path/to/pandaagi/bom_20251104_123456.csv",
     "message": null,
     "source_url": "https://www.thingiverse.com/thing:3492360"
   }
@@ -131,7 +131,7 @@
   {
     "tool": "docs.write_spreadsheet",
     "args": {
-      "repo": "/path/to/project",
+      "repo": "/path/to/pandaagi",
       "rows": [
         {"part": "Frame", "quantity": 1, "price": 89.99, "link": "..."},
         {"part": "Flight Controller", "quantity": 1, "price": 129.00, "link": "..."}
@@ -144,7 +144,7 @@
   Response:
   ```
   {
-    "path": "/path/to/project/cinewhoop_parts.csv",
+    "path": "/path/to/pandaagi/cinewhoop_parts.csv",
     "format": "csv",
     "rows": 2,
     "columns": ["part","quantity","price","link"]

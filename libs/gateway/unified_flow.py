@@ -367,7 +367,11 @@ class UnifiedFlow:
         reasoning: str = "",
         confidence: float = None,
         details: Dict = None,
-        duration_ms: int = 0
+        duration_ms: int = 0,
+        input_summary: str = "",
+        output_summary: str = "",
+        input_raw: str = "",
+        output_raw: str = "",
     ):
         """Emit a thinking event for UI visualization. Delegates to phase_metrics module."""
         await _emit_phase_event(
@@ -377,7 +381,11 @@ class UnifiedFlow:
             reasoning=reasoning,
             confidence=confidence,
             details=details,
-            duration_ms=duration_ms
+            duration_ms=duration_ms,
+            input_summary=input_summary,
+            output_summary=output_summary,
+            input_raw=input_raw,
+            output_raw=output_raw,
         )
 
     # Note: Legacy emit_thinking_event code removed. Now delegated to phase_metrics module.
@@ -512,11 +520,15 @@ class UnifiedFlow:
             # === PHASE 0: Query Analyzer ===
             logger.info(f"[UnifiedFlow] Phase 0: Query Analyzer")
             phase0_start = time.time()
-            await self._emit_phase_event(trace_id, 0, "active", "Analyzing query purpose and references")
+            await self._emit_phase_event(
+                trace_id, 0, "active", "Analyzing query purpose and references",
+                input_summary=f"Query: {context_doc.query[:200]}",
+                input_raw=context_doc.query,
+            )
 
             query_analyzer = QueryAnalyzer(
                 llm_client=self.llm_client,
-                turns_dir=self.turns_dir
+                turns_dir=request_turns_dir
             )
             query_analysis = await query_analyzer.analyze(context_doc.query, turn_number, mode=mode)
 
@@ -530,12 +542,15 @@ class UnifiedFlow:
             logger.info(f"[UnifiedFlow] Phase 0: purpose={query_analysis.user_purpose[:80]}...")
 
             phase0_duration = int((time.time() - phase0_start) * 1000)
+            section0_raw = context_doc.get_section(0) if context_doc.has_section(0) else ""
             await self._emit_phase_event(
                 trace_id, 0, "completed",
                 f"Mode: {query_analysis.mode}",
                 confidence=0.9,
                 duration_ms=phase0_duration,
-                details={"user_purpose": query_analysis.user_purpose[:200]}
+                details={"user_purpose": query_analysis.user_purpose[:200]},
+                output_summary=f"Mode: {query_analysis.mode}, Purpose: {query_analysis.user_purpose[:150]}",
+                output_raw=section0_raw,
             )
 
             # Log resolution if performed
@@ -741,7 +756,7 @@ class UnifiedFlow:
         trace_id: str = ""
     ) -> Tuple[ContextDocument, str, str]:
         """Phase 3-4: Planner-Executor-Coordinator Loop. Delegates to PlanningLoop."""
-        recipe = load_recipe(f"pipeline/phase3_planner_{mode}")
+        recipe = load_recipe("pipeline/phase3_planner")
 
         self.planning_loop.set_callbacks(
             write_context_md=self._write_context_md,
@@ -817,7 +832,7 @@ class UnifiedFlow:
         See libs.gateway.orchestration.executor_loop for implementation.
         """
         # Load executor recipe for the callback closure
-        recipe = select_recipe("executor", mode)
+        recipe = load_recipe("executor")
 
         # Create callback that includes recipe
         async def call_executor_llm(ctx_doc, plan, tdir, iteration):
@@ -927,7 +942,7 @@ class UnifiedFlow:
             }
         """
         # Load coordinator recipe (mode-based selection)
-        recipe = load_recipe(f"pipeline/phase4_coordinator_{mode}")
+        recipe = load_recipe("pipeline/phase4_coordinator")
 
         # Build prompt with the command
         # Write command to §4 for Coordinator to read
@@ -1100,7 +1115,7 @@ class UnifiedFlow:
         Delegates to AgentLoop for the actual execution.
         """
         # Load recipe for config
-        recipe = load_recipe(f"pipeline/phase4_coordinator_{mode}")
+        recipe = load_recipe("pipeline/phase4_coordinator")
 
         # Set callbacks for the agent loop
         self.agent_loop.set_callbacks(
@@ -1144,7 +1159,7 @@ class UnifiedFlow:
             check_budget=self._check_budget,
             parse_json_response=self._parse_json_response,
         )
-        recipe = load_recipe(f"pipeline/phase5_synthesizer_{mode}")
+        recipe = load_recipe("pipeline/phase5_synthesizer")
         return await self.synthesis_phase.run_synthesis(context_doc, turn_dir, mode, recipe)
 
     async def _call_validator_llm_impl(

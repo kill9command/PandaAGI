@@ -89,10 +89,10 @@ For commerce queries, don't just list products - **tell the story**:
 
 **Example of GOOD response:**
 ```
-### HubbaHubba Hamstery
+### Example Pet Shop
 Known for ethical breeding practices. Their hamsters come litter-box trained
 with pedigree certificates and lifetime support.
-- **Syrian Hamster** - $35 [View on HubbaHubba](...)
+- **Syrian Hamster** - $35 [View on ExampleShop](...)
 
 ### What the Community Says
 Forums recommend checking temperament before buying. Syrian hamsters should
@@ -101,7 +101,7 @@ be 6+ weeks old and already socialized.
 
 **Example of BAD response (too bare):**
 ```
-- Syrian Hamster $35 (hubbahubbahamstery.com)
+- Syrian Hamster $35 (example-shop.com)
 - Syrian Hamster $30 (petclassifieds.com)
 ```
 
@@ -171,7 +171,7 @@ This helps users make informed decisions without hiding potentially valid result
 
 **§4 Evidence:**
 ```
-- Syrian Hamster @ $20 (hubbahubbahamstery.com) - [link](http://hubbahubbahamstery.com/adopt)
+- Syrian Hamster @ $20 (example-shop.com) - [link](http://example-shop.com/adopt)
 - Syrian Hamster @ $35 (petsmart.com) - [link](https://petsmart.com/hamster-123)
 ```
 

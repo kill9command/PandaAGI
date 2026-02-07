@@ -17,6 +17,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKIN
 
 import yaml
 
+from apps.services.gateway.services.thinking import ActionEvent, emit_action_event
+
 if TYPE_CHECKING:
     from libs.gateway.context.context_document import ContextDocument
     from libs.gateway.persistence.turn_manager import TurnDirectory
@@ -46,11 +48,13 @@ class ExecutorLoopState:
         self.total_tool_calls = 0
         self.total_research_calls = 0
         self.tool_failures = 0
+        self.parse_failures = 0
         self.consecutive_commands = 0
         self.all_tool_results: List[Dict[str, Any]] = []
         self.all_claims: List[Dict[str, Any]] = []
         self.step_log: List[str] = []
         self.completed_research_queries: Set[str] = set()
+        self.trace_id: str = ""
 
 
 class ExecutorLoop:
@@ -137,6 +141,7 @@ class ExecutorLoop:
 
         # State tracking
         state = ExecutorLoopState()
+        state.trace_id = trace_id
 
         # Initialize §4 if not present
         if not context_doc.has_section(4):
@@ -150,10 +155,26 @@ class ExecutorLoop:
             # Write current context.md for Executor to read
             self._write_context_md(turn_dir, context_doc)
 
-            # Call Executor LLM — errors propagate (fail-fast)
-            executor_decision = await self._call_executor_llm(
-                context_doc, strategic_plan, turn_dir, state.iteration
-            )
+            # Call Executor LLM — parse failures handled gracefully to preserve results
+            try:
+                executor_decision = await self._call_executor_llm(
+                    context_doc, strategic_plan, turn_dir, state.iteration
+                )
+            except (ValueError, KeyError) as e:
+                state.parse_failures += 1
+                logger.warning(
+                    f"[ExecutorLoop] Executor parse failure at iteration {state.iteration} "
+                    f"({state.parse_failures} total): {e}"
+                )
+                state.step_log.append(
+                    f"### Iteration {state.iteration}: Parse Failure\n"
+                    f"**Error:** LLM response could not be parsed\n"
+                    f"**Detail:** {str(e)[:200]}"
+                )
+                if state.parse_failures >= 2:
+                    logger.warning("[ExecutorLoop] 2 parse failures — exiting loop with accumulated results")
+                    break
+                continue  # Retry on first failure
 
             action = executor_decision.get("action", "COMPLETE")
             command = executor_decision.get("command", "")
@@ -294,7 +315,147 @@ class ExecutorLoop:
         """Handle a COMMAND action from the executor."""
         if not command:
             logger.warning(f"[ExecutorLoop] COMMAND with empty command - treating as COMPLETE")
-        return
+            return
+
+        logger.info(f"[ExecutorLoop] COMMAND: {command[:100]}...")
+
+        # Check tool call limit
+        if state.total_tool_calls >= self.config.max_tool_calls:
+            logger.warning(f"[ExecutorLoop] Max tool calls ({self.config.max_tool_calls}) reached")
+            state.step_log.append(
+                f"### Iteration {state.iteration}: Limit Reached\n"
+                f"**Command:** {command}\n"
+                f"**Result:** SKIPPED (max tool calls)"
+            )
+            return
+
+        # Check if this is a duplicate research command
+        command_lower = command.lower().strip()
+        if command_lower in state.completed_research_queries:
+            logger.warning(f"[ExecutorLoop] Blocking duplicate command - already executed")
+            duplicate_msg = (
+                f"### Iteration {state.iteration}: Duplicate Blocked\n"
+                f"**Command:** {command}\n"
+                f"**Result:** SKIPPED (this exact command was already executed - check §4 for results)"
+            )
+            state.step_log.append(duplicate_msg)
+            self._append_to_section4(
+                context_doc,
+                f"\n**⚠️ DUPLICATE COMMAND BLOCKED:** This exact command was already executed. "
+                f"Review the results above in §4. Either issue COMPLETE if the goal is achieved, "
+                f"or try a DIFFERENT command.\n"
+            )
+            return
+
+        # Check if research limit has been reached
+        research_keywords = ["search for", "find ", "look up", "research ", "query "]
+        is_research_command = any(kw in command_lower for kw in research_keywords)
+        if is_research_command and state.total_research_calls >= self.config.max_research_calls:
+            logger.warning(
+                f"[ExecutorLoop] Research limit reached ({state.total_research_calls}/"
+                f"{self.config.max_research_calls}) - blocking: {command[:50]}..."
+            )
+            state.step_log.append(
+                f"### Iteration {state.iteration}: Research Limit Reached\n"
+                f"**Command:** {command}\n"
+                f"**Result:** SKIPPED (research limit of {self.config.max_research_calls} calls reached)"
+            )
+            self._append_to_section4(
+                context_doc,
+                f"\n**⚠️ RESEARCH LIMIT REACHED:** {state.total_research_calls} research calls completed. "
+                f"Use the data already gathered in §1 and §4 to answer the query. "
+                f"Issue COMPLETE to proceed to synthesis.\n"
+            )
+            return
+
+        # Try workflow execution first, then fall back to Coordinator
+        try:
+            coordinator_result = await self._try_workflow_execution(
+                command, context_doc, turn_dir, workflow_hint=workflow_hint
+            )
+
+            if coordinator_result is None:
+                coordinator_result = await self._coordinator_execute_command(
+                    command, context_doc, turn_dir
+                )
+
+            state.total_tool_calls += 1
+
+            # Extract claims from result
+            if coordinator_result.get("claims"):
+                state.all_claims.extend(coordinator_result["claims"])
+
+            # Track tool result
+            tool_selected = coordinator_result.get("tool_selected", "unknown")
+            state.all_tool_results.append({
+                "iteration": state.iteration,
+                "command": command,
+                "tool": tool_selected,
+                "status": coordinator_result.get("status", "unknown"),
+                "result": coordinator_result.get("result", {})
+            })
+
+            # Track completed commands
+            state.completed_research_queries.add(command_lower)
+
+            # Emit action event for route notifier
+            if state.trace_id:
+                tool_status = coordinator_result.get("status", "unknown")
+                if "research" in (tool_selected or "").lower():
+                    action_type = "search"
+                elif "fetch" in (tool_selected or "").lower() or "browser" in (tool_selected or "").lower():
+                    action_type = "fetch"
+                else:
+                    action_type = "tool"
+                await emit_action_event(ActionEvent(
+                    trace_id=state.trace_id,
+                    action_type=action_type,
+                    label=f"{tool_selected}: {command[:80]}",
+                    detail=tool_status,
+                    success=tool_status in ("success", "complete", "completed"),
+                ))
+
+            if tool_selected == "internet.research":
+                state.total_research_calls += 1
+                result_data = coordinator_result.get("result", {})
+                findings = result_data.get("findings", [])
+                findings_count = len(findings) if findings else 0
+                status = coordinator_result.get("status", "")
+                logger.info(
+                    f"[ExecutorLoop] Research completed: status={status}, findings={findings_count}, "
+                    f"total_research_calls={state.total_research_calls}/{self.config.max_research_calls}"
+                )
+
+            # Format result for §4
+            result_content = self._format_executor_command_result(
+                command, coordinator_result, goals_progress, state.iteration
+            )
+            state.step_log.append(result_content)
+            self._append_to_section4(context_doc, result_content)
+
+        except Exception as e:
+            state.tool_failures += 1
+            logger.error(
+                f"[ExecutorLoop] Coordinator failed for command '{command[:50]}...' "
+                f"(failure {state.tool_failures}/3): {e}"
+            )
+            error_content = (
+                f"### Iteration {state.iteration}: Error\n"
+                f"**Command:** {command}\n"
+                f"**Error:** {str(e)[:200]}\n"
+                f"**Tool Failures:** {state.tool_failures}/3"
+            )
+            state.step_log.append(error_content)
+            self._append_to_section4(context_doc, error_content)
+
+            if state.trace_id:
+                await emit_action_event(ActionEvent(
+                    trace_id=state.trace_id,
+                    action_type="error",
+                    label=f"Tool failed: {command[:60]}",
+                    detail=str(e)[:200],
+                    success=False,
+                ))
 
     def _build_workflow_markdown(self, workflow_spec: Dict[str, Any]) -> str:
         """Build workflow markdown with YAML frontmatter from workflow_spec."""
@@ -501,120 +662,6 @@ class ExecutorLoop:
 
         logger.info(f"[ExecutorLoop] CREATE_WORKFLOW completed: {name}")
         return True
-
-        logger.info(f"[ExecutorLoop] COMMAND: {command[:100]}...")
-
-        # Check tool call limit
-        if state.total_tool_calls >= self.config.max_tool_calls:
-            logger.warning(f"[ExecutorLoop] Max tool calls ({self.config.max_tool_calls}) reached")
-            state.step_log.append(
-                f"### Iteration {state.iteration}: Limit Reached\n"
-                f"**Command:** {command}\n"
-                f"**Result:** SKIPPED (max tool calls)"
-            )
-            return
-
-        # Check if this is a duplicate research command
-        command_lower = command.lower().strip()
-        if command_lower in state.completed_research_queries:
-            logger.warning(f"[ExecutorLoop] Blocking duplicate command - already executed")
-            duplicate_msg = (
-                f"### Iteration {state.iteration}: Duplicate Blocked\n"
-                f"**Command:** {command}\n"
-                f"**Result:** SKIPPED (this exact command was already executed - check §4 for results)"
-            )
-            state.step_log.append(duplicate_msg)
-            self._append_to_section4(
-                context_doc,
-                f"\n**⚠️ DUPLICATE COMMAND BLOCKED:** This exact command was already executed. "
-                f"Review the results above in §4. Either issue COMPLETE if the goal is achieved, "
-                f"or try a DIFFERENT command.\n"
-            )
-            return
-
-        # Check if research limit has been reached
-        research_keywords = ["search for", "find ", "look up", "research ", "query "]
-        is_research_command = any(kw in command_lower for kw in research_keywords)
-        if is_research_command and state.total_research_calls >= self.config.max_research_calls:
-            logger.warning(
-                f"[ExecutorLoop] Research limit reached ({state.total_research_calls}/"
-                f"{self.config.max_research_calls}) - blocking: {command[:50]}..."
-            )
-            state.step_log.append(
-                f"### Iteration {state.iteration}: Research Limit Reached\n"
-                f"**Command:** {command}\n"
-                f"**Result:** SKIPPED (research limit of {self.config.max_research_calls} calls reached)"
-            )
-            self._append_to_section4(
-                context_doc,
-                f"\n**⚠️ RESEARCH LIMIT REACHED:** {state.total_research_calls} research calls completed. "
-                f"Use the data already gathered in §1 and §4 to answer the query. "
-                f"Issue COMPLETE to proceed to synthesis.\n"
-            )
-            return
-
-        # Try workflow execution first, then fall back to Coordinator
-        try:
-            coordinator_result = await self._try_workflow_execution(
-                command, context_doc, turn_dir, workflow_hint=workflow_hint
-            )
-
-            if coordinator_result is None:
-                coordinator_result = await self._coordinator_execute_command(
-                    command, context_doc, turn_dir, mode
-                )
-
-            state.total_tool_calls += 1
-
-            # Extract claims from result
-            if coordinator_result.get("claims"):
-                state.all_claims.extend(coordinator_result["claims"])
-
-            # Track tool result
-            tool_selected = coordinator_result.get("tool_selected", "unknown")
-            state.all_tool_results.append({
-                "iteration": state.iteration,
-                "command": command,
-                "tool": tool_selected,
-                "status": coordinator_result.get("status", "unknown"),
-                "result": coordinator_result.get("result", {})
-            })
-
-            # Track completed commands
-            state.completed_research_queries.add(command_lower)
-
-            if tool_selected == "internet.research":
-                state.total_research_calls += 1
-                result_data = coordinator_result.get("result", {})
-                findings = result_data.get("findings", [])
-                findings_count = len(findings) if findings else 0
-                status = coordinator_result.get("status", "")
-                logger.info(
-                    f"[ExecutorLoop] Research completed: status={status}, findings={findings_count}, "
-                    f"total_research_calls={state.total_research_calls}/{self.config.max_research_calls}"
-                )
-
-            # Format result for §4
-            result_content = self._format_executor_command_result(
-                command, coordinator_result, goals_progress, state.iteration
-            )
-            state.step_log.append(result_content)
-            self._append_to_section4(context_doc, result_content)
-
-        except Exception as e:
-            state.tool_failures += 1
-            logger.error(
-                f"[ExecutorLoop] Coordinator failed for command '{command[:50]}...' "
-                f"(failure {state.tool_failures}/3): {e}"
-            )
-            error_content = (
-                f"### Iteration {state.iteration}: Error\n"
-                f"**Command:** {command}\n"
-                f"**Error:** {str(e)[:200]}\n"
-                f"**Tool Failures:** {state.tool_failures}/3"
-            )
-            state.step_log.append(error_content)
-            self._append_to_section4(context_doc, error_content)
 
 
 def get_executor_loop(

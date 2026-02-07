@@ -75,7 +75,7 @@ class SynthesisPhase:
         # Domain-specific prompts removed in favor of unified prompts that handle all content types
         try:
             if recipe is None:
-                recipe = load_recipe(f"pipeline/phase5_synthesizer_{mode}")
+                recipe = load_recipe("pipeline/phase5_synthesizer")
 
             # Check budget before LLM call
             if self._check_budget:

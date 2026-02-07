@@ -151,7 +151,7 @@ Cannot proceed due to unrecoverable issue.
 
 ### Example 1b: Research query (§1 prior context NOT sufficient)
 
-**§1:** Contains "Prior Research Intelligence: Syrian hamsters available at Petco, HubbaHubba"
+**§1:** Contains "Prior Research Intelligence: Syrian hamsters available at Petco, ExampleShop"
 **§3:** "Find Syrian hamsters for sale"
 **§4:** (empty)
 

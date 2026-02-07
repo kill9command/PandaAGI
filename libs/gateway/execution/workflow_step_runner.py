@@ -140,6 +140,10 @@ class WorkflowStepRunner:
 
                 # Collect outputs
                 if isinstance(result, dict):
+                    # DEBUG: Log result keys and sources
+                    logger.info(f"[WorkflowStepRunner] DEBUG: result keys={list(result.keys())}")
+                    logger.info(f"[WorkflowStepRunner] DEBUG: result.sources={result.get('sources', 'NOT_PRESENT')}")
+
                     for output_name in step.outputs:
                         if output_name in result:
                             step_outputs[output_name] = result[output_name]
@@ -147,6 +151,10 @@ class WorkflowStepRunner:
                     for key, value in result.items():
                         if key not in step_outputs and key != "status":
                             step_outputs[key] = value
+
+                    # DEBUG: Log collected outputs
+                    logger.info(f"[WorkflowStepRunner] DEBUG: step_outputs keys={list(step_outputs.keys())}")
+                    logger.info(f"[WorkflowStepRunner] DEBUG: step_outputs.sources={step_outputs.get('sources', 'NOT_PRESENT')}")
 
                 steps_executed.append(step.name)
 
@@ -230,10 +238,27 @@ class WorkflowStepRunner:
         if from_source == "original_query":
             return getattr(context_doc, "query", "") or ""
         elif from_source.startswith("section_"):
-            section_num = int(from_source.split("_")[1])
+            # Handle both "section_2" (full section) and "section_2_field" (sub-field hint)
+            parts = from_source.split("_")
+            section_num = int(parts[1])
             if hasattr(context_doc, "get_section"):
-                return context_doc.get_section(section_num) or ""
-            return ""
+                section_text = context_doc.get_section(section_num) or ""
+            else:
+                section_text = ""
+            # If just "section_N", return full text
+            if len(parts) <= 2:
+                return section_text
+            # "section_N_field" — return full section text as context
+            # The downstream tool/LLM will interpret it
+            return section_text
+        elif from_source.startswith("content_reference."):
+            # Handle nested paths like content_reference.source_url
+            if hasattr(context_doc, "get_content_reference"):
+                content_ref = context_doc.get_content_reference()
+                if content_ref:
+                    field = from_source.split(".", 1)[1]
+                    return content_ref.get(field)
+            return None
         elif hasattr(context_doc, from_source):
             return getattr(context_doc, from_source)
 

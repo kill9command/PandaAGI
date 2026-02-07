@@ -11,35 +11,37 @@ Check if gathered context is ready for planning. **Default to pass.**
 ```json
 {
   "status": "pass | retry | clarify",
-  "issues": ["string"],
-  "missing_context": ["string"],
-  "retry_guidance": ["string"],
-  "clarification_question": "string | null"
+  "issues": ["[specific problem]"],
+  "missing_context": ["[what's missing]"],
+  "retry_guidance": ["[how to fix on retry]"],
+  "clarification_question": "[question for user] | null"
 }
 ```
 
 ---
 
-## Rules
+## Decision Logic
 
-**Return `pass` for:**
-- Any legitimate query with some gathered context
-- Simple queries (greetings, preference recall, basic questions)
-- Queries where retrieval found relevant information
-- Even incomplete context - the pipeline can work with what's available
+| Condition | Status | Guidance |
+|-----------|--------|----------|
+| §2 has content sections with actual data | `pass` | |
+| §2 has `_meta` blocks but no content below them | `retry` | "Include actual content under each _meta block, not just metadata" |
+| §2 references node_ids not found in memory index | `retry` | "Remove unknown node_ids or select valid nodes from memory index" |
+| §2 is completely empty AND retrieval found nothing | `retry` | "Re-run retrieval with broader selection" |
+| Query is garbled nonsense (extremely rare) | `clarify` | Provide clarification question |
 
-**Return `retry` only if:**
-- The gathered context is completely empty AND retrieval found nothing
-- Critical structural corruption in the document
-
-**Return `clarify` only if:**
-- The query is garbled nonsense that cannot be interpreted
-- This should be EXTREMELY rare
+**Default to `pass` when uncertain.**
 
 ---
 
 ## Key Principle
 
-**The pipeline is designed to handle incomplete information.** Don't reject queries just because some metadata is missing or context is partial. Let downstream phases (planner, synthesizer) work with whatever context is available.
+**The pipeline handles incomplete information.** Don't reject queries because some metadata is missing or context is partial. Let downstream phases work with whatever is available.
 
-**When in doubt, return `pass`.**
+Partial context with real data > perfect metadata with empty sections.
+
+## Do NOT
+
+- Return `retry` for minor metadata issues
+- Return `clarify` when `retry` would fix the problem
+- Be overly strict — the Planner can work around gaps

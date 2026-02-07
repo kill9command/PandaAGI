@@ -62,8 +62,8 @@ The tool will automatically:
 {
   "tool": "vendor.explore_catalog",
   "args": {
-    "vendor_url": "https://hubbahubbahamstery.com/available",
-    "vendor_name": "Hubba-Hubba Hamstery",
+    "vendor_url": "https://example-shop.com/available",
+    "vendor_name": "Example Pet Shop",
     "category": "all",
     "max_items": 20,
     "session_id": "user-123"
@@ -77,12 +77,12 @@ The tool will automatically:
 ```
 User: "Find Syrian hamster breeders"
 You: internet.research → Returns summary + catalog_hints
-Response: "Found Hubba-Hubba Hamstery (5+ items detected) 🔍"
+Response: "Found Example Pet Shop (5+ items detected) 🔍"
 ```
 
 **Step 2: Deep Catalog Exploration** (Use `vendor.explore_catalog`)
 ```
-User: "explore Hubba-Hubba Hamstery catalog"
+User: "explore Example Pet Shop catalog"
 You: vendor.explore_catalog → Returns ALL items with pagination
 Response: "Here's the complete catalog: 12 items across 3 pages..."
 ```

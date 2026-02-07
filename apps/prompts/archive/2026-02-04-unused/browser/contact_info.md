@@ -77,7 +77,7 @@ Smith's Hamster Haven
 123 Pet Lane, Portland, OR 97201
 
 Contact us for available hamsters!
-Email: hamsters@smithshaven.com
+Email: contact@example-store.com
 Phone: (503) 555-0123
 
 Open Mon-Sat 10am-6pm
@@ -90,7 +90,7 @@ Prices vary by variety - please call for current pricing.
   "contacts": [
     {
       "type": "email",
-      "value": "hamsters@smithshaven.com",
+      "value": "contact@example-store.com",
       "context": "General contact"
     },
     {

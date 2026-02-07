@@ -47,6 +47,10 @@ API_KEY = os.getenv("GATEWAY_API_KEY")
 GUIDE_API_KEY = os.getenv("GUIDE_API_KEY") or os.getenv("SOLVER_API_KEY") or os.getenv("SOLVER_BEARER", "qwen-local")
 COORDINATOR_API_KEY = os.getenv("COORDINATOR_API_KEY") or os.getenv("THINK_API_KEY") or GUIDE_API_KEY
 
+# Claude API (for model toggle — testing/benchmarking)
+CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "")
+CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-5-20250929")
+
 # Build headers
 GUIDE_HEADERS: Dict[str, str] = {}
 if GUIDE_API_KEY:

@@ -129,29 +129,46 @@ class WorkflowManager:
         return "\n".join(lines)
 
     def build_workflows_context_doc(self) -> str:
-        """Build a compact workflow list for prompt injection."""
+        """Build a workflow list with descriptions and examples for prompt injection."""
         workflows = sorted(self.workflow_registry.all(), key=lambda w: w.name)
 
         lines = [
-            "# Available Workflows (dynamic)",
-            "When selecting a workflow, choose from this list.",
+            "# Available Workflows",
+            "Select the best workflow for the user's query. USE EXISTING WORKFLOWS - do not create new ones.",
             "",
         ]
 
         for workflow in workflows:
-            triggers = [self.format_workflow_trigger(t) for t in workflow.triggers if t]
-            triggers_display = "none"
-            if triggers:
-                if len(triggers) > 3:
-                    triggers_display = ", ".join(triggers[:3]) + f" (+{len(triggers) - 3} more)"
-                else:
-                    triggers_display = ", ".join(triggers)
+            # Get description (first 150 chars)
+            desc = workflow.description[:150].strip() if workflow.description else "No description"
+            if len(workflow.description) > 150:
+                desc += "..."
 
-            tools_display = ", ".join(workflow.tools) if workflow.tools else "n/a"
-            lines.append(
-                f"- {workflow.name} (category: {workflow.category}) "
-                f"tools: {tools_display} triggers: {triggers_display}"
-            )
+            # Get example triggers (these serve as usage examples)
+            example_triggers = []
+            for t in workflow.triggers:
+                if isinstance(t, str) and "{" in t:
+                    # Pattern trigger like "find me {product}" - good example
+                    example_triggers.append(t)
+                elif isinstance(t, str) and not t.startswith("intent:"):
+                    example_triggers.append(t)
+
+            lines.append(f"## {workflow.name}")
+            lines.append(f"**Category:** {workflow.category}")
+            lines.append(f"**Description:** {desc}")
+
+            if example_triggers:
+                lines.append(f"**Example queries:** {', '.join(example_triggers[:3])}")
+
+            # Add specific guidance for key workflows
+            if workflow.name == "intelligence_search":
+                lines.append("**Use for:** Research, information gathering, visiting specific URLs, forum content extraction")
+            elif workflow.name == "product_research":
+                lines.append("**Use for:** Finding products with prices, commerce queries, shopping")
+            elif workflow.name == "product_quick_find":
+                lines.append("**Use for:** Quick product lookup when context already has research")
+
+            lines.append("")
 
         return "\n".join(lines)
 

@@ -283,7 +283,10 @@ def select_recipe(
     content_type: Optional[str] = None
 ) -> Recipe:
     """
-    Select appropriate recipe based on role, mode, phase, and content_type.
+    Select appropriate recipe based on role.
+
+    All recipes are now unified (no mode suffix). Mode only affects tool
+    gating at execution time, not recipe/prompt selection.
 
     Uses canonical role names (2026-01-24):
     - context_builder: Memory read layer
@@ -298,21 +301,17 @@ def select_recipe(
 
     Args:
         role: Canonical role name (see above)
-        mode: "chat" | "code"
+        mode: "chat" | "code" (retained for backward compatibility, no longer used for recipe selection)
         phase: Optional phase hint (deprecated, use role name directly)
-        content_type: Optional content type for commerce queries ("electronics" | "pets" | "general")
-                      Enables content-type-specific prompts for planner and synthesizer.
+        content_type: Optional content type (deprecated, all recipes are unified)
 
     Returns:
         Recipe instance
 
     Examples:
-        - select_recipe("planner", "chat") → planner_chat.yaml
-        - select_recipe("planner", "chat", content_type="electronics") → planner_chat_electronics.yaml (if exists)
-        - select_recipe("planner", "chat", content_type="pets") → planner_chat_pets.yaml (if exists)
-        - select_recipe("synthesizer", "code") → synthesizer_code.yaml
-        - select_recipe("verifier", "chat") → verifier.yaml (unified)
-        - select_recipe("context_builder", "chat") → context_builder.yaml
+        - select_recipe("planner", "chat") → planner.yaml
+        - select_recipe("synthesizer", "code") → synthesizer.yaml
+        - select_recipe("verifier", "chat") → verifier.yaml
     """
     # Role mapping: old names → canonical names (for backward compatibility)
     ROLE_ALIASES = {
@@ -334,42 +333,22 @@ def select_recipe(
     elif role == "guide" and phase == "synthesis":
         canonical_role = "synthesizer"
 
-    # Unified recipes (no mode suffix)
+    # All pipeline roles are now unified (no mode suffix)
+    # Mode only affects tool gating at execution time, not recipe selection
     UNIFIED_ROLES = {
         "context_builder",
         "reflection",
         "verifier",
         "summarizer",
         "researcher",
-    }
-
-    # Mode-specific recipes (have _chat and _code variants)
-    MODE_SPECIFIC_ROLES = {
         "planner",
-        "executor",      # NEW: 3-tier architecture (Planner → Executor → Coordinator)
+        "executor",
         "coordinator",
         "synthesizer",
     }
 
-    # Roles that support content-type specialization
-    # These roles can have content-type-specific variants (e.g., planner_chat_electronics)
-    CONTENT_TYPE_ROLES = {"planner", "synthesizer"}
-
     if canonical_role in UNIFIED_ROLES:
         recipe_name = canonical_role
-    elif canonical_role in MODE_SPECIFIC_ROLES:
-        base_recipe_name = f"{canonical_role}_{mode}"
-
-        # Try content-type-specific recipe first (only for certain roles)
-        if content_type and content_type != "general" and canonical_role in CONTENT_TYPE_ROLES:
-            specialized_name = f"{canonical_role}_{mode}_{content_type}"
-            try:
-                logger.info(f"[Recipe] Trying content-type-specific recipe: {specialized_name}")
-                return load_recipe(specialized_name)
-            except (FileNotFoundError, RecipeNotFoundError):
-                logger.info(f"[Recipe] Content-type recipe not found ({specialized_name}), falling back to {base_recipe_name}")
-
-        recipe_name = base_recipe_name
     else:
         # Unknown role - try direct lookup
         recipe_name = canonical_role

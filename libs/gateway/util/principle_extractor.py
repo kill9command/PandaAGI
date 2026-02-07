@@ -153,6 +153,7 @@ class PrincipleExtractor:
         self,
         llm_client,
         memory_bank_path: Path = None,
+        user_id: str = "default",
     ):
         """
         Initialize the extractor.
@@ -160,10 +161,14 @@ class PrincipleExtractor:
         Args:
             llm_client: LLM client for extraction calls
             memory_bank_path: Path to Memory Bank (defaults to obsidian_memory)
+            user_id: User ID for per-user improvements path
         """
         self.llm_client = llm_client
         self.memory_bank_path = memory_bank_path or Path("panda_system_docs/obsidian_memory")
-        self.principles_dir = self.memory_bank_path / "Improvements" / "Principles"
+        self.user_id = user_id
+        from libs.gateway.persistence.user_paths import UserPathResolver
+        resolver = UserPathResolver(user_id)
+        self.principles_dir = resolver.improvements_dir / "Principles"
 
     async def extract_principle(
         self,
@@ -349,11 +354,11 @@ class PrincipleExtractor:
 _extractor: Optional[PrincipleExtractor] = None
 
 
-def get_principle_extractor(llm_client=None) -> PrincipleExtractor:
+def get_principle_extractor(llm_client=None, user_id: str = "default") -> PrincipleExtractor:
     """Get or create the global PrincipleExtractor instance."""
     global _extractor
     if _extractor is None:
         if llm_client is None:
             raise ValueError("llm_client required for first initialization")
-        _extractor = PrincipleExtractor(llm_client)
+        _extractor = PrincipleExtractor(llm_client, user_id=user_id)
     return _extractor

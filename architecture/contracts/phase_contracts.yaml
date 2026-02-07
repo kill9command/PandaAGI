@@ -2,28 +2,20 @@
 #
 # Each phase lists required inputs, outputs, and schemas.
 # Used by contract tests to verify pipeline correctness.
+#
+# Updated: 2026-02-03
+# Changes: Added resolved_query to Phase 0. Expanded Phase 2 output structure.
+#          Added route_to/workflow to Phase 3. Added decisions to metrics schema.
+#          Fixed Phase 7 decision values (APPROVE/REVISE/RETRY/FAIL).
 
-version: "1.0"
+version: "1.1"
 description: "Per-phase I/O contracts for Panda pipeline"
 
 schemas:
-  constraints:
-    file: constraints.json
-    required_fields:
-      - constraints  # array of constraint objects
-    constraint_fields:
-      - id
-      - type
-    optional_fields:
-      - query
-      - extraction_source
-
   plan_state:
     file: plan_state.json
     required_fields:
       - goals       # array of goal objects
-      - constraints # array of constraint refs
-      - violations  # array of violation objects
       - last_updated_phase
     goal_fields:
       - id
@@ -51,6 +43,7 @@ schemas:
       - total_duration_ms
       - token_usage
       - quality_score
+      - decisions        # array of {phase, decision_type, decision_value}
 
   artifact_manifest:
     file: artifact_manifest.json
@@ -64,66 +57,86 @@ phases:
   phase_0:
     name: "Query Analyzer"
     description: "Parse user query into structured analysis"
+    role: REFLEX
+    temperature: 0.4
     inputs:
       - user_query  # raw text from user
     outputs:
       context_doc:
         section: "§0 User Query"
         required_fields:
-          - intent        # classified intent
-          - complexity     # simple/moderate/complex
-          - mode          # chat/code/research
+          - resolved_query  # disambiguated query text
+          - user_purpose    # natural language statement of user's intent
+          - mode            # chat/code
+          - data_requirements    # {needs_current_prices, needs_product_urls, needs_live_data, freshness_required}
         optional_fields:
-          - entities
-          - keywords
-          - domain
+          - content_reference    # {title, content_type, site, source_turn}
+          - reference_resolution # {status, original_references, resolved_to}
 
   phase_1:
     name: "Reflection"
-    description: "Decide whether to reflect on previous turns"
+    description: "Fast binary gate: can we answer this query?"
+    role: REFLEX
+    temperature: 0.4
     inputs:
       - context_doc   # with §0 populated
     outputs:
       context_doc:
-        section: "§2 Reflection Decision"
+        section: "§1 Reflection Decision"
         required_fields:
-          - decision    # reflect/skip
+          - decision    # PROCEED/CLARIFY
           - reason
         optional_fields:
           - relevant_turns
 
   phase_2:
     name: "Context Gathering"
-    description: "Gather context from memory, research, and constraints"
+    description: "Gather context from memory, prior turns, and research cache"
+    role: MIND
+    temperature: 0.6
     inputs:
-      - context_doc    # with §0, §2
+      - context_doc    # with §0, §1
     outputs:
       context_doc:
-        section: "§1 Gathered Context"
+        section: "§2 Gathered Context"
         required_fields:
-          - sources
-      files:
-        - constraints.json   # always written
+          - sources           # list of source references
+        optional_fields:
+          - session_preferences   # user preferences from memory
+          - prior_turns           # relevant prior turn summaries
+          - cached_research       # cached intelligence if available
+          - visit_data            # cached visit record data
+          - constraints           # extracted user constraints (budget, must_avoid, etc.)
+          - context_assessment    # overall context quality score and gaps
+    error_handling:
+      hard_errors: HALT      # data integrity and infrastructure failures
+      soft_results: PROCEED  # no relevant sources found (new topic)
 
   phase_3:
     name: "Planner"
-    description: "Generate strategic plan with goals"
+    description: "Generate strategic plan with goals and routing decision"
+    role: MIND
+    temperature: 0.6
     inputs:
       - context_doc     # with §0, §1, §2
-      - constraints.json
     outputs:
       context_doc:
         section: "§3 Task Plan"
         required_fields:
-          - strategy
-          - goals
+          - strategy      # natural language strategic approach
+          - goals         # array of goal objects
+          - route_to      # executor/synthesis/clarify
+        optional_fields:
+          - workflow       # selected workflow name (e.g., "intelligence_search", "product_research")
       files:
         - ticket.md        # task ticket
-        - plan_state.json  # initialized with goals + constraints
+        - plan_state.json  # initialized with goals
 
   phase_4:
-    name: "Coordinator"
-    description: "Coordinate tool execution"
+    name: "Executor"
+    description: "Tactical tool execution commands"
+    role: MIND
+    temperature: 0.6
     inputs:
       - context_doc       # with §0-§3
       - plan_state.json
@@ -134,22 +147,24 @@ phases:
         - toolresults.md   # when tools are executed
 
   phase_5:
-    name: "Executor"
-    description: "Execute tool calls with constraint enforcement"
+    name: "Coordinator"
+    description: "Translate commands to tool calls (deterministic tool selection)"
+    role: REFLEX
+    temperature: 0.4
     inputs:
-      - tool_plan         # from coordinator
-      - constraints.json
+      - tool_command      # natural language command from executor
       - plan_state.json
     outputs:
       files:
         - toolresults.md   # tool execution results
       side_effects:
-        - constraint_violation_recording
         - plan_state_updates
 
   phase_6:
     name: "Synthesis"
     description: "Synthesize response from all gathered context and results"
+    role: VOICE
+    temperature: 0.7
     inputs:
       - context_doc       # with §0-§4
       - toolresults.md    # if tools were executed
@@ -162,7 +177,9 @@ phases:
 
   phase_7:
     name: "Validation"
-    description: "Validate response quality and constraint adherence"
+    description: "Validate response quality and requirement adherence (checks against §0)"
+    role: MIND
+    temperature: 0.6
     inputs:
       - context_doc       # with §0-§6
       - response.md
@@ -171,14 +188,20 @@ phases:
       context_doc:
         section: "§7 Validation"
         required_fields:
-          - decision       # APPROVE/REVISE/REJECT
-          - checks
+          - decision       # APPROVE/REVISE/RETRY/FAIL
+          - checks         # dict of check results
+        optional_fields:
+          - confidence     # 0.0-1.0
+          - issues         # list of identified issues
+          - revision_hints # guidance for synthesis revision
       side_effects:
-        - plan_state_violation_recording
+        - plan_state_update
 
   phase_8:
     name: "Save"
     description: "Persist turn data and update indexes"
+    role: N/A
+    temperature: N/A
     inputs:
       - context_doc       # complete
       - response.md
@@ -186,6 +209,7 @@ phases:
       files:
         - metadata.json    # turn metadata
         - metrics.json     # performance metrics
+        - plan_state.json  # if plan state exists
       side_effects:
         - turn_index_update
         - memory_persistence

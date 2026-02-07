@@ -2,6 +2,7 @@
   import Chat from '$lib/components/chat/Chat.svelte';
   import { IDEWorkspace } from '$lib/components/ide';
   import ModeSelector from '$lib/components/panda/ModeSelector.svelte';
+  import ModelSelector from '$lib/components/panda/ModelSelector.svelte';
   import ProfileManager from '$lib/components/panda/ProfileManager.svelte';
   import RepoConfig from '$lib/components/panda/RepoConfig.svelte';
   import InterventionModal from '$lib/components/panda/InterventionModal.svelte';
@@ -27,6 +28,7 @@
 
   <div class="toolbar">
     <ModeSelector />
+    <ModelSelector />
     <ProfileManager />
     {#if $mode === 'code'}
       <RepoConfig />

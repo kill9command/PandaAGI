@@ -9,8 +9,11 @@ Token budget: ~10,500 tokens (27% reduction from 14,500)
 """
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, TYPE_CHECKING
 from datetime import datetime
+
+if TYPE_CHECKING:
+    from .search_results import SearchResults
 
 
 @dataclass
@@ -332,6 +335,78 @@ class RetrievalResultDoc:
             sufficient=False,
             missing_info="",
             reasoning=plan.reasoning,
+            is_followup=is_followup,
+            inherited_topic=inherited_topic,
+        )
+
+    @classmethod
+    def from_search_results(
+        cls,
+        query: str,
+        search_results: "SearchResults",
+        is_followup: bool = False,
+        inherited_topic: Optional[str] = None,
+    ) -> "RetrievalResultDoc":
+        """Bridge: Convert SearchResults to RetrievalResultDoc for synthesis.
+
+        Maps search result items to the legacy format so _phase_synthesis()
+        works unchanged.
+
+        Architecture Reference:
+            architecture/main-system-patterns/phase2.1-context-gathering-retrieval.md v2.0
+        """
+        relevant_turns = []
+        direct_info = {}
+        links = []
+
+        for i, item in enumerate(search_results.results):
+            if item.source_type == "turn_summary":
+                turn_num = 0
+                if "turn:" in item.node_id:
+                    try:
+                        turn_num = int(item.node_id.split("turn:")[1])
+                    except (ValueError, IndexError):
+                        pass
+
+                relevant_turns.append(RetrievalTurn(
+                    turn_number=turn_num,
+                    relevance="high" if item.source == "search" else "critical",
+                    reason=f"Matched search terms (RRF={item.rrf_score:.3f})",
+                    usable_info=item.snippet,
+                    expected_info="",
+                    load_priority=i + 1,
+                ))
+
+                if item.content:
+                    direct_info[str(turn_num)] = item.content[:1500]
+
+                links.append(LinkToFollow(
+                    turn_number=turn_num,
+                    path=item.document_path,
+                    reason=f"Search match (RRF={item.rrf_score:.3f})",
+                    sections_to_extract=["prior_turn_context"],
+                ))
+            else:
+                # Non-turn items: knowledge, preferences, beliefs, research cache
+                links.append(LinkToFollow(
+                    turn_number=0,
+                    path=item.document_path,
+                    reason=f"{item.source_type} match (RRF={item.rrf_score:.3f})",
+                    sections_to_extract=[item.source_type],
+                ))
+
+        return cls(
+            query=query,
+            timestamp=datetime.utcnow().isoformat() + "Z",
+            relevant_turns=relevant_turns,
+            direct_info=direct_info,
+            links_to_follow=links,
+            sufficient=bool(search_results.results),
+            missing_info="",
+            reasoning=(
+                f"Search-first retrieval: {len(search_results.results)} results "
+                f"from {len(search_results.search_terms_used)} search terms"
+            ),
             is_followup=is_followup,
             inherited_topic=inherited_topic,
         )

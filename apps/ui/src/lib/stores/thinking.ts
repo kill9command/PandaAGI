@@ -6,8 +6,10 @@ export interface PhaseState {
   reasoning: string;
   duration?: number;
   content?: string;  // Full phase output text for display
-  input?: string;    // What the phase received as input
-  output?: string;   // What the phase produced as output
+  input?: string;    // Human-readable summary of phase input
+  output?: string;   // Human-readable summary of phase output
+  inputRaw?: string; // Full raw input content
+  outputRaw?: string; // Full raw output content
 }
 
 export interface ThinkingState {
@@ -52,7 +54,7 @@ export function updatePhase(stage: string, data: Partial<PhaseState>) {
         ...t.phases,
         [stage]: {
           ...t.phases[stage],
-          status: 'active',
+          status: 'active' as const,
           confidence: 0,
           reasoning: '',
           ...data

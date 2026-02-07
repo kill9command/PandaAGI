@@ -328,8 +328,8 @@ class PlanningLoop:
             return None  # Unknown route, fall through to legacy
 
         except ValueError as e:
-            # Parse error — LLM returned non-STRATEGIC_PLAN format, fall through to legacy loop
-            logger.warning(f"[PlanningLoop] Planner parse error: {e} - falling through to legacy loop")
+            # Parse error — Planner LLM returned non-STRATEGIC_PLAN format, fall through to legacy loop
+            logger.warning(f"[PlanningLoop] Planner LLM parse error (Phase 3): {e} - falling through to legacy loop")
             return None
 
     async def _handle_self_extension(
@@ -543,6 +543,30 @@ class PlanningLoop:
                 )
 
                 # All tools skipped but we have claims - force complete
+                if not state.all_tool_results and state.all_claims:
+                    logger.info(f"[PlanningLoop] All tools skipped with {len(state.all_claims)} claims - forcing COMPLETE")
+                    break
+
+            elif action == "REFRESH_CONTEXT":
+                # Planner wants context refresh but we're in the inner loop
+                # (strategic-level refresh already happened or was blocked).
+                # The planner has goals but chose the wrong route — convert to EXECUTE
+                # so the executor can fetch the data via tools.
+                logger.warning(
+                    f"[PlanningLoop] REFRESH_CONTEXT in inner loop at iteration {state.iteration} "
+                    f"— converting to EXECUTE (planner has {len(goals)} goals that need tool execution)"
+                )
+                if not tools:
+                    # No tools specified — can't execute, treat as COMPLETE
+                    logger.warning("[PlanningLoop] REFRESH_CONTEXT with no tools — treating as COMPLETE")
+                    if self._update_section3_from_planner:
+                        self._update_section3_from_planner(context_doc, planner_decision, "synthesis")
+                    break
+
+                await self._execute_tools(
+                    context_doc, turn_dir, state, tools, skip_urls, goals, reasoning
+                )
+
                 if not state.all_tool_results and state.all_claims:
                     logger.info(f"[PlanningLoop] All tools skipped with {len(state.all_claims)} claims - forcing COMPLETE")
                     break

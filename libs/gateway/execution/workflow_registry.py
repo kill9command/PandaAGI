@@ -111,7 +111,9 @@ class WorkflowRegistry:
         """
         if workflows_dir is None:
             # Default to apps/workflows/ relative to project root
-            workflows_dir = Path(__file__).parent.parent.parent / "apps" / "workflows"
+            # __file__ = libs/gateway/execution/workflow_registry.py
+            # .parent.parent.parent.parent = project root
+            workflows_dir = Path(__file__).parent.parent.parent.parent / "apps" / "workflows"
 
         if not workflows_dir.exists():
             logger.warning(f"[WorkflowRegistry] Workflows dir not found: {workflows_dir}")
@@ -123,6 +125,9 @@ class WorkflowRegistry:
                 continue
             # Skip template files (contain {{placeholders}} that break YAML parsing)
             if "templates" in md_path.parts:
+                continue
+            # Skip archived workflows
+            if "archive" in md_path.parts:
                 continue
 
             try:
@@ -150,7 +155,9 @@ class WorkflowRegistry:
           panda_system_docs/workflows/bundles/{workflow_name}/workflow.md
         """
         if bundles_dir is None:
-            bundles_dir = Path(__file__).parent.parent.parent / "panda_system_docs" / "workflows" / "bundles"
+            # __file__ = libs/gateway/execution/workflow_registry.py
+            # .parent.parent.parent.parent = project root
+            bundles_dir = Path(__file__).parent.parent.parent.parent / "panda_system_docs" / "workflows" / "bundles"
 
         if not bundles_dir.exists():
             logger.info(f"[WorkflowRegistry] Bundle dir not found: {bundles_dir}")

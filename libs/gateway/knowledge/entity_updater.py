@@ -41,16 +41,18 @@ class EntityUpdater:
         updater.process_research_results(research_result, turn_number=64)
     """
 
-    def __init__(self, kg: Any, vault_path: Path):
+    def __init__(self, kg: Any, vault_path: Path, user_id: str = "default"):
         """
         Initialize the EntityUpdater.
 
         Args:
             kg: KnowledgeGraphDB instance for entity storage and lookup
             vault_path: Path to the Obsidian vault root
+            user_id: User ID for per-user entity paths
         """
         self.kg = kg
         self.vault_path = vault_path
+        self.user_id = user_id
 
     def process_research_results(self, results: Dict[str, Any], turn_number: int):
         """
@@ -143,7 +145,7 @@ class EntityUpdater:
         self._update_document(doc, entity, turn_number)
 
         # Save updated document
-        doc.save(self.vault_path)
+        doc.save(self.vault_path, user_id=self.user_id)
 
         logger.debug(
             f"[EntityUpdater] Updated {entity.entity_type}:{entity.canonical_name} "
@@ -275,7 +277,7 @@ class EntityUpdater:
             name=target.canonical_name,
             relationship=relationship
         )
-        source_doc.save(self.vault_path)
+        source_doc.save(self.vault_path, user_id=self.user_id)
 
         # Update target document with inverse relationship
         target_doc = self._load_entity_document(target)
@@ -294,7 +296,7 @@ class EntityUpdater:
             name=source.canonical_name,
             relationship=inverse
         )
-        target_doc.save(self.vault_path)
+        target_doc.save(self.vault_path, user_id=self.user_id)
 
         logger.debug(
             f"[EntityUpdater] Added relationship: "
@@ -373,7 +375,7 @@ class EntityUpdater:
                     })
 
                 # Save document
-                doc.save(self.vault_path)
+                doc.save(self.vault_path, user_id=self.user_id)
                 rebuilt += 1
 
             except Exception as e:
@@ -394,7 +396,8 @@ _ENTITY_UPDATER: Optional[EntityUpdater] = None
 
 def get_entity_updater(
     kg: Optional[Any] = None,
-    vault_path: Optional[Path] = None
+    vault_path: Optional[Path] = None,
+    user_id: str = "default",
 ) -> EntityUpdater:
     """
     Get the global EntityUpdater instance.
@@ -432,6 +435,6 @@ def get_entity_updater(
                 "entity updates will be skipped"
             )
 
-        _ENTITY_UPDATER = EntityUpdater(kg, vault_path)
+        _ENTITY_UPDATER = EntityUpdater(kg, vault_path, user_id=user_id)
 
     return _ENTITY_UPDATER

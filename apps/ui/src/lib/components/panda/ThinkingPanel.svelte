@@ -1,24 +1,26 @@
 <script lang="ts">
   import { thinking } from '$lib/stores/thinking';
-  import { actions } from '$lib/stores/actions';
   import Spinner from '$lib/components/common/Spinner.svelte';
+  import SourcesPanel from './SourcesPanel.svelte';
 
-  // Phase definitions matching the backend stage names from unified_flow.py
-  // Backend emits: phase_0_query_analyzer, phase_1_context_gatherer, etc.
+  // Phase definitions matching the backend stage names from phase_metrics.py
+  // Backend emits: phase_0_query_analyzer, phase_1_reflection, phase_2_context_gatherer, etc.
   const phaseDefinitions = [
     { key: 'phase_0_query_analyzer', label: 'Analyze', icon: '🔍', color: '#68a8ef' },
-    { key: 'phase_1_context_gatherer', label: 'Gather', icon: '📚', color: '#ffa500' },
-    { key: 'phase_2_reflection', label: 'Reflect', icon: '🤔', color: '#c792ea' },
+    { key: 'phase_1_reflection', label: 'Reflect', icon: '🤔', color: '#c792ea' },
+    { key: 'phase_2_context_gatherer', label: 'Gather', icon: '📚', color: '#ffa500' },
     { key: 'phase_3_planner', label: 'Plan', icon: '📋', color: '#ef9b6b' },
     { key: 'phase_4_executor', label: 'Execute', icon: '⚡', color: '#ef6b9b' },
     { key: 'phase_5_coordinator', label: 'Coordinate', icon: '🔧', color: '#6befa8' },
     { key: 'phase_6_synthesis', label: 'Synthesize', icon: '✍️', color: '#a8ef6b' },
-    { key: 'phase_7_validation', label: 'Validate', icon: '✓', color: '#6b9bef' }
+    { key: 'phase_7_validation', label: 'Validate', icon: '✓', color: '#6b9bef' },
+    { key: 'phase_8_save', label: 'Save', icon: '💾', color: '#9b6bef' }
   ];
 
   let expanded = false;
   let expandedPhase: string | null = null;
   let activeTabs: Record<string, 'input' | 'output'> = {};
+  let rawMode: Record<string, boolean> = {};
 
   // REACTIVE: Merge phase definitions with live store data
   $: phases = phaseDefinitions.map(def => {
@@ -30,7 +32,11 @@
       reasoning: data?.reasoning || '',
       input: data?.input || '',
       output: data?.output || '',
-      hasData: !!(data?.input || data?.output || data?.content)
+      inputRaw: data?.inputRaw || '',
+      outputRaw: data?.outputRaw || '',
+      duration: data?.duration || 0,
+      confidence: data?.confidence || 0,
+      hasData: !!(data?.input || data?.output || data?.content || data?.inputRaw || data?.outputRaw)
     };
   });
 
@@ -61,11 +67,35 @@
     activeTabs = activeTabs; // Trigger reactivity
   }
 
+  function toggleRawMode(key: string) {
+    rawMode[key] = !rawMode[key];
+    rawMode = rawMode; // Trigger reactivity
+  }
+
+  function getDisplayContent(phase: typeof phases[0], tab: 'input' | 'output'): string {
+    const isRaw = rawMode[phase.key] || false;
+    if (tab === 'input') {
+      return isRaw ? (phase.inputRaw || phase.input || '') : (phase.input || '');
+    } else {
+      return isRaw ? (phase.outputRaw || phase.output || phase.content || '') : (phase.output || phase.content || '');
+    }
+  }
+
+  function hasRawContent(phase: typeof phases[0], tab: 'input' | 'output'): boolean {
+    if (tab === 'input') {
+      return !!(phase.inputRaw && phase.inputRaw !== phase.input);
+    } else {
+      return !!(phase.outputRaw && phase.outputRaw !== phase.output);
+    }
+  }
+
+  function formatDuration(ms: number): string {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  }
+
   // Check if we should show the panel
   $: showPanel = $thinking.active || $thinking.completed;
-
-  // Check if we have journey actions
-  $: hasActions = $actions.actions.length > 0;
 </script>
 
 {#if showPanel}
@@ -104,6 +134,9 @@
             >
               <span class="icon">{phase.icon}</span>
               <span class="label">{phase.label}</span>
+              {#if phase.duration > 0}
+                <span class="duration">{formatDuration(phase.duration)}</span>
+              {/if}
               <span class="badge"
                 class:active={phase.status === 'active'}
                 class:completed={phase.status === 'completed'}>
@@ -122,38 +155,37 @@
                     class="tab"
                     class:active={activeTabs[phase.key] === 'input'}
                     on:click|stopPropagation={() => setActiveTab(phase.key, 'input')}
-                    disabled={!phase.input}
+                    disabled={!phase.input && !phase.inputRaw}
                   >
-                    <span class="tab-icon">→</span> INPUT
-                    <span class="tab-hint">What I received</span>
+                    <span class="tab-icon">&rarr;</span> INPUT
                   </button>
                   <button
                     class="tab"
                     class:active={activeTabs[phase.key] === 'output'}
                     on:click|stopPropagation={() => setActiveTab(phase.key, 'output')}
-                    disabled={!phase.output && !phase.content}
+                    disabled={!phase.output && !phase.content && !phase.outputRaw}
                   >
-                    <span class="tab-icon">←</span> OUTPUT
-                    <span class="tab-hint">What I produced</span>
+                    <span class="tab-icon">&larr;</span> OUTPUT
                   </button>
+                  <!-- Raw toggle -->
+                  {#if hasRawContent(phase, activeTabs[phase.key] || 'output')}
+                    <button
+                      class="raw-toggle"
+                      class:active={rawMode[phase.key]}
+                      on:click|stopPropagation={() => toggleRawMode(phase.key)}
+                      title={rawMode[phase.key] ? 'Show summary' : 'Show raw content'}
+                    >
+                      {rawMode[phase.key] ? 'SUMMARY' : 'RAW'}
+                    </button>
+                  {/if}
                 </div>
 
                 <!-- Content area -->
                 <div class="content-area">
-                  {#if activeTabs[phase.key] === 'input'}
-                    {#if phase.input}
-                      <pre>{phase.input}</pre>
-                    {:else}
-                      <div class="no-content">No input data captured</div>
-                    {/if}
+                  {#if getDisplayContent(phase, activeTabs[phase.key] || 'output')}
+                    <pre>{getDisplayContent(phase, activeTabs[phase.key] || 'output')}</pre>
                   {:else}
-                    {#if phase.output}
-                      <pre>{phase.output}</pre>
-                    {:else if phase.content}
-                      <pre>{phase.content}</pre>
-                    {:else}
-                      <div class="no-content">No output data captured</div>
-                    {/if}
+                    <div class="no-content">No {activeTabs[phase.key] || 'output'} data captured</div>
                   {/if}
                 </div>
               </div>
@@ -162,33 +194,8 @@
         {/each}
       </div>
 
-      <!-- Journey section (actions log) - only shown when panel is expanded -->
-      {#if hasActions}
-        <div class="journey-section">
-          <div class="journey-header">
-            <span class="journey-title">🛤️ Journey</span>
-            <span class="journey-count">{$actions.actions.length} steps</span>
-          </div>
-          <div class="journey-actions">
-            {#each $actions.actions as action (action.id)}
-              <div class="journey-action" class:error={action.type === 'error'} class:success={action.success === true}>
-                <span class="action-icon">{action.icon}</span>
-                <div class="action-content">
-                  <span class="action-label">{action.label}</span>
-                  {#if action.detail}
-                    <span class="action-detail">{action.detail}</span>
-                  {/if}
-                </div>
-                {#if action.success === false}
-                  <span class="action-status error">✗</span>
-                {:else if action.success === true}
-                  <span class="action-status success">✓</span>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        </div>
-      {/if}
+      <!-- Sources panel (replaces old Journey section) -->
+      <SourcesPanel />
     {/if}
   </div>
 {/if}
@@ -314,6 +321,12 @@
     flex: 1;
   }
 
+  .duration {
+    font-size: 0.65em;
+    color: #6b7280;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  }
+
   .badge {
     font-size: 0.7em;
     padding: 2px 6px;
@@ -388,9 +401,30 @@
     font-size: 1.1em;
   }
 
-  .tab-hint {
-    font-size: 0.85em;
-    opacity: 0.7;
+  .raw-toggle {
+    padding: 4px 10px;
+    background: #1a1a22;
+    border: 1px solid #2a2a33;
+    border-bottom: none;
+    color: #6b7280;
+    font-size: 0.6em;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .raw-toggle:hover {
+    color: #9aa3c2;
+    background: #22222a;
+  }
+
+  .raw-toggle.active {
+    color: #68a8ef;
+    background: #14141a;
+    border-color: #68a8ef;
   }
 
   /* Content area */
@@ -416,107 +450,5 @@
     color: #6b7280;
     font-size: 0.8em;
     font-style: italic;
-  }
-
-  /* Journey section styles */
-  .journey-section {
-    margin: 12px;
-    margin-top: 4px;
-    background: #12121a;
-    border: 1px solid #2a2a33;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-
-  .journey-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 12px;
-    background: #1a1a22;
-    border-bottom: 1px solid #2a2a33;
-  }
-
-  .journey-title {
-    font-size: 0.75em;
-    font-weight: 600;
-    color: #9aa3c2;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .journey-count {
-    font-size: 0.7em;
-    color: #6b7280;
-  }
-
-  .journey-actions {
-    padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    max-height: 150px;
-    overflow-y: auto;
-  }
-
-  .journey-action {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 6px 8px;
-    background: #0a0a0e;
-    border-radius: 4px;
-    border-left: 2px solid #3a3a44;
-    transition: border-color 0.2s;
-  }
-
-  .journey-action.success {
-    border-left-color: #7fd288;
-  }
-
-  .journey-action.error {
-    border-left-color: #ef6b6b;
-    background: #1a0a0a;
-  }
-
-  .action-icon {
-    font-size: 0.85em;
-    flex-shrink: 0;
-    margin-top: 1px;
-  }
-
-  .action-content {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .action-label {
-    font-size: 0.75em;
-    color: #ececf1;
-    font-weight: 500;
-  }
-
-  .action-detail {
-    font-size: 0.65em;
-    color: #6b7280;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .action-status {
-    font-size: 0.7em;
-    flex-shrink: 0;
-  }
-
-  .action-status.success {
-    color: #7fd288;
-  }
-
-  .action-status.error {
-    color: #ef6b6b;
   }
 </style>

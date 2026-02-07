@@ -163,7 +163,7 @@ Use `navigation` when the user wants to GO TO a specific website or URL.
 **Examples:**
 | Query | Intent | target_url | goal |
 |-------|--------|------------|------|
-| "go to reef2reef.com and find popular threads" | navigation | https://reef2reef.com | find popular threads |
+| "go to forum.example.com and find popular threads" | navigation | https://forum.example.com | find popular threads |
 | "visit amazon.com" | navigation | https://amazon.com | browse site |
 | "take me to reddit" | navigation | https://reddit.com | browse site |
 | "check newegg for deals" | navigation | https://newegg.com | find deals |
@@ -192,7 +192,7 @@ Use `site_search` when the user wants to SEARCH FOR something ON a specific site
 |-------|--------|-----------|-------------|
 | "find hamster care guides on reddit" | site_search | reddit.com | hamster care guides |
 | "search amazon for rtx 4080" | site_search | amazon.com | rtx 4080 |
-| "what does reef2reef say about protein skimmers" | site_search | reef2reef.com | protein skimmers |
+| "what does forum.example.com say about protein skimmers" | site_search | forum.example.com | protein skimmers |
 
 ### Key Distinction
 - **Navigation**: User names a site and wants to GO THERE → use `navigation` with `target_url`
@@ -204,12 +204,12 @@ When query has BOTH navigation AND a task (e.g., "go to X and find Y"), use `nav
 - Set `target_url` to the site
 - Set `goal` to describe the task
 
-Example: "visit reef2reef.com and tell me what the popular threads are"
+Example: "visit forum.example.com and tell me what the popular threads are"
 ```json
 {
   "intent": "navigation",
   "intent_metadata": {
-    "target_url": "https://reef2reef.com",
+    "target_url": "https://forum.example.com",
     "goal": "find popular threads"
   }
 }

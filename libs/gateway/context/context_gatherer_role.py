@@ -40,7 +40,7 @@ class ContextGathererRole:
 
     Usage:
         gatherer = ContextGathererRole(session_id="default")
-        context_doc = gatherer.gather(query="What's my current project status?", turn_number=743)
+        context_doc = gatherer.gather(query="What's my favorite hamster?", turn_number=743)
         # context_doc now has §0 (query) and §1 (gathered context)
     """
 

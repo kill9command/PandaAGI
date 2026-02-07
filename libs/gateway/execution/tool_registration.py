@@ -71,6 +71,7 @@ class ToolRegistrar:
                 goal=goal,
                 intent=intent,
                 context=context,
+                task=task,
                 max_visits=max_visits,
                 **kwargs
             )

@@ -109,7 +109,7 @@ Assign confidence to each decision:
 
 **Vendors:**
 1. Chewy.com (source: intelligence)
-2. Poppy Bee Hamstery (source: intelligence)
+2. Example Pet Store (source: intelligence)
 3. Petfinder.com (source: intelligence)
 4. PetSmart (source: intelligence)
 

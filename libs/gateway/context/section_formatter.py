@@ -173,22 +173,49 @@ class SectionFormatter:
 """
 
         # Format research results clearly for executor to see
-        if tool == "internet.research":
-            findings = result.get("findings", [])
-            findings_count = len(findings)
+        # Handles both legacy internet.research and workflow:intelligence_search
+        is_research = (
+            tool == "internet.research" or
+            tool.startswith("workflow:intelligence")
+        )
 
-            if findings_count > 0 and status == "success":
-                # Show clear success with extracted content
-                # Use longer summary (500 chars) so executor can see actual data
+        if is_research:
+            # Try new intelligence format first, fall back to legacy findings
+            intelligence = result.get("intelligence", {}) if result else {}
+            findings = result.get("findings", []) if result else []
+
+            if intelligence:
+                # New workflow format: {intelligence: {key_facts: [], recommendations: []}}
+                key_facts = intelligence.get("key_facts", [])
+                recommendations = intelligence.get("recommendations", [])
+                findings_count = len(key_facts) + len(recommendations)
+
                 findings_summary = []
-                for i, f in enumerate(findings[:5]):  # Show up to 5
-                    title = f.get("title", f.get("name", ""))
-                    summary = f.get("summary", f.get("statement", ""))[:500]  # 500 chars for useful context
-                    if title or summary:
-                        findings_summary.append(f"  {i+1}. {title}: {summary}...")
+                for i, fact in enumerate(key_facts[:4]):
+                    findings_summary.append(f"  - {fact[:200]}")
+                if recommendations:
+                    findings_summary.append(f"  - **Recommendations:** {len(recommendations)} items")
 
                 findings_text = "\n".join(findings_summary) if findings_summary else "  (content extracted)"
+            else:
+                # Legacy format: {findings: [{title, summary}, ...]}
+                findings_count = len(findings)
+                findings_summary = []
+                for i, f in enumerate(findings[:5]):
+                    title = f.get("title", f.get("name", ""))
+                    summary = f.get("summary", f.get("statement", ""))[:500]
+                    if title or summary:
+                        findings_summary.append(f"  {i+1}. {title}: {summary}...")
+                findings_text = "\n".join(findings_summary) if findings_summary else "  (content extracted)"
 
+            # Extract source URLs from top-level result (not inside intelligence dict)
+            sources = result.get("sources", []) if result else []
+            sources_text = ""
+            if sources:
+                sources_lines = [f"  - {url}" for url in sources[:10]]
+                sources_text = f"\n**Sources:**\n" + "\n".join(sources_lines)
+
+            if findings_count > 0 and status == "success":
                 return f"""### Executor Iteration {iteration}
 **Action:** COMMAND
 **Command:** {command}
@@ -198,6 +225,7 @@ class SectionFormatter:
 **✅ RESEARCH SUCCEEDED:** Found {findings_count} result(s), extracted {len(claims)} claim(s)
 **Findings:**
 {findings_text}
+{sources_text}
 
 **Status:** Research complete - sufficient data gathered. Consider COMPLETE if goal achieved.
 """

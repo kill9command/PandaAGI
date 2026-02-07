@@ -254,7 +254,7 @@ If routing to executor, define WHAT needs to be accomplished:
 ```
 
 ### Example 5: Web navigation (non-code query) → executor
-**§0:** "go to reef2reef.com and tell me what the popular topics are"
+**§0:** "go to forum.example.com and tell me what the popular topics are"
 **§1:** Repository Context present (but irrelevant)
 
 ```json
@@ -262,7 +262,7 @@ If routing to executor, define WHAT needs to be accomplished:
   "_type": "STRATEGIC_PLAN",
   "route_to": "executor",
   "goals": [
-    {"id": "GOAL_1", "description": "Find popular topics on reef2reef.com", "priority": "high"}
+    {"id": "GOAL_1", "description": "Find popular topics on forum.example.com", "priority": "high"}
   ],
   "approach": "Navigate to the forum and identify trending discussions",
   "success_criteria": "Have list of current popular topics",

@@ -6,29 +6,38 @@ All user-specific data is stored under panda_system_docs/obsidian_memory/Users/{
 
 Structure:
     panda_system_docs/obsidian_memory/
-    ├── Users/                          # Per-user data
-    │   ├── user1/
-    │   │   ├── turns/                  # Conversation history
-    │   │   ├── sessions/               # Session state
-    │   │   ├── transcripts/            # Chat transcripts
-    │   │   ├── preferences.md          # User preferences
-    │   │   └── Projects/               # User projects
-    │   └── default/
-    │       └── ...
-    │
-    ├── Knowledge/                      # SHARED across all users
-    │   ├── Research/
-    │   ├── Products/
-    │   └── Concepts/
-    │
-    └── ... (other shared dirs)
+    ├── Meta/                           # GLOBAL — config, templates, schemas
+    ├── Tools/                          # GLOBAL — tool documentation
+    ├── README.md
+    └── Users/
+        └── default/
+            ├── turns/                  # Conversation history
+            ├── sessions/               # Session state
+            ├── preferences.md          # User preferences
+            ├── Projects/               # User projects
+            ├── Knowledge/              # Per-user knowledge base
+            │   ├── Research/
+            │   ├── Products/
+            │   ├── Concepts/
+            │   ├── Facts/
+            │   ├── Vendors/
+            │   ├── Sites/
+            │   ├── Topics/
+            │   └── People/
+            ├── Beliefs/                # Per-user beliefs
+            ├── Improvements/           # Per-user improvement principles
+            │   └── Principles/
+            ├── Maps/                   # Per-user maps
+            ├── Logs/                   # Per-user logs
+            │   └── Changes/
+            └── Indexes/                # Per-user indexes
 
 Usage:
     from libs.gateway.persistence.user_paths import UserPathResolver
 
-    resolver = UserPathResolver(user_id="user1")
-    turns_dir = resolver.turns_dir      # panda_system_docs/obsidian_memory/Users/user1/turns
-    sessions_dir = resolver.sessions_dir  # panda_system_docs/obsidian_memory/Users/user1/sessions
+    resolver = UserPathResolver(user_id="default")
+    turns_dir = resolver.turns_dir          # .../Users/default/turns
+    knowledge_dir = resolver.knowledge_dir  # .../Users/default/Knowledge
 """
 
 from pathlib import Path
@@ -40,6 +49,8 @@ class UserPathResolver:
     Resolves paths for per-user data directories.
 
     Centralizes path computation to ensure consistency across all components.
+    All memory categories (Knowledge, Beliefs, Maps, etc.) are per-user.
+    Only Meta/ and Tools/ are global.
     """
 
     # Base paths
@@ -48,11 +59,9 @@ class UserPathResolver:
     USERS_DIR = OBSIDIAN_MEMORY / "Users"
     DEFAULT_USER = "default"
 
-    # Shared knowledge paths (not per-user)
-    KNOWLEDGE_DIR = OBSIDIAN_MEMORY / "Knowledge"
-    BELIEFS_DIR = OBSIDIAN_MEMORY / "Beliefs"
-    MAPS_DIR = OBSIDIAN_MEMORY / "Maps"
+    # Global paths (shared across all users)
     META_DIR = OBSIDIAN_MEMORY / "Meta"
+    TOOLS_DIR = OBSIDIAN_MEMORY / "Tools"
 
     def __init__(self, user_id: Optional[str] = None):
         """
@@ -63,6 +72,8 @@ class UserPathResolver:
         """
         self.user_id = user_id if user_id else self.DEFAULT_USER
         self._user_dir = self.USERS_DIR / self.user_id
+
+    # === Per-user directories ===
 
     @property
     def user_dir(self) -> Path:
@@ -99,6 +110,36 @@ class UserPathResolver:
         """Directory for user memory (legacy compatibility)."""
         return self._user_dir / "memory"
 
+    @property
+    def knowledge_dir(self) -> Path:
+        """Per-user knowledge directory (Research, Products, Concepts, Facts, etc.)."""
+        return self._user_dir / "Knowledge"
+
+    @property
+    def beliefs_dir(self) -> Path:
+        """Per-user beliefs directory."""
+        return self._user_dir / "Beliefs"
+
+    @property
+    def maps_dir(self) -> Path:
+        """Per-user maps directory."""
+        return self._user_dir / "Maps"
+
+    @property
+    def improvements_dir(self) -> Path:
+        """Per-user improvements directory."""
+        return self._user_dir / "Improvements"
+
+    @property
+    def logs_dir(self) -> Path:
+        """Per-user logs directory."""
+        return self._user_dir / "Logs"
+
+    @property
+    def indexes_dir(self) -> Path:
+        """Per-user indexes directory."""
+        return self._user_dir / "Indexes"
+
     def ensure_dirs(self) -> None:
         """Create all user directories if they don't exist."""
         self.turns_dir.mkdir(parents=True, exist_ok=True)
@@ -106,8 +147,16 @@ class UserPathResolver:
         self.transcripts_dir.mkdir(parents=True, exist_ok=True)
         self.projects_dir.mkdir(parents=True, exist_ok=True)
         self.memory_dir.mkdir(parents=True, exist_ok=True)
+        # Knowledge subdirs
+        for subdir in ["Research", "Products", "Concepts", "Facts", "Vendors", "Sites", "Topics", "People"]:
+            (self.knowledge_dir / subdir).mkdir(parents=True, exist_ok=True)
+        self.beliefs_dir.mkdir(parents=True, exist_ok=True)
+        self.maps_dir.mkdir(parents=True, exist_ok=True)
+        (self.improvements_dir / "Principles").mkdir(parents=True, exist_ok=True)
+        (self.logs_dir / "Changes").mkdir(parents=True, exist_ok=True)
+        self.indexes_dir.mkdir(parents=True, exist_ok=True)
 
-    # Class methods for static access without instantiation
+    # === Class methods for static access without instantiation ===
 
     @classmethod
     def get_turns_dir(cls, user_id: Optional[str] = None) -> Path:
@@ -145,24 +194,38 @@ class UserPathResolver:
         uid = user_id if user_id else cls.DEFAULT_USER
         return cls.USERS_DIR / uid / "memory"
 
-    # Shared paths (same for all users)
+    @classmethod
+    def get_knowledge_dir(cls, user_id: Optional[str] = None) -> Path:
+        """Get per-user knowledge directory."""
+        uid = user_id if user_id else cls.DEFAULT_USER
+        return cls.USERS_DIR / uid / "Knowledge"
 
     @classmethod
-    def get_knowledge_dir(cls) -> Path:
-        """Get shared knowledge directory."""
-        return cls.KNOWLEDGE_DIR
+    def get_beliefs_dir(cls, user_id: Optional[str] = None) -> Path:
+        """Get per-user beliefs directory."""
+        uid = user_id if user_id else cls.DEFAULT_USER
+        return cls.USERS_DIR / uid / "Beliefs"
 
     @classmethod
-    def get_research_dir(cls) -> Path:
-        """Get shared research directory."""
-        return cls.KNOWLEDGE_DIR / "Research"
+    def get_maps_dir(cls, user_id: Optional[str] = None) -> Path:
+        """Get per-user maps directory."""
+        uid = user_id if user_id else cls.DEFAULT_USER
+        return cls.USERS_DIR / uid / "Maps"
 
     @classmethod
-    def get_products_dir(cls) -> Path:
-        """Get shared products knowledge directory."""
-        return cls.KNOWLEDGE_DIR / "Products"
+    def get_improvements_dir(cls, user_id: Optional[str] = None) -> Path:
+        """Get per-user improvements directory."""
+        uid = user_id if user_id else cls.DEFAULT_USER
+        return cls.USERS_DIR / uid / "Improvements"
 
     @classmethod
-    def get_concepts_dir(cls) -> Path:
-        """Get shared concepts directory."""
-        return cls.KNOWLEDGE_DIR / "Concepts"
+    def get_logs_dir(cls, user_id: Optional[str] = None) -> Path:
+        """Get per-user logs directory."""
+        uid = user_id if user_id else cls.DEFAULT_USER
+        return cls.USERS_DIR / uid / "Logs"
+
+    @classmethod
+    def get_indexes_dir(cls, user_id: Optional[str] = None) -> Path:
+        """Get per-user indexes directory."""
+        uid = user_id if user_id else cls.DEFAULT_USER
+        return cls.USERS_DIR / uid / "Indexes"

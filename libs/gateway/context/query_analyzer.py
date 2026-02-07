@@ -31,7 +31,7 @@ class ContentReference:
     """Reference to specific content from previous turns."""
     title: str                          # Exact title
     content_type: str                   # "thread", "article", "product", "video", "post"
-    site: Optional[str] = None          # "reddit.com", "reef2reef.com"
+    site: Optional[str] = None          # "reddit.com", "forum.example.com"
     source_turn: Optional[int] = None   # Which turn this was discussed in
     prior_findings: Optional[str] = None  # Summary of what we already know
 
@@ -46,52 +46,31 @@ class QueryAnalysis:
     """
     Output from Query Analyzer role (Phase 1).
 
-    This uses natural language user_purpose instead of rigid intent categories.
-    Downstream LLM roles read user_purpose to understand what the user wants.
+    MINIMAL OUTPUT - Query Analyzer only does:
+    1. Detect junk queries
+    2. Resolve pronouns
+    3. Describe user intent
+
+    All other analysis (data requirements, URL lookups) is done by downstream phases.
     """
 
     # Original user input before resolution
     original_query: str = ""
 
-    # The resolved query - explicit and unambiguous
+    # The resolved query - pronouns replaced with explicit references
     resolved_query: str = ""
 
-    # =========================================================================
-    # NEW: Natural Language User Purpose (replaces rigid intent categories)
-    # =========================================================================
-
-    # Natural language statement of what the user wants (2-4 sentences)
-    # Captures: what they want, why, priorities, constraints, relationship to prior turns
-    # Example: "User wants to find and buy the cheapest laptop with nvidia GPU.
-    #          Price is the top priority. This continues their previous search."
+    # Natural language statement of what the user wants (1-2 sentences)
     user_purpose: str = ""
-
-    # Legacy action classification (deprecated; retained for backward compatibility)
-    action_needed: Optional[str] = None
-
-    # What kind of data is needed to satisfy the request
-    # Example: {"needs_current_prices": true, "needs_product_urls": true, "freshness_required": "< 1 hour"}
-    data_requirements: Dict[str, Any] = None
 
     # Reference resolution details
     reference_resolution: Dict[str, Any] = None
 
-    # Legacy prior-context relationship (deprecated; retained for backward compatibility)
-    prior_context: Optional[Dict[str, Any]] = None
-
-    # =========================================================================
-    # Mode and Reference Resolution
-    # =========================================================================
-
-    # Mode classification: "chat" or "code"
-    # Determines which tool set and prompts to use
-    mode: str = "chat"
-
     # Was reference resolution performed?
     was_resolved: bool = False
 
-    # If query references previous content
-    content_reference: Optional[ContentReference] = None
+    # Is this query garbled/junk?
+    is_junk: bool = False
 
     # Reasoning for debugging
     reasoning: str = ""
@@ -100,14 +79,21 @@ class QueryAnalysis:
     validation: Dict[str, Any] = None
 
     # =========================================================================
-    # Multi-task detection (Panda Loop)
+    # LEGACY FIELDS (retained for backward compatibility during migration)
+    # These should NOT be set by Query Analyzer - downstream phases handle them
     # =========================================================================
 
-    # When True, the query requires multiple distinct tasks executed sequentially
-    is_multi_task: bool = False
+    # Mode - passed through from UI, not analyzed
+    mode: str = "chat"
 
-    # Task breakdown for multi-task queries
-    # Each task has: id, title, description, acceptance_criteria, priority, depends_on
+    # Content reference - enriched by Context Gatherer, not Query Analyzer
+    content_reference: Optional[ContentReference] = None
+
+    # Legacy fields (deprecated)
+    action_needed: Optional[str] = None
+    data_requirements: Dict[str, Any] = None
+    prior_context: Optional[Dict[str, Any]] = None
+    is_multi_task: bool = False
     task_breakdown: Optional[List[Dict[str, Any]]] = None
 
     def __post_init__(self):
@@ -129,18 +115,22 @@ class QueryAnalysis:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         result = {
+            # Core fields (Query Analyzer output)
             "original_query": self.original_query,
             "resolved_query": self.resolved_query,
             "user_purpose": self.user_purpose,
-            "data_requirements": self.data_requirements,
             "reference_resolution": self.reference_resolution,
-            "mode": self.mode,
             "was_resolved": self.was_resolved,
+            "is_junk": self.is_junk,
             "reasoning": self.reasoning,
             "validation": self.validation,
+            # Legacy fields (for backward compatibility)
+            "mode": self.mode,
+            "data_requirements": self.data_requirements,
             "is_multi_task": self.is_multi_task,
             "task_breakdown": self.task_breakdown if self.task_breakdown else None,
         }
+        # Optional legacy fields
         if self.action_needed is not None:
             result["action_needed"] = self.action_needed
         if self.prior_context:
@@ -298,7 +288,7 @@ class QueryAnalyzer:
         def build_prompt(retry_context: Optional[Dict[str, Any]] = None) -> str:
             prompt = (
                 prompt_template
-                + f"\n\n---\n\n## Actual Input\n\n```\nQUERY: {query}\nMODE: {mode}\n\nRECENT TURNS:\n{summaries_text}\n```"
+                + f"\n\n---\n\n## Actual Input\n\n```\nQUERY: {query}\n\nRECENT TURNS:\n{summaries_text}\n```"
             )
             if retry_context:
                 issues = _format_list(retry_context.get("issues") or [])
@@ -340,16 +330,9 @@ class QueryAnalyzer:
             validation = await self._run_validation(query, analysis)
         analysis.validation = validation
 
-        # Enrich with visit record info if there's a content reference
-        if analysis.content_reference:
-            analysis.content_reference = self._enrich_with_visit_record(
-                analysis.content_reference
-            )
-            # Also check extracted_links from previous turns' research.json
-            if not analysis.content_reference.source_url:
-                analysis.content_reference = self._enrich_with_extracted_links(
-                    analysis.content_reference, turn_number
-                )
+        # NOTE: URL enrichment (visit records, extracted links) is now handled by
+        # Context Gatherer (Phase 2), not Query Analyzer. Query Analyzer only
+        # resolves pronouns and describes user intent.
 
         if analysis.was_resolved:
             logger.info(f"[QueryAnalyzer] Resolved: '{query[:30]}...' → '{analysis.resolved_query[:50]}...'")
@@ -461,31 +444,56 @@ class QueryAnalyzer:
             title_matches = re.findall(r'["\*]{1,2}([^"*\n]{10,100})["\*]{1,2}', content)
             entities.extend(title_matches[:3])  # Limit to 3
 
+            # Extract §4 findings (key results from tool execution)
+            # These are critical for follow-up reference resolution
+            findings_summary = ""
+            if "## 4." in content:
+                try:
+                    section4 = content.split("## 4.")[1]
+                    # End at next top-level section
+                    for marker in ["## 5.", "## 6.", "---\n\n##"]:
+                        if marker in section4:
+                            section4 = section4.split(marker)[0]
+                            break
+                    # Extract Findings lines (most information-dense)
+                    findings_lines = []
+                    for line in section4.split("\n"):
+                        line_s = line.strip()
+                        if line_s.startswith("- ") or line_s.startswith("**Findings:**"):
+                            findings_lines.append(line_s)
+                    if findings_lines:
+                        findings_summary = "\n".join(findings_lines)[:400]
+                except Exception:
+                    pass
+
             # Extract brief response summary
-            # Response may be in response.md OR in context.md section 5
+            # Response may be in response.md OR in context.md section 5/6
             response_summary = ""
             if response_path.exists():
                 try:
                     resp_content = response_path.read_text()
                     if "**Draft Response:**" in resp_content:
                         resp_section = resp_content.split("**Draft Response:**")[1]
-                        response_summary = resp_section.strip()[:200]
+                        response_summary = resp_section.strip()[:400]
                     else:
-                        response_summary = resp_content.strip()[:200]
+                        response_summary = resp_content.strip()[:400]
                 except Exception:
                     pass
 
-            # Fallback: extract from context.md section 5 if no response.md
-            if not response_summary and "## 5. Synthesis" in content:
-                try:
-                    section5 = content.split("## 5. Synthesis")[1]
-                    if "---" in section5:
-                        section5 = section5.split("---")[0]
-                    if "**Draft Response:**" in section5:
-                        resp_section = section5.split("**Draft Response:**")[1]
-                        response_summary = resp_section.strip()[:200]
-                except Exception:
-                    pass
+            # Fallback: extract from context.md section 5/6 if no response.md
+            if not response_summary:
+                for section_marker in ["## 6. Synthesis", "## 5. Synthesis"]:
+                    if section_marker in content:
+                        try:
+                            synth_section = content.split(section_marker)[1]
+                            if "---" in synth_section:
+                                synth_section = synth_section.split("---")[0]
+                            if "**Draft Response:**" in synth_section:
+                                resp_section = synth_section.split("**Draft Response:**")[1]
+                                response_summary = resp_section.strip()[:400]
+                                break
+                        except Exception:
+                            pass
 
             # Load prior turn's user_purpose from query_analysis.json if available
             prior_user_purpose = None
@@ -497,13 +505,26 @@ class QueryAnalyzer:
                 except Exception:
                     pass
 
+            # Load extracted links from research.json for reference resolution
+            # This enables follow-up queries like "tell me more about that thread"
+            extracted_links = []
+            research_path = turn_dir / "research.json"
+            if research_path.exists():
+                try:
+                    research_data = json.loads(research_path.read_text())
+                    extracted_links = research_data.get("extracted_links", [])
+                except Exception:
+                    pass
+
             return {
                 "turn": turn_number,
                 "user_query": user_query,
                 "topic": topic,
                 "entities": entities,
                 "response_summary": response_summary,
+                "findings_summary": findings_summary,  # §4 execution results for reference resolution
                 "user_purpose": prior_user_purpose,  # Include prior purpose for context
+                "extracted_links": extracted_links,  # Links with titles for reference resolution
             }
 
         except Exception as e:
@@ -668,8 +689,25 @@ class QueryAnalyzer:
                 lines.append(f"**Topic:** {s['topic']}")
             if s.get('entities'):
                 lines.append(f"**Key entities:** {', '.join(s['entities'][:3])}")
+            if s.get('findings_summary'):
+                lines.append(f"**Findings:** {s['findings_summary'][:250]}")
             if s.get('response_summary'):
-                lines.append(f"**Response:** {s['response_summary'][:150]}...")
+                lines.append(f"**Response:** {s['response_summary'][:200]}...")
+
+            # Include extracted links with titles for reference resolution
+            # This enables follow-up queries like "tell me more about that thread"
+            extracted_links = s.get('extracted_links', [])
+            if extracted_links:
+                lines.append("**Links mentioned:**")
+                for link in extracted_links[:10]:  # Limit to 10 links
+                    title = link.get('title', '')
+                    url = link.get('url', '')
+                    context = link.get('context', '')
+                    if title and url:
+                        if context:
+                            lines.append(f"  - \"{title}\" ({context}): {url}")
+                        else:
+                            lines.append(f"  - \"{title}\": {url}")
             lines.append("")
 
         return "\n".join(lines)
@@ -721,12 +759,12 @@ class QueryAnalyzer:
         }
 
     def _parse_response(self, original_query: str, response: str) -> QueryAnalysis:
-        """Parse LLM response into QueryAnalysis with user_purpose.
+        """Parse LLM response into QueryAnalysis.
 
-        Uses ForgivingParser for robust JSON extraction that handles:
-        - Trailing commas, single quotes, unquoted keys
-        - Python True/False/None literals
-        - Missing fields (provides defaults)
+        Simplified schema - Query Analyzer only outputs:
+        - resolved_query, user_purpose, reference_resolution, was_resolved, is_junk, reasoning
+
+        Uses ForgivingParser for robust JSON extraction.
 
         Raises:
             ValueError: If response contains no parseable JSON after all strategies.
@@ -736,17 +774,13 @@ class QueryAnalyzer:
         schema = {
             "resolved_query": {"type": "string", "default": original_query},
             "user_purpose": {"type": "string", "default": ""},
-            "data_requirements": {"type": "object", "default": {}},
             "reference_resolution": {
                 "type": "object",
                 "default": {"status": "not_needed", "original_references": [], "resolved_to": None}
             },
-            "mode": {"type": "string", "default": "chat"},
             "was_resolved": {"type": "boolean", "default": False},
-            "content_reference": {"type": "object", "default": None},
+            "is_junk": {"type": "boolean", "default": False},
             "reasoning": {"type": "string", "default": ""},
-            "is_multi_task": {"type": "boolean", "default": False},
-            "task_breakdown": {"type": "array", "default": None},
         }
         result = parser.parse(response, schema)
 
@@ -761,21 +795,6 @@ class QueryAnalyzer:
 
         data = result.data
 
-        # Extract content reference if present
-        content_ref = None
-        if data.get("content_reference"):
-            ref_data = data["content_reference"]
-            content_ref = ContentReference(
-                title=ref_data.get("title", ""),
-                content_type=ref_data.get("content_type", "unknown"),
-                site=ref_data.get("site"),
-                source_turn=ref_data.get("source_turn"),
-                prior_findings=ref_data.get("prior_findings"),
-                source_url=ref_data.get("source_url"),
-                has_visit_record=ref_data.get("has_visit_record", False),
-                visit_record_path=ref_data.get("visit_record_path")
-            )
-
         # Extract and validate reference resolution
         reference_resolution = data.get("reference_resolution") or {}
         status = reference_resolution.get("status", "not_needed")
@@ -788,41 +807,13 @@ class QueryAnalyzer:
             "resolved_to": reference_resolution.get("resolved_to"),
         }
 
-        # Extract multi-task detection
-        is_multi_task = data.get("is_multi_task", False)
-        task_breakdown = data.get("task_breakdown")
-
-        # Validate task breakdown if present
-        if is_multi_task and task_breakdown:
-            validated_tasks = []
-            for i, task in enumerate(task_breakdown):
-                validated_task = {
-                    "id": task.get("id", f"TASK-{i+1:03d}"),
-                    "title": task.get("title", f"Task {i+1}"),
-                    "description": task.get("description", ""),
-                    "acceptance_criteria": task.get("acceptance_criteria", []),
-                    "priority": task.get("priority", i + 1),
-                    "depends_on": task.get("depends_on", []),
-                    "status": "pending",
-                }
-                validated_tasks.append(validated_task)
-            task_breakdown = validated_tasks
-            logger.info(f"[QueryAnalyzer] Multi-task detected: {len(task_breakdown)} tasks")
-        else:
-            task_breakdown = None
-
         return QueryAnalysis(
             resolved_query=data.get("resolved_query", original_query),
             user_purpose=data.get("user_purpose", ""),
-            data_requirements=data.get("data_requirements", {}),
             reference_resolution=reference_resolution,
-            prior_context=data.get("prior_context"),
-            mode=data.get("mode", "chat"),
             was_resolved=data.get("was_resolved", False),
-            content_reference=content_ref,
+            is_junk=data.get("is_junk", False),
             reasoning=data.get("reasoning", ""),
-            is_multi_task=is_multi_task,
-            task_breakdown=task_breakdown,
         )
 
 

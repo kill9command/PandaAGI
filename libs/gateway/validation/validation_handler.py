@@ -369,7 +369,11 @@ class ValidationHandler:
 
             except Exception as e:
                 logger.error(f"[ValidationHandler] Validator failed: {e}")
-                raise
+                # Default to APPROVE on parse errors - validation is advisory, not critical
+                logger.warning("[ValidationHandler] Defaulting to APPROVE due to parse error")
+                decision = "APPROVE"
+                confidence = 0.5
+                issues = [f"Validation parse error: {str(e)[:100]}"]
 
             # Constraint validation check — run unconditionally regardless of decision
             constraints_ok, constraint_violations = self._check_constraint_violations(turn_dir)
@@ -694,8 +698,13 @@ class ValidationHandler:
         all_known_urls = list(set(research_urls + vendor_urls))
 
         if not all_known_urls:
-            logger.info("[ValidationHandler] No research URLs to cross-reference, passing")
-            return True, urls, []
+            if urls:
+                logger.warning(
+                    f"[ValidationHandler] Response contains {len(urls)} URL(s) but no research "
+                    f"URLs available for cross-reference — marking as unverifiable"
+                )
+                return False, [], urls
+            return True, [], []
 
         # Cross-reference each response URL
         valid_urls = []

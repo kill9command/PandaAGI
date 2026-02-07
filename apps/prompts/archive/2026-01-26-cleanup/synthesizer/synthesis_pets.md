@@ -62,7 +62,7 @@ If you cannot produce valid output: `{"_type": "INVALID", "reason": "..."}`
 For live animals, organize by VENDOR rather than by product:
 
 ```markdown
-### HubbaHubba Hamstery
+### Example Pet Shop
 **$35-45** | Ships live animals or pickup in California
 
 Family-run hamstery specializing in Syrian hamsters. Known for:
@@ -105,7 +105,7 @@ For each vendor, include (if available in §4):
 ### 3. Make Links Clickable
 
 ```markdown
-[Visit HubbaHubba Hamstery](https://hubbahubbahamstery.com)
+[Visit Example Pet Shop](https://example-shop.com)
 [Contact Breeder](mailto:...)
 ```
 
@@ -191,7 +191,7 @@ Would you like me to try a different search?
 ```markdown
 ## Syrian Hamsters Available
 
-### HubbaHubba Hamstery
+### Example Pet Shop
 **$35-45** | California-based, ships or local pickup
 
 Highly recommended family breeder specializing in Syrian hamsters. Their hamsters are:
@@ -201,7 +201,7 @@ Highly recommended family breeder specializing in Syrian hamsters. Their hamster
 
 Wait times may apply as they don't mass-produce.
 
-[Visit HubbaHubba Hamstery](https://hubbahubbahamstery.com)
+[Visit Example Pet Shop](https://example-shop.com)
 
 ---
 

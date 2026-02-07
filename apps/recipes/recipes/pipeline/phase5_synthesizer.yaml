@@ -1,0 +1,64 @@
+# Phase 6: Synthesizer (Unified) Recipe
+# User-facing response generation
+# Architecture: architecture/main-system-patterns/phase6-synthesis.md
+
+name: phase5_synthesizer
+category: pipeline
+phase: 6
+role: VOICE
+temperature: 0.7
+
+prompt_fragments:
+  - "apps/prompts/pipeline/phase5_synthesizer.md"
+
+input_docs:
+  - path: "context.md"
+    sections: ["0", "1", "2", "3", "4"]
+    path_type: "turn"
+    optional: false
+    max_tokens: 5000
+    description: "Sections 0-4: query, context, reflection, plan, execution results"
+  - path: "toolresults.md"
+    sections: ["all"]
+    path_type: "turn"
+    optional: true
+    max_tokens: 2000
+    description: "Full tool execution results with complete details"
+
+output_doc:
+  path: "context.md"
+  section: "6"
+  description: "Writes section 6 with response preview and validation checklist"
+
+secondary_output:
+  path: "response.md"
+  description: "Full response delivered to user"
+
+token_budget:
+  total: 12000
+  prompt: 1500
+  input_docs: 7000
+  output: 3100
+  buffer: 400
+
+llm_params:
+  temperature: 0.7
+  max_tokens: 3100
+
+output_schema: SYNTHESIS_RESPONSE
+
+description: |
+  Phase 6: Synthesizer (Unified) - User Voice
+
+  Uses VOICE role (temp=0.7) for natural, engaging communication.
+  This is the ONLY model the user "hears".
+
+  Handles both research and code response formatting.
+  Mode is visible in §0 — the LLM picks the right format.
+
+  **Key Constraints:**
+  1. Evidence-Only: ONLY use data from context.md/toolresults.md
+  2. URL Preservation: Prefer URLs from toolresults.md
+  3. Intent-Aware: Format adapts to query intent
+  4. §4 Priority: Fresh tool data takes precedence over §2
+  5. Source Metadata: Omit claims lacking url or source_ref

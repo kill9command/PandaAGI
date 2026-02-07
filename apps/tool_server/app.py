@@ -924,8 +924,8 @@ async def vendor_explore_catalog(inp: VendorCatalogIn):
     Example:
         POST /vendor.explore_catalog
         {
-            "vendor_url": "https://poppybeehamstery.com/",
-            "vendor_name": "Poppy Bee Hamstery",
+            "vendor_url": "https://example-breeder.com/",
+            "vendor_name": "Example Pet Store",
             "category": "available",
             "max_items": 20,
             "session_id": "default"
@@ -933,7 +933,7 @@ async def vendor_explore_catalog(inp: VendorCatalogIn):
 
     Returns:
         {
-            "vendor_name": "Poppy Bee Hamstery",
+            "vendor_name": "Example Pet Store",
             "items_found": 8,
             "items": [...],
             "contact_info": {...}

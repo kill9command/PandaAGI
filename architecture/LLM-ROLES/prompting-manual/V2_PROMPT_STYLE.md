@@ -139,7 +139,7 @@ Each example should demonstrate a **different pattern**, not the same pattern wi
 ```markdown
 # Phase 3: Strategic Planner
 
-**Role:** MIND (temp=0.5)
+**Role:** MIND (temp=0.6)
 **Reads:** sections 0, 1, 2
 **Writes:** section 3
 ```
@@ -249,7 +249,7 @@ wc -l apps/prompts/pipeline/*.md | sort -n
 ```markdown
 # Phase 0: Query Analyzer
 
-**Role:** REFLEX (temp=0.3)
+**Role:** REFLEX (temp=0.4)
 
 ## Example 1: Gaming Laptop Search
 
@@ -271,7 +271,7 @@ wc -l apps/prompts/pipeline/*.md | sort -n
 ```markdown
 # Phase 0: Query Analyzer
 
-Classify intent and resolve references.
+Classify action needed, capture user purpose, resolve references.
 
 ## Output Schema
 ```json

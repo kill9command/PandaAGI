@@ -1,7 +1,10 @@
 # Phase 1: Query Analyzer
 
-Analyze the user query to produce a **natural language statement** of what the user wants.
-Your `user_purpose` output flows to all downstream phases.
+You have ONE job: understand what the user is asking about.
+
+1. **Detect junk** - Is this query garbled nonsense? (rare)
+2. **Resolve references** - Replace pronouns AND implicit continuations with explicit references
+3. **Describe intent** - Brief statement of what user wants
 
 ---
 
@@ -9,151 +12,120 @@ Your `user_purpose` output flows to all downstream phases.
 
 ```json
 {
-  "resolved_query": "query with references made explicit",
-  "user_purpose": "Natural language statement of what the user wants (2-4 sentences)",
-  "data_requirements": {
-    "needs_current_prices": true | false,
-    "needs_product_urls": true | false,
-    "needs_live_data": true | false,
-    "freshness_required": "< 1 hour | < 24 hours | any | null"
-  },
+  "resolved_query": "[query with all references made explicit]",
+  "user_purpose": "[what the user wants in 1-2 sentences]",
   "reference_resolution": {
     "status": "not_needed | resolved | failed",
-    "original_references": ["string"],
-    "resolved_to": "string | null"
+    "original_references": ["[vague term]"],
+    "resolved_to": "[explicit entity from recent turns]"
   },
-  "mode": "chat | code",
   "was_resolved": true | false,
-  "content_reference": {
-    "title": "string or null",
-    "content_type": "thread | article | product | video | null",
-    "site": "string or null",
-    "source_turn": "number or null"
-  },
-  "reasoning": "brief explanation"
+  "is_junk": false,
+  "reasoning": "[brief explanation of resolution decision]"
 }
 ```
 
 ---
 
-## user_purpose Guidelines
+## Decision Logic
 
-Capture in natural language:
-1. **What** the user wants (product, information, action)
-2. **Why** (buying, learning, comparing, verifying)
-3. **Priorities** ("cheapest" = price, "best" = quality)
-4. **Constraints** (budget, requirements)
-5. **Relationship** to prior turns (if applicable, in narrative form)
+**Default assumption: the query continues the previous conversation.**
 
----
+```mermaid
+flowchart TD
+    A[New Query Arrives] --> B{Recent turns exist?}
+    B -->|No| C[status: not_needed]
+    B -->|Yes| D{Query clearly starts a NEW topic?}
+    D -->|Yes - names unrelated subject\nor says 'forget that / new search'| C
+    D -->|No - could relate to recent turns| E{Has pronouns or vague objects?\nit / that / the / some / them / those / any / one ...]
+    E -->|Yes| F[Replace pronouns with entities\nfrom recent turns]
+    E -->|No| G[Enrich query with\nsite/topic/entity from recent turns\nif the query makes more sense with N-1 context]
+    F --> H[status: resolved]
+    G --> H
+```
 
-## data_requirements
+### When is a query NOT a continuation?
 
-| Flag | When True |
-|------|-----------|
-| `needs_current_prices` | Shopping, price comparison |
-| `needs_product_urls` | User will click to buy |
-| `needs_live_data` | "today", "now", "current", "check again" |
-| `freshness_required` | < 1 hour for prices, < 24 hours for reviews |
+| Signal | Example | Result |
+|--------|---------|--------|
+| Names a completely different subject | N-1 discussed `[site_A]`, query asks about `[unrelated_topic]` | `not_needed` |
+| Explicit redirect | "forget that, look up `[new_thing]`" | `not_needed` |
+| Greeting / meta | "hello" / "thanks" | `not_needed` |
 
----
+### When IS a query a continuation?
 
-## Reference Resolution
-
-If the query contains references (e.g., "that thread", "it", "the article"):
-- Extract the reference phrases into `original_references`
-- Resolve them using the recent turn summaries
-- If resolution fails, set `status` to `failed` and leave `resolved_to` as null
-
----
-
-## Mode (UI-Provided)
-
-Mode is provided by the UI toggle. **Do not infer or change it.**
-Echo the provided mode as-is.
+| Signal | Example | Result |
+|--------|---------|--------|
+| Explicit pronoun | "tell me more about **that**" | `resolved` - replace with entity from N-1 |
+| Definite article | "what are **the** trending threads" (N-1 was on `[site]`) | `resolved` - enrich with `[site]` |
+| Same domain, different angle | N-1 asked about `[topic_A]` on `[site]`, query asks about `[topic_B]` | `resolved` - enrich with `[site]` |
+| Indefinite pronoun | "find **some** for sale" / "tell me about **them**" (N-1 discussed `[entity]`) | `resolved` - replace with entity from N-1 |
+| Vague follow-up | "what else?" / "any more?" | `resolved` - inherit topic from N-1 |
 
 ---
 
 ## Examples
 
-### Example 1: Commerce Query
+### Example 1: New Topic (No Recent Context)
 
 **Query:** `[adjective] [product] with [feature]`
 
 ```json
 {
   "resolved_query": "[adjective] [product] with [feature]",
-  "user_purpose": "User wants to find and buy [product] with [feature]. [Priority word] indicates [price/quality] priority. Needs current prices from retailers with clickable URLs.",
-  "data_requirements": {
-    "needs_current_prices": true,
-    "needs_product_urls": true,
-    "needs_live_data": true,
-    "freshness_required": "< 1 hour"
-  },
-  "reference_resolution": {
-    "status": "not_needed",
-    "original_references": [],
-    "resolved_to": null
-  },
-  "mode": "chat",
+  "user_purpose": "User wants to find [product] matching [criteria].",
+  "reference_resolution": {"status": "not_needed", "original_references": [], "resolved_to": null},
   "was_resolved": false,
-  "content_reference": null,
-  "reasoning": "Commerce query with [priority]. Needs live search."
+  "is_junk": false,
+  "reasoning": "Query is self-contained, no connection to recent turns."
 }
 ```
 
-### Example 2: Verification Follow-up
+### Example 2: Explicit Pronoun Resolution
 
-**Query:** `check again` / `verify` / `refresh`
+**Query:** `what did they say about that?`
+**Recent turns:** N-1 discussed `[thread_title]` on `[forum_site]`
 
 ```json
 {
-  "resolved_query": "search again for [prior topic]",
-  "user_purpose": "User wants to verify/refresh results from prior search. 'Check again' = wants NEW data, not cached. Run fresh research.",
-  "data_requirements": {
-    "needs_current_prices": true,
-    "needs_product_urls": true,
-    "needs_live_data": true,
-    "freshness_required": "< 1 hour"
-  },
-  "reference_resolution": {
-    "status": "resolved",
-    "original_references": ["check again"],
-    "resolved_to": "refresh results for [prior topic]"
-  },
-  "mode": "chat",
+  "resolved_query": "what did they say about [thread_title] on [forum_site]?",
+  "user_purpose": "User wants details from the [forum_site] thread discussed previously.",
+  "reference_resolution": {"status": "resolved", "original_references": ["they", "that"], "resolved_to": "[thread_title] on [forum_site]"},
   "was_resolved": true,
-  "content_reference": {
-    "content_type": "product",
-    "source_turn": "[N-1]"
-  },
-  "reasoning": "'Check again' = verification request. Wants fresh data."
+  "is_junk": false,
+  "reasoning": "Resolved 'that' and 'they' to [thread_title] from turn N-1."
 }
 ```
 
-### Example 3: Informational Query
+### Example 3: Implicit Continuation (No Pronouns)
 
-**Query:** `how do I [task]` / `what is [topic]`
+**Query:** `show me the trending threads`
+**Recent turns:** N-1 visited `[site]` and listed popular topics.
 
 ```json
 {
-  "resolved_query": "how do I [task]",
-  "user_purpose": "User wants to learn about [topic]. Informational - not buying. Evergreen knowledge from guides is appropriate.",
-  "data_requirements": {
-    "needs_current_prices": false,
-    "needs_product_urls": false,
-    "needs_live_data": false,
-    "freshness_required": "any"
-  },
-  "reference_resolution": {
-    "status": "not_needed",
-    "original_references": [],
-    "resolved_to": null
-  },
-  "mode": "chat",
-  "was_resolved": false,
-  "content_reference": null,
-  "reasoning": "Informational query. Evergreen knowledge acceptable."
+  "resolved_query": "show me the trending threads on [site]",
+  "user_purpose": "User wants trending threads on [site]. Continues previous conversation.",
+  "reference_resolution": {"status": "resolved", "original_references": ["the trending threads"], "resolved_to": "trending threads on [site]"},
+  "was_resolved": true,
+  "is_junk": false,
+  "reasoning": "No pronouns, but query continues [site] context from N-1. Enriched with site name."
+}
+```
+
+### Example 4: Indefinite Pronoun ("some", "them")
+
+**Query:** `can you find some for sale online for me`
+**Recent turns:** N-1 confirmed user's favorite `[entity_type]` is `[specific_entity]`.
+
+```json
+{
+  "resolved_query": "can you find [specific_entity] for sale online for me",
+  "user_purpose": "User wants to find [specific_entity] for sale online.",
+  "reference_resolution": {"status": "resolved", "original_references": ["some"], "resolved_to": "[specific_entity] from N-1"},
+  "was_resolved": true,
+  "is_junk": false,
+  "reasoning": "'some' refers to [specific_entity] discussed in N-1. Query makes no sense without this context."
 }
 ```
 
@@ -161,7 +133,8 @@ Echo the provided mode as-is.
 
 ## Do NOT
 
-- Include concrete product names, brands, or prices in reasoning
-- Guess at unstated user intent
-- Set `needs_current_prices` for informational queries
-- Miss "check again" / "verify" as verification requests
+- Analyze data requirements (Planner does this)
+- Look up URLs (Context Gatherer does this)
+- Decide what tools to use (Executor does this)
+- Invent context that isn't in the recent turns - only use what's there
+- Treat a vague query as standalone when recent turns provide obvious context

@@ -132,7 +132,7 @@ class KnowledgeGraphDB:
     Manages entity extraction, relationships, and backlinks.
 
     This is the central storage for Panda's knowledge graph, enabling:
-    - Entity-centric memory (what do we know about "Poppybee Hamstery"?)
+    - Entity-centric memory (what do we know about "Example Pet Store"?)
     - Relationship queries (who sells "Syrian Hamsters"?)
     - Backlink navigation (what documents link to this one?)
 
@@ -142,8 +142,8 @@ class KnowledgeGraphDB:
         # Add entity
         vendor_id = kg.add_entity(
             entity_type="vendor",
-            canonical_name="Poppybee Hamstery",
-            aliases=["poppybee"],
+            canonical_name="Example Pet Store",
+            aliases=["example-petstore"],
             data={"url": "https://...", "location": "TX"}
         )
 

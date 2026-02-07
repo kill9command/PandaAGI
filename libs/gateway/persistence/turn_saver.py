@@ -70,6 +70,16 @@ except ImportError:
     format_research_content = None
     format_product_content = None
 
+# Import batch memory reflector signal accumulator (Phase 8.1)
+try:
+    from libs.gateway.persistence.reflector_signal import update_signals as _update_reflector_signals
+    from libs.gateway.persistence.batch_reflector import BatchReflector
+    REFLECTOR_AVAILABLE = True
+except ImportError:
+    REFLECTOR_AVAILABLE = False
+    _update_reflector_signals = None
+    BatchReflector = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -169,6 +179,9 @@ class TurnSaver:
         # Save response.md
         (turn_dir / "response.md").write_text(response)
 
+        # Extract and save links from response for follow-up query routing
+        self._extract_and_save_response_links(turn_dir, response)
+
         # Save optional documents
         if ticket_content:
             (turn_dir / "ticket.md").write_text(ticket_content)
@@ -209,8 +222,14 @@ class TurnSaver:
         # This compares new findings with prior turns and downgrades outdated info
         self.schedule_freshness_analysis(context_doc, validation_result, turn_dir)
 
-        # Schedule turn summary generation (background task - appends to context.md)
-        self.schedule_turn_summary(context_doc, turn_dir)
+        # Update batch memory reflector signals (Phase 8.1)
+        # Non-blocking: accumulates signals and triggers batch reflection when thresholds met
+        self._check_reflector_signals(context_doc, metadata, validation_result, turn_dir)
+
+        # NOTE: Turn summary generation removed (2026-02-06).
+        # Search-first retrieval (v2.0) indexes full context.md via BM25 + embeddings,
+        # making pre-computed LLM summaries unnecessary. Removing this eliminates a
+        # background LLM call that competed with the next turn's inference on the GPU.
 
         # Self-learning: Record outcome and trigger extraction if LEARN
         await self._process_learning(
@@ -349,6 +368,13 @@ class TurnSaver:
         combined_text = f"{context_doc.query} {response}"
         keywords = extract_keywords(combined_text, max_keywords=10)
 
+        # Also extract specific_items from toolresults (thread titles, product names, etc.)
+        # These are critical for follow-up query matching
+        specific_items = self._extract_specific_items(toolresults_content)
+        if specific_items:
+            # Add specific items to keywords (they're more important than frequency-based keywords)
+            keywords = specific_items[:10] + [k for k in keywords if k not in specific_items][:5]
+
         # Extract learning fields
         validation_outcome = ""
         quality_score = response_quality  # Default to response_quality
@@ -405,6 +431,100 @@ class TurnSaver:
         query_words = context_doc.query.split()[:5]
         return " ".join(query_words)
 
+    def _extract_and_save_response_links(self, turn_dir: Path, response: str) -> None:
+        """
+        Extract markdown links from response and save to research.json.
+
+        This enables follow-up query routing: when user asks "tell me more about
+        that thread", the Query Analyzer can find the URL from prior turn's
+        research.json and route directly to it.
+
+        Format expected by QueryAnalyzer._enrich_with_extracted_links():
+        {
+            "extracted_links": [
+                {"title": "Thread Title", "url": "https://...", "context": "optional"}
+            ]
+        }
+        """
+        # Extract markdown links: [text](url)
+        link_pattern = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
+        matches = link_pattern.findall(response)
+
+        if not matches:
+            return
+
+        extracted_links = []
+        seen_urls = set()
+
+        for link_text, url in matches:
+            # Skip if already seen (dedupe)
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+
+            # Skip generic link text like "Source" - try to extract context
+            title = link_text.strip()
+            context = ""
+
+            # If link text is generic, try to find preceding context
+            if title.lower() in ("source", "link", "here", "click here"):
+                # Look for quoted text before the link
+                # Pattern: "Actual Title" ([Source](url))
+                quote_pattern = re.compile(
+                    r'["\*]+([^"\*\n]{5,100})["\*]+\s*\(\[' + re.escape(link_text) + r'\]'
+                )
+                quote_match = quote_pattern.search(response)
+                if quote_match:
+                    title = quote_match.group(1).strip()
+                else:
+                    # Try finding **Bold Text**: before the link
+                    bold_pattern = re.compile(
+                        r'\*\*([^*]+)\*\*[:\s]*[^(]*\(\[' + re.escape(link_text) + r'\]'
+                    )
+                    bold_match = bold_pattern.search(response)
+                    if bold_match:
+                        context = bold_match.group(1).strip()
+
+            # Add to extracted links if we have a title or URL
+            if title or url:
+                link_entry = {
+                    "title": title,
+                    "url": url,
+                }
+                if context:
+                    link_entry["context"] = context
+
+                extracted_links.append(link_entry)
+
+        if not extracted_links:
+            return
+
+        # Load existing research.json or create new
+        research_path = turn_dir / "research.json"
+        research_data = {}
+
+        if research_path.exists():
+            try:
+                research_data = json.loads(research_path.read_text())
+            except json.JSONDecodeError:
+                pass
+
+        # Add or merge extracted_links
+        existing_links = research_data.get("extracted_links", [])
+        existing_urls = {link.get("url") for link in existing_links}
+
+        for link in extracted_links:
+            if link.get("url") not in existing_urls:
+                existing_links.append(link)
+
+        research_data["extracted_links"] = existing_links
+
+        # Save research.json
+        with open(research_path, 'w') as f:
+            json.dump(research_data, f, indent=2)
+
+        logger.info(f"[TurnSaver] Extracted {len(extracted_links)} links from response to research.json")
+
     def _extract_action_needed(self, context_doc: ContextDocument) -> str:
         """
         Extract action_needed from the context document.
@@ -460,6 +580,38 @@ class TurnSaver:
                 workflows.add(match)
 
         return sorted(workflows)
+
+    def _extract_specific_items(self, toolresults_content: Optional[str]) -> List[str]:
+        """Extract specific_items from toolresults (thread titles, product names, etc.).
+
+        These are critical for follow-up query matching - e.g., if the response
+        listed "Carbon Dosing" as a topic, we need that in keywords so a query
+        like "tell me more about Carbon Dosing" can find this turn.
+        """
+        if not toolresults_content:
+            return []
+
+        items = []
+        try:
+            # Look for intelligence.specific_items in JSON blocks
+            import json
+            json_blocks = re.findall(r'```json\s*(\{[\s\S]*?\})\s*```', toolresults_content)
+            for block in json_blocks:
+                try:
+                    data = json.loads(block)
+                    intelligence = data.get("intelligence", {})
+                    specific_items = intelligence.get("specific_items", [])
+                    if specific_items:
+                        # Take first 10 items, truncate long ones
+                        for item in specific_items[:10]:
+                            if isinstance(item, str) and len(item) < 100:
+                                items.append(item)
+                except json.JSONDecodeError:
+                    continue
+        except Exception as e:
+            logger.debug(f"[TurnSaver] Failed to extract specific_items: {e}")
+
+        return items
 
     def _extract_content_type(self, context_doc: ContextDocument) -> str:
         """Extract content type for decay/quality selection."""
@@ -806,6 +958,7 @@ class TurnSaver:
                         tags=research_content.get("tags", []),
                         source_urls=research_content.get("source_urls", []),
                         confidence=confidence,
+                        user_id=self.user_id,
                     )
                     logger.info(f"[TurnSaver] Saved research to memory: {topic} (confidence={confidence:.2f})")
                     saved_count += 1
@@ -825,6 +978,7 @@ class TurnSaver:
                     content=product,
                     tags=product.get("tags", []),
                     confidence=product.get("confidence", confidence),
+                    user_id=self.user_id,
                 )
                 logger.info(f"[TurnSaver] Saved product to memory: {product_name}")
                 saved_count += 1
@@ -836,6 +990,7 @@ class TurnSaver:
                     key=key,
                     value=value,
                     category=category,
+                    user_id=self.user_id,
                     source_turn=context_doc.turn_number,
                 )
                 logger.info(f"[TurnSaver] Saved preference: {key}={value}")
@@ -1176,6 +1331,52 @@ class TurnSaver:
             logger.debug(f"Appended Related Documents section with {len(links)} links to {context_path}")
 
     # =========================================================================
+    # BATCH MEMORY REFLECTOR (Phase 8.1 - Background Signal Accumulation)
+    # =========================================================================
+
+    def _check_reflector_signals(
+        self,
+        context_doc: ContextDocument,
+        metadata: TurnMetadata,
+        validation_result: Optional[Dict[str, Any]],
+        turn_dir: Path,
+    ):
+        """
+        Update reflector signal accumulator and trigger batch if thresholds met.
+
+        Per architecture/main-system-patterns/phase8.1-batch-memory-reflector.md:
+        - Signal detection is code-only (~1ms)
+        - Batch runs as background task when turn_count >= 10 or urgency >= 5.0
+        - Never fails the save operation
+        """
+        if not REFLECTOR_AVAILABLE:
+            return
+
+        try:
+            state, should_trigger, trigger_reason = _update_reflector_signals(
+                user_id=self.user_id,
+                query=context_doc.query,
+                topic=metadata.topic if metadata else "",
+                validation_result=validation_result,
+                quality_score=metadata.quality_score if metadata else 0.0,
+                section3_content=context_doc.get_section(3),
+                turn_dir=turn_dir,
+            )
+
+            if should_trigger:
+                logger.info(
+                    f"[TurnSaver] Batch reflector triggered ({trigger_reason}), "
+                    f"scheduling background task"
+                )
+                asyncio.create_task(
+                    BatchReflector(self.user_id).run_batch(state, trigger_reason)
+                )
+
+        except Exception as e:
+            # Never fail the save because of reflector
+            logger.debug(f"[TurnSaver] Reflector signal update failed: {e}")
+
+    # =========================================================================
     # FRESHNESS ANALYSIS (Background Task - runs after response sent)
     # =========================================================================
 
@@ -1218,144 +1419,6 @@ class TurnSaver:
             logger.info(f"[TurnSaver] Scheduled freshness analysis for turn {context_doc.turn_number}")
         except Exception as e:
             logger.warning(f"[TurnSaver] Failed to schedule freshness analysis: {e}")
-
-    # =========================================================================
-    # TURN SUMMARY (Background Task - runs after response sent)
-    # =========================================================================
-
-    def schedule_turn_summary(
-        self,
-        context_doc: ContextDocument,
-        turn_dir: Path
-    ):
-        """
-        Schedule turn summary generation as a background task.
-
-        This runs AFTER the response is sent to the user. It appends a final
-        Turn Summary section to context.md and updates the turn index.
-        """
-        if not FRESHNESS_ANALYZER_AVAILABLE:
-            logger.debug("[TurnSaver] Turn summary recipe not available - skipping")
-            return
-
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(self._run_turn_summary(context_doc, turn_dir))
-            else:
-                asyncio.run(self._run_turn_summary(context_doc, turn_dir))
-            logger.info(f"[TurnSaver] Scheduled turn summary for turn {context_doc.turn_number}")
-        except Exception as e:
-            logger.warning(f"[TurnSaver] Failed to schedule turn summary: {e}")
-
-    async def _run_turn_summary(
-        self,
-        context_doc: ContextDocument,
-        turn_dir: Path
-    ):
-        """Generate and append the turn summary to context.md and index."""
-        try:
-            recipe = load_recipe("pipeline/phase7_summarizer")
-            if not recipe:
-                logger.warning("[TurnSaver] Could not load phase7_summarizer recipe")
-                return
-
-            context_path = turn_dir / "context.md"
-            if not context_path.exists():
-                logger.warning("[TurnSaver] context.md missing - cannot generate summary")
-                return
-
-            doc_pack = DocPackBuilder(recipe)
-            doc_pack.add_document("context.md", context_path)
-            prompt = doc_pack.build()
-
-            llm_client = get_llm_client()
-            response = await llm_client.complete(
-                prompt=prompt,
-                temperature=0.3,
-                max_tokens=200
-            )
-
-            summary = self._parse_turn_summary(response)
-            if not summary:
-                logger.warning("[TurnSaver] Failed to parse turn summary output")
-                return
-
-            self._append_turn_summary_section(context_path, summary)
-            self._apply_turn_summary_to_index(context_doc, turn_dir, summary)
-
-        except Exception as e:
-            logger.warning(f"[TurnSaver] Turn summary generation failed: {e}")
-
-    def _parse_turn_summary(self, response: str) -> Optional[Dict[str, Any]]:
-        """Parse the LLM's turn summary JSON response."""
-        if not response:
-            return None
-
-        text = response.strip()
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            match = re.search(r'\{.*\}', text, re.DOTALL)
-            if not match:
-                return None
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError:
-                return None
-
-    def _append_turn_summary_section(
-        self,
-        context_path: Path,
-        summary: Dict[str, Any]
-    ) -> None:
-        """Append Turn Summary section to context.md (if missing)."""
-        content = context_path.read_text()
-        if "## 8. Turn Summary" in content or "## Turn Summary" in content:
-            return
-
-        summary_text = summary.get("summary", "").strip()
-        topics = summary.get("topics") or []
-        has_research = summary.get("has_research", False)
-        research_topic = summary.get("research_topic") if has_research else None
-
-        section = "\n---\n\n## 8. Turn Summary\n"
-        section += f"**Summary:** {summary_text}\n"
-        if topics:
-            section += f"**Topics:** {', '.join(topics)}\n"
-        section += f"**Has Research:** {str(bool(has_research)).lower()}\n"
-        section += f"**Research Topic:** {research_topic if research_topic else 'null'}\n"
-
-        with open(context_path, 'a') as f:
-            f.write(section)
-
-    def _apply_turn_summary_to_index(
-        self,
-        context_doc: ContextDocument,
-        turn_dir: Path,
-        summary: Dict[str, Any]
-    ) -> None:
-        """Update metadata and turn index with summary topics."""
-        metadata = TurnMetadata.load(turn_dir)
-        if not metadata:
-            return
-
-        summary_text = summary.get("summary", "").strip()
-        topics = summary.get("topics") or []
-
-        if summary_text:
-            metadata.topic = summary_text
-        if topics:
-            metadata.keywords = topics
-
-        if not metadata.action_needed:
-            metadata.action_needed = self._extract_action_needed(context_doc)
-
-        metadata.save(turn_dir)
-
-        user_id = getattr(context_doc, 'user_id', None) or self.user_id
-        search_index = TurnSearchIndex(context_doc.session_id, user_id=user_id)
-        search_index.index_turn(turn_dir, metadata)
 
     async def _run_freshness_analysis(
         self,

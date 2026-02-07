@@ -1,10 +1,10 @@
 # Phase 2.2: Context Gathering — Synthesis
 
-**Status:** SPECIFICATION  
-**Version:** 1.6
-**Created:** 2026-02-04  
-**Updated:** 2026-02-04  
-**Layer:** MIND role (MIND model @ temp=0.6)  
+**Status:** SPECIFICATION
+**Version:** 2.0
+**Created:** 2026-02-04
+**Updated:** 2026-02-06
+**Layer:** MIND role (MIND model @ temp=0.6)
 **Question:** "What context should we compile for planning?"
 
 **Related Concepts:** See §9 (Concept Alignment)
@@ -22,8 +22,14 @@ Phase 2.2 is the **synthesis sub-phase** of Context Gathering. It ingests the do
 ## 2. Position in Pipeline
 
 ```
-Phase 2.1 (Retrieval) ──► Document Loading ──► Phase 2.2 (Synthesis) ──► Phase 2.5 (Validation) ──► Phase 3
+Phase 2.1 (Search-First Retrieval) --> Document Loading --> Phase 2.2 (Synthesis) --> Phase 2.5 (Validation) --> Phase 3
+       |                                    |
+       | Step 1: LLM search terms           | Load full docs for
+       | Step 2: Code hybrid search          | top-K search results
+       | Step 3: Ranked SearchResults        |
 ```
+
+**Key change (v2.0):** Phase 2.1 now returns **ranked search results** (not an LLM-selected node list). Phase 2.2 receives only the top-K documents that matched the search, not the full memory index. This eliminates inclusion bias and reduces input size.
 
 ---
 
@@ -34,13 +40,27 @@ Phase 2.1 (Retrieval) ──► Document Loading ──► Phase 2.2 (Synthesis)
 | QueryAnalysis (narrative) | Phase 1 | `resolved_query`, `user_purpose`, `reasoning` — primary signals for synthesis |
 | QueryAnalysis (hints) | Phase 1 | Optional structured hints (e.g., `data_requirements`, `content_reference`) |
 | Original query | User | Context discipline (grounding) |
-| Loaded memory nodes | Procedural load | Full documents for selected memory graph nodes |
+| Search results + loaded docs | Phase 2.1 + procedural load | Top-K ranked documents from hybrid search (BM25 + embedding) |
 
-**Input Principle:** Phase 2.2 synthesizes from the **memory graph** selected in Phase 2.1. It should treat source type, confidence, and provenance as first-class signals when compiling §2.
+**Input Principle:** Phase 2.2 synthesizes from the **search results** produced by Phase 2.1. It receives only documents that passed the hybrid search threshold — typically 5-15 documents, not the full vault. The LLM should treat source type, confidence, and provenance as first-class signals when compiling §2.
+
+**Critical difference from v1.x:** The LLM does NOT see the full memory index. It only sees documents that code-based search already determined are relevant. This prevents inclusion bias (the v1.x problem where the LLM rationalized including everything).
 
 ### 3.1 Prompt File
 
-**Prompt:** `apps/prompts/pipeline/phase1_context_gatherer.md` (shared with Phase 2.1; filename retained for compatibility). This prompt is the source of truth for LLM behavior during synthesis.
+**Prompt:** `apps/prompts/pipeline/phase1_context_gatherer_synthesis.md` — the synthesis-specific prompt. This prompt is the source of truth for LLM behavior during synthesis.
+
+### 3.2 What Phase 2.2 Receives
+
+Each search result from Phase 2.1 includes:
+- `document_path` — path to the full document
+- `source_type` — turn_summary, preference, fact, research_cache, visit_record
+- `node_id` — stable identifier for provenance
+- `rrf_score` — relevance score from hybrid search
+- `snippet` — 200-char preview of matching content
+- `source` — "search" (matched by hybrid search) or "always_include" (preferences, N-1 turn)
+
+The system loads full document content for each result before passing to Phase 2.2. The LLM sees the loaded documents + their scores, not the raw search metadata.
 
 ---
 
@@ -259,7 +279,8 @@ Track:
 | 1.4 | 2026-02-04 | Added prompt reference, `user_query` source type, confidence computation details, token budget, expanded error handling, empty-state behavior, and Constraints mixed-type exemption. |
 | 1.5 | 2026-02-04 | Clarified draft §2 output and commit after Phase 2.5 pass. |
 | 1.6 | 2026-02-04 | Added planner-optimized §2 template. |
+| **2.0** | **2026-02-06** | **Updated inputs for Search-First Retrieval.** Phase 2.2 now receives ranked search results (top-K documents) instead of full memory index nodes. Added §3.2 documenting what Phase 2.2 receives. Updated prompt file reference. |
 
 ---
 
-**Last Updated:** 2026-02-04
+**Last Updated:** 2026-02-06

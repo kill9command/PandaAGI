@@ -22,7 +22,7 @@ import asyncio
 import logging
 import time
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from difflib import SequenceMatcher
 from typing import Dict, List, Optional, Tuple
 
@@ -38,7 +38,7 @@ class ThinkingEvent:
     """Represents a thinking stage event for real-time visualization."""
 
     trace_id: str
-    stage: str  # query_received, guide_analyzing, coordinator_planning, orchestrator_executing, guide_synthesizing, response_complete, complete
+    stage: str  # phase_0_query_analyzer, phase_1_reflection, ..., phase_8_save, complete
     status: str  # pending, active, completed, error
     confidence: float  # 0.0-1.0
     duration_ms: int
@@ -46,6 +46,26 @@ class ThinkingEvent:
     reasoning: str
     timestamp: float
     message: str = ""  # Optional message field for complete events (contains final response)
+    input_summary: str = ""   # Human-readable summary of what this phase received
+    output_summary: str = ""  # Human-readable summary of what this phase produced
+    input_raw: str = ""       # Full input content (truncated to 2000 chars)
+    output_raw: str = ""      # Full output content (truncated to 2000 chars)
+
+    def to_dict(self) -> dict:
+        """Convert to dict for JSON serialization."""
+        return asdict(self)
+
+
+@dataclass
+class ActionEvent:
+    """Represents a source/action event for the route notifier panel."""
+
+    trace_id: str
+    action_type: str  # memory, search, fetch, fetch_retry, route, tool, error, decision
+    label: str
+    detail: str = ""
+    success: Optional[bool] = None
+    timestamp: float = field(default_factory=time.time)
 
     def to_dict(self) -> dict:
         """Convert to dict for JSON serialization."""
@@ -94,6 +114,17 @@ async def emit_thinking_event(event: ThinkingEvent):
             )
         # NOTE: Don't delete queue here - let SSE consumer read the complete event first
         # The cleanup_thinking_queues() function will remove old queues periodically
+
+
+async def emit_action_event(event: ActionEvent):
+    """Emit an action/source event to the thinking queue for the route notifier."""
+    async with _THINKING_QUEUE_LOCK:
+        if event.trace_id not in THINKING_QUEUES:
+            THINKING_QUEUES[event.trace_id] = asyncio.Queue()
+        await THINKING_QUEUES[event.trace_id].put(event)
+        logger.debug(
+            f"[Thinking] Action emitted: trace={event.trace_id}, type={event.action_type}, label={event.label}"
+        )
 
 
 async def cleanup_thinking_queues():

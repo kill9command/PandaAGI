@@ -297,7 +297,11 @@ async def emit_phase_event(
     reasoning: str = "",
     confidence: float = None,
     details: Dict = None,
-    duration_ms: int = 0
+    duration_ms: int = 0,
+    input_summary: str = "",
+    output_summary: str = "",
+    input_raw: str = "",
+    output_raw: str = "",
 ) -> None:
     """
     Emit a thinking event for UI visualization.
@@ -310,6 +314,10 @@ async def emit_phase_event(
         confidence: Confidence level (0.0-1.0), auto-computed if None
         details: Additional details for UI
         duration_ms: Phase duration in milliseconds
+        input_summary: Human-readable summary of phase input
+        output_summary: Human-readable summary of phase output
+        input_raw: Full input content (will be truncated to 2000 chars)
+        output_raw: Full output content (will be truncated to 2000 chars)
     """
     # Default confidence based on status if not explicitly provided
     if confidence is None:
@@ -334,5 +342,9 @@ async def emit_phase_event(
         duration_ms=duration_ms,
         details=details or {},
         reasoning=reasoning,
-        timestamp=time.time()
+        timestamp=time.time(),
+        input_summary=input_summary,
+        output_summary=output_summary,
+        input_raw=input_raw[:2000] if input_raw else "",
+        output_raw=output_raw[:2000] if output_raw else "",
     ))
